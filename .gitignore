@@ -12,9 +12,9 @@ app/build/
 *.apk
 *.aar
 
-# SQLite database
-backend/database.sqlite
-*.sqlite
+# SQLite database (database.sqlite included for deployment)
+# backend/database.sqlite
+# *.sqlite
 *.sqlite3
 
 # Log files

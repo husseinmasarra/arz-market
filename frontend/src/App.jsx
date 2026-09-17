@@ -36,7 +36,10 @@ export default function App() {
 
   // Search & Filter states
   const [searchVal, setSearchVal] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('category_id') || params.get('category') || '';
+  });
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
   const [minRating, setMinRating] = useState('');
@@ -172,7 +175,9 @@ export default function App() {
     const handlePopState = () => {
       const params = new URLSearchParams(window.location.search);
       const view = params.get('view') || 'store';
+      const cat = params.get('category_id') || params.get('category') || '';
       setCurrentView(view);
+      setSelectedCategory(cat);
     };
 
     window.addEventListener('popstate', handlePopState);
@@ -308,11 +313,31 @@ export default function App() {
     setShowFilterDropdown(!showFilterDropdown);
   };
 
+  const handleSelectCategory = (catId) => {
+    const idStr = catId ? String(catId) : '';
+    setSelectedCategory(idStr);
+    const url = new URL(window.location.href);
+    if (idStr) {
+      url.searchParams.set('category_id', idStr);
+      url.searchParams.delete('category');
+    } else {
+      url.searchParams.delete('category_id');
+      url.searchParams.delete('category');
+    }
+    const searchStr = url.searchParams.toString();
+    window.history.pushState(null, '', url.pathname + (searchStr ? '?' + searchStr : ''));
+  };
+
   const clearFilters = () => {
     setSelectedCategory('');
     setMinPrice('');
     setMaxPrice('');
     setMinRating('');
+    const url = new URL(window.location.href);
+    url.searchParams.delete('category_id');
+    url.searchParams.delete('category');
+    const searchStr = url.searchParams.toString();
+    window.history.pushState(null, '', url.pathname + (searchStr ? '?' + searchStr : ''));
   };
 
   return (
@@ -1063,7 +1088,7 @@ export default function App() {
                     return (
                       <div
                         key={cat.id}
-                        onClick={() => setSelectedCategory(cat.id)}
+                        onClick={() => handleSelectCategory(cat.id)}
                         className="dashboard-card animate-fade"
                         style={{
                           height: '280px', // Grander height
@@ -1126,6 +1151,47 @@ export default function App() {
                     );
                   })}
                 </div>
+
+                {/* All Products Showcase on Home Page */}
+                <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid var(--border-color)', paddingBottom: '10px' }}>
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: '800' }}>
+                      {lang === 'ar' ? 'جميع المنتجات المتوفرة' : 'All Available Products'}
+                    </h2>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-light)', fontWeight: '600' }}>
+                      {products.length} {lang === 'ar' ? 'منتج' : 'products'}
+                    </span>
+                  </div>
+
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+                    gap: '24px'
+                  }}>
+                    {products.map((p) => (
+                      <ProductCard 
+                        key={p.id} 
+                        product={p} 
+                        onDetailsClick={setSelectedProduct} 
+                      />
+                    ))}
+                  </div>
+
+                  {products.length === 0 && (
+                    <div style={{
+                      textAlign: 'center',
+                      padding: '40px 0',
+                      color: 'var(--text-light)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px',
+                      alignItems: 'center'
+                    }}>
+                      <FileText size={40} strokeWidth={1} />
+                      <p style={{ fontWeight: '600' }}>{t('no_products')}</p>
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               /* --- 2. PRODUCT GRID & NAVIGATION VIEW --- */
@@ -1143,10 +1209,7 @@ export default function App() {
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <button
-                      onClick={() => {
-                        setSelectedCategory('');
-                        clearFilters();
-                      }}
+                      onClick={clearFilters}
                       className="input-field"
                       style={{
                         width: 'auto',
@@ -1181,7 +1244,7 @@ export default function App() {
                       {categories.filter(c => c.parent_id === parseInt(selectedCategory)).map((sub) => (
                         <button
                           key={sub.id}
-                          onClick={() => setSelectedCategory(sub.id)}
+                          onClick={() => handleSelectCategory(sub.id)}
                           className="input-field"
                           style={{
                             width: 'auto',

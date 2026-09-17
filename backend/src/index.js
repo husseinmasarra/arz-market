@@ -94,4 +94,8 @@ global.notifyAdminOfNewOrder = (orderInfo) => {
 
 server.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
+  
+  // Start Automated Daily DR PHONE Sync (+40% margin, auto image downloads)
+  const { startDailyAutoSync } = require('./utils/drphone_sync_service');
+  startDailyAutoSync('Drphone123', 40);
 });

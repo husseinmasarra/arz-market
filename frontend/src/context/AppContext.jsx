@@ -208,11 +208,13 @@ export const AppProvider = ({ children }) => {
     contact_email: 'info@arz-mart.com'
   });
 
-  const apiHost = import.meta.env.VITE_API_URL || (import.meta.env.DEV 
-    ? (window.AndroidApp ? 'http://192.168.1.104:5000' : 'http://localhost:5000')
-    : 'https://api.arzmart.com');
+  const apiHost = import.meta.env.VITE_API_URL || (
+    typeof window !== 'undefined'
+      ? (window.AndroidApp ? 'http://192.168.1.104:5000' : '')
+      : ''
+  );
 
-  const apiBase = `${apiHost}/api`;
+  const apiBase = apiHost ? `${apiHost}/api` : '/api';
 
   // Load store settings
   const fetchSettings = async () => {

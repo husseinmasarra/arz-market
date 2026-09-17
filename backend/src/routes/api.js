@@ -75,4 +75,32 @@ router.post('/merchants', authenticateToken, requirePermission('merchants'), mer
 router.put('/merchants/:id', authenticateToken, requirePermission('merchants'), merchantController.updateMerchant);
 router.delete('/merchants/:id', authenticateToken, requirePermission('merchants'), merchantController.deleteMerchant);
 
+// --- DR PHONE Wholesale Sync Routes ---
+const { syncDrPhoneToArzMart } = require('../utils/drphone_sync_service');
+router.post('/drphone/sync', async (req, res) => {
+  try {
+    const { passcode = 'Drphone123', markupPercent = 40 } = req.body || {};
+    const result = await syncDrPhoneToArzMart({ passcode, markupPercent });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/drphone/status', async (req, res) => {
+  try {
+    const db = require('../config/db');
+    const products = await db.getAsync("SELECT count(*) as c FROM products WHERE merchant_id = (SELECT id FROM merchants WHERE name = 'DR PHONE Wholesale')");
+    const total = await db.getAsync("SELECT count(*) as c FROM products");
+    res.json({
+      merchant: 'DR PHONE Wholesale',
+      drphoneProductsCount: products ? products.c : 0,
+      totalStoreProducts: total ? total.c : 0,
+      activeMarkup: '+40%'
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
