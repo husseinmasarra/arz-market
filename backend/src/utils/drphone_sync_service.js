@@ -1,7 +1,7 @@
 /**
  * DR PHONE Synchronization Service for Arz-Mart
  * Handles merging DR PHONE catalog into Arz-Mart database,
- * applying +40% margin, localizing images, and automated daily updates.
+ * applying +45% margin, localizing images, and automated daily updates.
  */
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
@@ -71,9 +71,10 @@ const CATEGORY_TRANSLATIONS = {
   'Blender': 'خلاطات فواكه ومشروبات محمولة'
 };
 
-function applyMarkup(price, markupPercent = 40) {
-  if (price === undefined || price === null || isNaN(price)) return 0;
+function applyMarkup(price, markupPercent = 45) {
+  if (price === undefined || price === null || isNaN(price)) return 2.5;
   const num = Number(price);
+  if (num <= 0) return 2.5; // Avoid $0.00 products in store
   const factor = 1 + (markupPercent / 100);
   return Math.round(num * factor * 100) / 100;
 }
@@ -176,7 +177,7 @@ function fetchDrPhoneCatalog(passcode = 'Drphone123') {
  */
 async function syncDrPhoneToArzMart(options = {}) {
   const passcode = options.passcode || 'Drphone123';
-  const markupPercent = options.markupPercent !== undefined ? Number(options.markupPercent) : 40;
+  const markupPercent = options.markupPercent !== undefined ? Number(options.markupPercent) : 45;
 
   console.log(`[DR PHONE Sync Service] Starting synchronization (Markup: +${markupPercent}%)...`);
 
@@ -337,7 +338,7 @@ async function syncDrPhoneToArzMart(options = {}) {
 /**
  * Start recurring daily cron job for automatic updates
  */
-function startDailyAutoSync(passcode = 'Drphone123', markupPercent = 40) {
+function startDailyAutoSync(passcode = 'Drphone123', markupPercent = 45) {
   // Sync immediately on startup
   console.log('[DR PHONE Auto-Sync] Scheduling daily automatic synchronization...');
   
@@ -366,7 +367,7 @@ module.exports = {
 
 // If run via CLI
 if (require.main === module) {
-  syncDrPhoneToArzMart({ passcode: 'Drphone123', markupPercent: 40 })
+  syncDrPhoneToArzMart({ passcode: 'Drphone123', markupPercent: 45 })
     .then(res => {
       console.log('Done:', res);
       process.exit(0);

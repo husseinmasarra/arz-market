@@ -79,8 +79,8 @@ router.delete('/merchants/:id', authenticateToken, requirePermission('merchants'
 const { syncDrPhoneToArzMart } = require('../utils/drphone_sync_service');
 router.post('/drphone/sync', async (req, res) => {
   try {
-    const { passcode = 'Drphone123', markupPercent = 40 } = req.body || {};
-    const result = await syncDrPhoneToArzMart({ passcode, markupPercent });
+    const { passcode = 'Drphone123', markupPercent = 45 } = req.body || {};
+    const result = await syncDrPhoneToArzMart({ passcode, markupPercent: Number(markupPercent) });
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -96,7 +96,7 @@ router.get('/drphone/status', async (req, res) => {
       merchant: 'DR PHONE Wholesale',
       drphoneProductsCount: products ? products.c : 0,
       totalStoreProducts: total ? total.c : 0,
-      activeMarkup: '+40%'
+      activeMarkup: '+45%'
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
