@@ -93,7 +93,9 @@ export default function AdminUsers() {
       
       {/* Left Column: Users List */}
       <div className="dashboard-card" style={{ padding: '20px' }}>
-        <h4 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '16px' }}>قائمة المستخدمين والموظفين</h4>
+        <h4 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '16px' }}>
+          {lang === 'ar' ? 'قائمة المستخدمين والموظفين' : 'Users & Staff List'}
+        </h4>
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {users.map(u => {
@@ -146,12 +148,19 @@ export default function AdminUsers() {
                     marginTop: '2px',
                     fontWeight: isTargetCEO ? '700' : 'normal'
                   }}>
-                    الدور: {u.role === 'ceo' ? 'الرئيس التنفيذي (CEO)' : u.role === 'admin' ? 'مدير عام (Super Admin)' : u.role === 'employee' ? 'موظف (Staff)' : 'عميل (Customer)'}
+                    {lang === 'ar' ? 'الدور: ' : 'Role: '}
+                    {u.role === 'ceo' 
+                      ? (lang === 'ar' ? 'الرئيس التنفيذي (CEO)' : 'Chief Executive Officer (CEO)') 
+                      : u.role === 'admin' 
+                        ? (lang === 'ar' ? 'مدير عام (Super Admin)' : 'Super Admin') 
+                        : u.role === 'employee' 
+                          ? (lang === 'ar' ? 'موظف (Staff)' : 'Staff') 
+                          : (lang === 'ar' ? 'عميل (Customer)' : 'Customer')}
                   </div>
                 </div>
 
                 {u.role === 'ceo' ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#f59e0b' }} title="الرئيس التنفيذي">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#f59e0b' }} title={lang === 'ar' ? 'الرئيس التنفيذي' : 'Chief Executive Officer'}>
                     <Crown size={18} fill="#f59e0b" />
                   </div>
                 ) : u.role !== 'user' && (
@@ -170,18 +179,19 @@ export default function AdminUsers() {
         {selectedUser ? (
           <form onSubmit={handleSubmit} className="dashboard-card" style={{ padding: '20px', gap: '16px' }}>
             <h4 style={{ fontSize: '1.1rem', fontWeight: '800', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
-              تعديل صلاحيات المستخدم: <span style={{ color: 'var(--accent-blue)' }}>{selectedUser.username}</span>
+              {lang === 'ar' ? 'تعديل صلاحيات المستخدم: ' : 'Edit User Permissions: '}
+              <span style={{ color: 'var(--accent-blue)' }}>{selectedUser.username}</span>
             </h4>
 
             {/* Select Role */}
             <div>
-              <label className="input-label">دور المستخدم (Role)</label>
+              <label className="input-label">{lang === 'ar' ? 'دور المستخدم (Role)' : 'User Role'}</label>
               <select className="input-field" value={role} onChange={(e) => setRole(e.target.value)}>
-                <option value="user">عميل عادي (Customer)</option>
-                <option value="employee">موظف بصلاحيات محددة (Staff)</option>
-                <option value="admin">مدير عام (Admin)</option>
+                <option value="user">{lang === 'ar' ? 'عميل عادي (Customer)' : 'Customer'}</option>
+                <option value="employee">{lang === 'ar' ? 'موظف بصلاحيات محددة (Staff)' : 'Staff'}</option>
+                <option value="admin">{lang === 'ar' ? 'مدير عام (Admin)' : 'Admin'}</option>
                 {currentUser?.role === 'ceo' && (
-                  <option value="ceo">الرئيس التنفيذي (CEO)</option>
+                  <option value="ceo">{lang === 'ar' ? 'الرئيس التنفيذي (CEO)' : 'Chief Executive Officer (CEO)'}</option>
                 )}
               </select>
             </div>
@@ -189,7 +199,9 @@ export default function AdminUsers() {
             {/* Select Permissions */}
             {role === 'employee' && (
               <div>
-                <label className="input-label" style={{ marginBottom: '10px' }}>حدد الصلاحيات المتاحة للموظف:</label>
+                <label className="input-label" style={{ marginBottom: '10px' }}>
+                  {lang === 'ar' ? 'حدد الصلاحيات المتاحة للموظف:' : 'Select Staff Permissions:'}
+                </label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {permissionList.map((p) => {
                     const isChecked = perms.includes(p.id);
@@ -221,16 +233,18 @@ export default function AdminUsers() {
 
             <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
               <button type="submit" className="input-field" style={{ width: 'auto', padding: '8px 20px', backgroundColor: 'var(--accent-blue)', color: 'white', border: 'none', fontWeight: '700', cursor: 'pointer' }}>
-                تحديث الصلاحيات
+                {lang === 'ar' ? 'تحديث الصلاحيات' : 'Update Permissions'}
               </button>
               <button type="button" onClick={() => setSelectedUser(null)} className="input-field" style={{ width: 'auto', padding: '8px 20px', backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: 'none', fontWeight: '600', cursor: 'pointer' }}>
-                إلغاء
+                {lang === 'ar' ? 'إلغاء' : 'Cancel'}
               </button>
             </div>
           </form>
         ) : (
           <div className="dashboard-card" style={{ padding: '40px', color: 'var(--text-light)', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-            حدد مستخدم أو موظف من القائمة الجانبية لتعديل صلاحيات الوصول والتحكم الخاصة به.
+            {lang === 'ar' 
+              ? 'حدد مستخدم أو موظف من القائمة الجانبية لتعديل صلاحيات الوصول والتحكم الخاصة به.' 
+              : 'Select a user or employee from the list to view and manage access permissions.'}
           </div>
         )}
       </div>
