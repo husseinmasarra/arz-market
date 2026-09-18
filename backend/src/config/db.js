@@ -441,9 +441,8 @@ async function initializeDatabasePostgres() {
     const merchantsCount = await pgPool.query('SELECT COUNT(*) FROM merchants');
     if (parseInt(merchantsCount.rows[0].count) === 0) {
       const merchants = [
-        { name: 'مزارع البقاع الحديثة', phone: '+961 08 543 210', email: 'bekaa-farms@gmail.com', company: 'Bekaa Farms Co.' },
-        { name: 'شركة ضيافة للتموين', phone: '+961 01 254 789', email: 'info@diyafa-group.com', company: 'Diyafa Foods' },
-        { name: 'معامل صابون طرابلس التقليدي', phone: '+961 06 432 109', email: 'tripoli-soaps@soaps.com', company: 'Tripoli Traditional Soaps' }
+        { name: 'DR PHONE Wholesale', phone: '+96170908028', email: 'wholesale@drphonewholesale.online', company: 'DR PHONE Lebanon' },
+        { name: 'بهاء', phone: '', email: '', company: 'مؤسسة بهاء' }
       ];
       for (const m of merchants) {
         await pgPool.query('INSERT INTO merchants (name, phone, email, company) VALUES ($1, $2, $3, $4)', [m.name, m.phone, m.email, m.company]);
@@ -893,9 +892,8 @@ function initializeDatabase() {
     db.get('SELECT COUNT(*) as count FROM merchants', [], (err, row) => {
       if (row && parseInt(row.count) === 0) {
         const merchants = [
-          { name: 'مزارع البقاع الحديثة', phone: '+961 08 543 210', email: 'bekaa-farms@gmail.com', company: 'Bekaa Farms Co.' },
-          { name: 'شركة ضيافة للتموين', phone: '+961 01 254 789', email: 'info@diyafa-group.com', company: 'Diyafa Foods' },
-          { name: 'معامل صابون طرابلس التقليدي', phone: '+961 06 432 109', email: 'tripoli-soaps@soaps.com', company: 'Tripoli Traditional Soaps' }
+          { name: 'DR PHONE Wholesale', phone: '+96170908028', email: 'wholesale@drphonewholesale.online', company: 'DR PHONE Lebanon' },
+          { name: 'بهاء', phone: '', email: '', company: 'مؤسسة بهاء' }
         ];
 
         merchants.forEach((m) => {
