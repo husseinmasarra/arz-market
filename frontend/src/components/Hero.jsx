@@ -8,18 +8,18 @@ export default function Hero() {
 
   const defaultBanners = [
     {
-      image: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?auto=format&fit=crop&w=1200&q=80',
-      title_ar: 'عروض الصيف الكبرى في أرز مارت',
-      title_en: 'Summer Mega Sales at Arz-Mart',
-      desc_ar: 'خصومات حصرية تصل إلى ٥٠٪ على كافة السلع الغذائية والمحلية اللبنانية',
-      desc_en: 'Exclusive discounts up to 50% on all grocery and local Lebanese goods'
+      image: 'https://images.unsplash.com/photo-1550009158-9ebf69173e03?auto=format&fit=crop&w=1200&q=80',
+      title_ar: 'عروض حصرية على إكسسوارات الهواتف',
+      title_en: 'Exclusive Phone Accessories Deals',
+      desc_ar: 'أفضل الأسعار على كابلات الشحن، الشواحن السريعة، وسماعات الرأس الأصلية',
+      desc_en: 'Best prices on cables, fast chargers, and authentic headphones'
     },
     {
-      image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80',
-      title_ar: 'توصيل سريع وبأسعار مناسبة',
-      title_en: 'Fast & Affordable Delivery',
-      desc_ar: 'خدمة توصيل ممتازة إلى كافة المناطق اللبنانية مع إمكانية التوصيل المجاني',
-      desc_en: 'Excellent delivery service to all Lebanese regions with free delivery option'
+      image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1200&q=80',
+      title_ar: 'لصقات حماية وكفرات لجميع الهواتف',
+      title_en: 'Screen Protectors & Cases For All Phones',
+      desc_ar: 'لصقات حماية شاشة ضد الكسر لجميع موديلات الآيفون والسامسونج ابتداءً من 2.50$',
+      desc_en: 'Durable anti-scratch screen protectors for iPhone and Samsung starting at $2.50'
     }
   ];
 

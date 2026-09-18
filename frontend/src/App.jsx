@@ -1074,12 +1074,7 @@ export default function App() {
                     const catName = lang === 'ar' ? cat.name_ar : cat.name_en;
                     
                     // Assign realistic category background image
-                    let bgImg = 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=500&q=80'; // Groceries default
-                    if (cat.name_en.toLowerCase().includes('soap') || cat.name_en.toLowerCase().includes('care')) {
-                      bgImg = 'https://images.unsplash.com/photo-1607006342466-4aa8d8d32be5?auto=format&fit=crop&w=500&q=80'; // Personal Care
-                    } else if (cat.name_en.toLowerCase().includes('oil')) {
-                      bgImg = 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=500&q=80';
-                    }
+                    let bgImg = 'https://images.unsplash.com/photo-1550009158-9ebf69173e03?auto=format&fit=crop&w=500&q=80'; // Tech & accessories default
 
                     const imageUrl = cat.image_url 
                       ? (cat.image_url.startsWith('http') || cat.image_url.startsWith('data:') ? cat.image_url : `${apiHost}${cat.image_url}`)
