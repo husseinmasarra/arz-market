@@ -143,9 +143,23 @@ export default function ProductCard({ product, onDetailsClick }) {
           </span>
         </div>
 
-        {/* Stock status indicator */}
-        <div style={{ fontSize: '0.75rem', fontWeight: '600', color: product.stock > 0 ? '#10b981' : '#ef4444' }}>
-          {product.stock > 0 ? `${t('in_stock')}: ${product.stock}` : t('out_of_stock')}
+        {/* Stock & Options status indicator */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+          <div style={{ fontSize: '0.75rem', fontWeight: '600', color: product.stock > 0 ? '#10b981' : '#ef4444' }}>
+            {product.stock > 0 ? `${t('in_stock')}: ${product.stock}` : t('out_of_stock')}
+          </div>
+          {product.sizes && product.sizes.length > 0 && (
+            <span style={{
+              fontSize: '0.72rem',
+              fontWeight: '700',
+              color: 'var(--accent-blue)',
+              backgroundColor: 'rgba(37, 99, 235, 0.08)',
+              padding: '2px 8px',
+              borderRadius: '6px'
+            }}>
+              {lang === 'ar' ? `${product.sizes.length} خيارات/موديلات` : `${product.sizes.length} options`}
+            </span>
+          )}
         </div>
 
         {/* Action Buttons */}
@@ -177,7 +191,11 @@ export default function ProductCard({ product, onDetailsClick }) {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              addToCart(product);
+              if (product.sizes && product.sizes.length > 0) {
+                onDetailsClick(product);
+              } else {
+                addToCart(product);
+              }
             }}
             disabled={product.stock <= 0}
             className="input-field animate-fade"
@@ -198,7 +216,7 @@ export default function ProductCard({ product, onDetailsClick }) {
             }}
           >
             <ShoppingCart size={14} />
-            <span>{t('add_to_cart')}</span>
+            <span>{product.sizes && product.sizes.length > 0 ? (lang === 'ar' ? 'اختر الموديل' : 'Select Option') : t('add_to_cart')}</span>
           </button>
         </div>
       </div>

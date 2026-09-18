@@ -4,8 +4,15 @@ import { useAuth } from './AuthContext';
 
 const CartContext = createContext();
 
-export function getOptionPrice(optionString, basePrice) {
-  if (!optionString) return basePrice;
+export function getOptionPrice(optionItem, basePrice) {
+  if (!optionItem) return basePrice;
+  if (typeof optionItem === 'object' && optionItem !== null) {
+    if (optionItem.price !== undefined && optionItem.price !== null && !isNaN(optionItem.price)) {
+      return Number(optionItem.price);
+    }
+    return basePrice;
+  }
+  const optionString = String(optionItem);
   const priceRegex = /\(\s*[+-]?\s*\$?\s*([0-9.]+)\s*\$?_?\)/;
   const match = optionString.match(priceRegex);
   if (match) {

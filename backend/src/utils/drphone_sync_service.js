@@ -266,11 +266,22 @@ async function syncDrPhoneToArzMart(options = {}) {
       const descEn = p.description || `${nameEn} - Authentic high quality product with warranty.`;
       const descAr = p.description_ar || `${nameEn} - منتج أصلي عالي الجودة مع ضمان.`;
       const stock = typeof p.stock === 'number' ? p.stock : 50;
-      const colorsJson = JSON.stringify(Array.isArray(p.colors) ? p.colors : ['Standard']);
-      const sizesJson = JSON.stringify((p.options || []).map(o => ({
-        name: o.name,
-        price: applyMarkup(Number(o.price) || wholesalePrice, markupPercent)
-      })));
+      // Map options / variants / sizes
+      const optionPrices = (p.options || []).map(o => Number(o.price) || 0);
+      const allSame = optionPrices.length > 0 && optionPrices.every(pr => Math.abs(pr - optionPrices[0]) < 0.001);
+
+      const sizesJson = JSON.stringify((p.options || []).map(o => {
+        const oPrice = Number(o.price) || 0;
+        let finalPrice;
+        if (allSame && retailPrice > 0) {
+          finalPrice = retailPrice;
+        } else if (oPrice > 0) {
+          finalPrice = applyMarkup(oPrice, markupPercent);
+        } else {
+          finalPrice = retailPrice;
+        }
+        return { name: o.name, price: finalPrice };
+      }));
 
       // Check if product already exists by name_en or sku
       const existing = await db.getAsync(
@@ -279,26 +290,19 @@ async function syncDrPhoneToArzMart(options = {}) {
       );
 
       if (existing) {
-        // Product exists - update if price or stock changed
-        const priceChanged = Math.abs(existing.price_usd - retailPrice) > 0.01 || Math.abs(existing.cost_price_usd - wholesalePrice) > 0.01;
-        const stockChanged = existing.stock !== stock;
-
-        if (priceChanged || stockChanged) {
-          await db.runAsync(
-            `UPDATE products SET 
-              price_usd = ?, 
-              cost_price_usd = ?, 
-              old_price_usd = ?, 
-              stock = ?,
-              image_url = COALESCE(NULLIF(image_url, ''), ?),
-              category_id = ?
-            WHERE id = ?`,
-            [retailPrice, wholesalePrice, oldPrice, stock, localImageUrl, catId, existing.id]
-          );
-          updatedCount++;
-        } else {
-          unchangedCount++;
-        }
+        await db.runAsync(
+          `UPDATE products SET 
+            price_usd = ?, 
+            cost_price_usd = ?, 
+            old_price_usd = ?, 
+            stock = ?,
+            image_url = COALESCE(NULLIF(image_url, ''), ?),
+            category_id = ?,
+            sizes = ?
+          WHERE id = ?`,
+          [retailPrice, wholesalePrice, oldPrice, stock, localImageUrl, catId, sizesJson, existing.id]
+        );
+        updatedCount++;
       } else {
         // Product is new - insert into database
         await db.runAsync(

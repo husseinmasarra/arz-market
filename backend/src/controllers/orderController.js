@@ -42,21 +42,27 @@ exports.createOrder = async (req, res) => {
         try {
           const parsedSizes = JSON.parse(product.sizes || '[]');
           const matchingSizeOption = parsedSizes.find(s => {
-            const cleanS = s.replace(/\s+/g, '').toUpperCase();
-            const cleanSelected = item.selectedSize.replace(/\s+/g, '').toUpperCase();
+            const optName = typeof s === 'object' && s !== null ? (s.name || '') : String(s);
+            const cleanS = optName.replace(/\s+/g, '').toUpperCase();
+            const cleanSelected = String(item.selectedSize).replace(/\s+/g, '').toUpperCase();
             return cleanS.startsWith(cleanSelected) || cleanSelected.startsWith(cleanS);
           });
           if (matchingSizeOption) {
-            const priceRegex = /\(\s*[+-]?\s*\$?\s*([0-9.]+)\s*\$?_?\)/;
-            const match = matchingSizeOption.match(priceRegex);
-            if (match) {
-              const val = parseFloat(match[1]);
-              const isRelative = matchingSizeOption.includes('+') || matchingSizeOption.includes('-');
-              if (isRelative) {
-                const isNegative = matchingSizeOption.includes('-');
-                itemPrice = isNegative ? (product.price_usd - val) : (product.price_usd + val);
-              } else {
-                itemPrice = val;
+            if (typeof matchingSizeOption === 'object' && matchingSizeOption.price !== undefined && matchingSizeOption.price !== null) {
+              itemPrice = Number(matchingSizeOption.price);
+            } else {
+              const optStr = String(matchingSizeOption);
+              const priceRegex = /\(\s*[+-]?\s*\$?\s*([0-9.]+)\s*\$?_?\)/;
+              const match = optStr.match(priceRegex);
+              if (match) {
+                const val = parseFloat(match[1]);
+                const isRelative = optStr.includes('+') || optStr.includes('-');
+                if (isRelative) {
+                  const isNegative = optStr.includes('-');
+                  itemPrice = isNegative ? (product.price_usd - val) : (product.price_usd + val);
+                } else {
+                  itemPrice = val;
+                }
               }
             }
           }
