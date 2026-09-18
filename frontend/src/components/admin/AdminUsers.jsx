@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
-import { Shield, CheckSquare, Square, Crown } from 'lucide-react';
+import { Shield, CheckSquare, Square } from 'lucide-react';
 
 export default function AdminUsers() {
   const { lang, apiBase } = useApp();
@@ -99,9 +99,8 @@ export default function AdminUsers() {
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {users.map(u => {
-            const isTargetCEO = u.role === 'ceo' || u.username === 'husseinmassara';
             const isSuperAdmin = u.username === 'husseinmassara' || u.username === 'city-hunter';
-            const canEdit = currentUser?.role === 'ceo' ? (u.username !== currentUser?.username) : !isSuperAdmin;
+            const canEdit = !isSuperAdmin;
 
             return (
               <div
@@ -110,60 +109,28 @@ export default function AdminUsers() {
                 style={{
                   padding: '12px',
                   borderRadius: '8px',
-                  border: isTargetCEO ? '1px solid #f59e0b' : '1px solid var(--border-color)',
-                  backgroundColor: selectedUser?.id === u.id 
-                    ? 'var(--bg-tertiary)' 
-                    : isTargetCEO 
-                      ? 'rgba(245, 158, 11, 0.05)' 
-                      : 'var(--bg-primary)',
+                  border: '1px solid var(--border-color)',
+                  backgroundColor: selectedUser?.id === u.id ? 'var(--bg-tertiary)' : 'var(--bg-primary)',
                   cursor: !canEdit ? 'not-allowed' : 'pointer',
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  opacity: !canEdit ? 0.8 : 1
+                  opacity: !canEdit ? 0.7 : 1
                 }}
               >
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <strong style={{ fontSize: '0.9rem' }}>{u.username}</strong>
-                    {isTargetCEO && (
-                      <span style={{
-                        fontSize: '0.65rem',
-                        fontWeight: '800',
-                        color: '#d97706',
-                        backgroundColor: '#fef3c7',
-                        padding: '1px 6px',
-                        borderRadius: '4px',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '3px'
-                      }}>
-                        <Crown size={11} fill="#d97706" /> CEO
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ 
-                    fontSize: '0.75rem', 
-                    color: isTargetCEO ? '#d97706' : 'var(--text-light)', 
-                    marginTop: '2px',
-                    fontWeight: isTargetCEO ? '700' : 'normal'
-                  }}>
+                  <strong style={{ fontSize: '0.9rem' }}>{u.username}</strong>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '2px' }}>
                     {lang === 'ar' ? 'الدور: ' : 'Role: '}
-                    {u.role === 'ceo' 
-                      ? (lang === 'ar' ? 'الرئيس التنفيذي (CEO)' : 'Chief Executive Officer (CEO)') 
-                      : u.role === 'admin' 
-                        ? (lang === 'ar' ? 'مدير عام (Super Admin)' : 'Super Admin') 
-                        : u.role === 'employee' 
-                          ? (lang === 'ar' ? 'موظف (Staff)' : 'Staff') 
-                          : (lang === 'ar' ? 'عميل (Customer)' : 'Customer')}
+                    {u.role === 'admin' 
+                      ? (lang === 'ar' ? 'مدير عام (Super Admin)' : 'Super Admin') 
+                      : u.role === 'employee' 
+                        ? (lang === 'ar' ? 'موظف (Staff)' : 'Staff') 
+                        : (lang === 'ar' ? 'عميل (Customer)' : 'Customer')}
                   </div>
                 </div>
 
-                {u.role === 'ceo' ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#f59e0b' }} title={lang === 'ar' ? 'الرئيس التنفيذي' : 'Chief Executive Officer'}>
-                    <Crown size={18} fill="#f59e0b" />
-                  </div>
-                ) : u.role !== 'user' && (
+                {u.role !== 'user' && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent-blue)' }}>
                     <Shield size={16} />
                   </div>
@@ -190,9 +157,6 @@ export default function AdminUsers() {
                 <option value="user">{lang === 'ar' ? 'عميل عادي (Customer)' : 'Customer'}</option>
                 <option value="employee">{lang === 'ar' ? 'موظف بصلاحيات محددة (Staff)' : 'Staff'}</option>
                 <option value="admin">{lang === 'ar' ? 'مدير عام (Admin)' : 'Admin'}</option>
-                {currentUser?.role === 'ceo' && (
-                  <option value="ceo">{lang === 'ar' ? 'الرئيس التنفيذي (CEO)' : 'Chief Executive Officer (CEO)'}</option>
-                )}
               </select>
             </div>
 
