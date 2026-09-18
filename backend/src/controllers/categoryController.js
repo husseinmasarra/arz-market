@@ -7,7 +7,7 @@ exports.getCategories = async (req, res) => {
       SELECT c.*, p.name_ar as parent_name_ar, p.name_en as parent_name_en 
       FROM categories c
       LEFT JOIN categories p ON c.parent_id = p.id
-      ORDER BY c.id DESC
+      ORDER BY COALESCE(c.sort_order, 0) ASC, c.id DESC
     `);
     res.json(categories);
   } catch (err) {
@@ -17,7 +17,7 @@ exports.getCategories = async (req, res) => {
 };
 
 exports.createCategory = async (req, res) => {
-  const { name_ar, name_en, parent_id } = req.body;
+  const { name_ar, name_en, parent_id, code, active, sort_order } = req.body;
   const imageUrl = req.file ? fileToBase64(req.file) : '';
 
   if (!name_ar || !name_en) {
@@ -25,11 +25,14 @@ exports.createCategory = async (req, res) => {
   }
 
   const pid = parent_id && parent_id !== 'null' ? parseInt(parent_id) : null;
+  const cActive = active !== undefined ? (parseInt(active) === 0 ? 0 : 1) : 1;
+  const cSortOrder = sort_order !== undefined ? parseInt(sort_order) : 0;
+  const cCode = code || '';
 
   try {
     const result = await db.runAsync(
-      'INSERT INTO categories (name_ar, name_en, parent_id, image_url) VALUES (?, ?, ?, ?)',
-      [name_ar, name_en, pid, imageUrl]
+      'INSERT INTO categories (name_ar, name_en, parent_id, image_url, active, sort_order, code) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [name_ar, name_en, pid, imageUrl, cActive, cSortOrder, cCode]
     );
     res.status(201).json({
       message_ar: 'تم إضافة التصنيف بنجاح',
@@ -39,7 +42,10 @@ exports.createCategory = async (req, res) => {
         name_ar,
         name_en,
         parent_id: pid,
-        image_url: imageUrl
+        image_url: imageUrl,
+        active: cActive,
+        sort_order: cSortOrder,
+        code: cCode
       }
     });
   } catch (err) {
@@ -50,14 +56,20 @@ exports.createCategory = async (req, res) => {
 
 exports.updateCategory = async (req, res) => {
   const { id } = req.params;
-  const { name_ar, name_en, parent_id } = req.body;
-  
-  const pid = parent_id && parent_id !== 'null' ? parseInt(parent_id) : null;
+  const { name_ar, name_en, parent_id, active, sort_order, code } = req.body;
 
   try {
     const category = await db.getAsync('SELECT * FROM categories WHERE id = ?', [id]);
     if (!category) {
       return res.status(404).json({ error_ar: 'التصنيف غير موجود', error_en: 'Category not found' });
+    }
+
+    const updatedNameAr = (name_ar !== undefined && name_ar !== null) ? name_ar : category.name_ar;
+    const updatedNameEn = (name_en !== undefined && name_en !== null) ? name_en : category.name_en;
+    
+    let pid = category.parent_id;
+    if (parent_id !== undefined) {
+      pid = (parent_id && parent_id !== 'null') ? parseInt(parent_id) : null;
     }
 
     // Don't allow setting parent to itself
@@ -70,9 +82,13 @@ exports.updateCategory = async (req, res) => {
       imageUrl = fileToBase64(req.file) || category.image_url;
     }
 
+    const updatedActive = active !== undefined ? (parseInt(active) === 0 ? 0 : 1) : (category.active !== undefined ? category.active : 1);
+    const updatedSortOrder = sort_order !== undefined ? parseInt(sort_order) : (category.sort_order || 0);
+    const updatedCode = code !== undefined ? code : (category.code || '');
+
     await db.runAsync(
-      'UPDATE categories SET name_ar = ?, name_en = ?, parent_id = ?, image_url = ? WHERE id = ?',
-      [name_ar, name_en, pid, imageUrl, id]
+      'UPDATE categories SET name_ar = ?, name_en = ?, parent_id = ?, image_url = ?, active = ?, sort_order = ?, code = ? WHERE id = ?',
+      [updatedNameAr, updatedNameEn, pid, imageUrl, updatedActive, updatedSortOrder, updatedCode, id]
     );
 
     res.json({
@@ -80,15 +96,37 @@ exports.updateCategory = async (req, res) => {
       message_en: 'Category updated successfully',
       category: {
         id: parseInt(id),
-        name_ar,
-        name_en,
+        name_ar: updatedNameAr,
+        name_en: updatedNameEn,
         parent_id: pid,
-        image_url: imageUrl
+        image_url: imageUrl,
+        active: updatedActive,
+        sort_order: updatedSortOrder,
+        code: updatedCode
       }
     });
   } catch (err) {
     console.error('Update category error:', err);
     res.status(500).json({ error_ar: 'خطأ في تعديل التصنيف', error_en: 'Error updating category' });
+  }
+};
+
+exports.reorderCategories = async (req, res) => {
+  const { order } = req.body;
+  if (!Array.isArray(order)) {
+    return res.status(400).json({ error_ar: 'بيانات الترتيب غير صحيحة', error_en: 'Invalid order data' });
+  }
+
+  try {
+    for (const item of order) {
+      if (item.id !== undefined && item.sort_order !== undefined) {
+        await db.runAsync('UPDATE categories SET sort_order = ? WHERE id = ?', [item.sort_order, item.id]);
+      }
+    }
+    res.json({ message_ar: 'تم حفظ الترتيب بنجاح', message_en: 'Order updated successfully' });
+  } catch (err) {
+    console.error('Reorder categories error:', err);
+    res.status(500).json({ error_ar: 'خطأ في حفظ الترتيب', error_en: 'Error updating order' });
   }
 };
 
@@ -103,7 +141,7 @@ exports.deleteCategory = async (req, res) => {
 
     // Delete category
     await db.runAsync('DELETE FROM categories WHERE id = ?', [id]);
-    // Set parent_id to null for sub-categories or delete them (we use ON DELETE CASCADE in definition, but double safeguard)
+    // Set parent_id to null for sub-categories
     await db.runAsync('UPDATE categories SET parent_id = NULL WHERE parent_id = ?', [id]);
 
     res.json({ message_ar: 'تم حذف التصنيف بنجاح', message_en: 'Category deleted successfully' });

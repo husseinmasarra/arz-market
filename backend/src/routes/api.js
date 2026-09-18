@@ -24,6 +24,7 @@ router.put('/admin/users/:id/permissions', authenticateToken, requirePermission(
 
 // --- Category Routes ---
 router.get('/categories', categoryController.getCategories);
+router.put('/categories-reorder', authenticateToken, requirePermission('categories'), categoryController.reorderCategories);
 router.post('/categories', authenticateToken, requirePermission('categories'), upload.single('category_image'), categoryController.createCategory);
 router.put('/categories/:id', authenticateToken, requirePermission('categories'), upload.single('category_image'), categoryController.updateCategory);
 router.delete('/categories/:id', authenticateToken, requirePermission('categories'), categoryController.deleteCategory);

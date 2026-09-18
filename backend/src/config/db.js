@@ -271,6 +271,14 @@ async function initializeDatabasePostgres() {
       )
     `);
 
+    try {
+      await pgPool.query("ALTER TABLE categories ADD COLUMN IF NOT EXISTS active INTEGER DEFAULT 1");
+      await pgPool.query("ALTER TABLE categories ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0");
+      await pgPool.query("ALTER TABLE categories ADD COLUMN IF NOT EXISTS code TEXT DEFAULT ''");
+    } catch (e) {
+      console.log('[PostgreSQL] Categories column check note:', e.message);
+    }
+
     // 4. Merchants Table
     await pgPool.query(`
       CREATE TABLE IF NOT EXISTS merchants (
@@ -695,7 +703,22 @@ function initializeDatabase() {
         image_url TEXT DEFAULT '',
         FOREIGN KEY (parent_id) REFERENCES categories (id) ON DELETE CASCADE
       )
-    `);
+    `, [], () => {
+      const alterActive = isPostgres 
+        ? "ALTER TABLE categories ADD COLUMN IF NOT EXISTS active INTEGER DEFAULT 1" 
+        : "ALTER TABLE categories ADD COLUMN active INTEGER DEFAULT 1";
+      db.run(alterActive, [], () => {});
+
+      const alterSort = isPostgres 
+        ? "ALTER TABLE categories ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0" 
+        : "ALTER TABLE categories ADD COLUMN sort_order INTEGER DEFAULT 0";
+      db.run(alterSort, [], () => {});
+
+      const alterCode = isPostgres 
+        ? "ALTER TABLE categories ADD COLUMN IF NOT EXISTS code TEXT DEFAULT ''" 
+        : "ALTER TABLE categories ADD COLUMN code TEXT DEFAULT ''";
+      db.run(alterCode, [], () => {});
+    });
 
     // 4. Merchants Table
     runInit(`
