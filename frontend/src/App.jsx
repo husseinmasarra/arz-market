@@ -92,7 +92,7 @@ export default function App() {
       const res = await fetch(`${apiBase}/categories`);
       if (res.ok) {
         const data = await res.json();
-        setCategories(data);
+        setCategories(data.filter(c => c.active !== 0));
       }
     } catch (err) {
       console.error('Fetch categories client error:', err);

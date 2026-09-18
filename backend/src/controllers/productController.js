@@ -27,20 +27,27 @@ function formatSizesForClient(sizesJson) {
 }
 
 exports.getProducts = async (req, res) => {
-  const { category_id, search, min_price, max_price, min_rating } = req.query;
-  
-  let query = `
+  const { category_id, search, min_price, max_price, min_rating, all, include_inactive } = req.query;
+  const showAll = all === 'true' || include_inactive === 'true';
+
+  let query = showAll ? `
     SELECT p.*, c.name_ar as category_name_ar, c.name_en as category_name_en, m.name as merchant_name 
     FROM products p
     LEFT JOIN categories c ON p.category_id = c.id
     LEFT JOIN merchants m ON p.merchant_id = m.id
     WHERE 1=1
+  ` : `
+    SELECT p.*, c.name_ar as category_name_ar, c.name_en as category_name_en, m.name as merchant_name 
+    FROM products p
+    INNER JOIN categories c ON p.category_id = c.id
+    LEFT JOIN merchants m ON p.merchant_id = m.id
+    WHERE (c.active = 1 OR c.active IS NULL)
   `;
   const params = [];
 
   if (category_id) {
     try {
-      const subcats = await db.allAsync('SELECT id FROM categories WHERE parent_id = ? OR id = ?', [category_id, category_id]);
+      const subcats = await db.allAsync('SELECT id FROM categories WHERE (parent_id = ? OR id = ?) AND (active = 1 OR active IS NULL)', [category_id, category_id]);
       const catIds = subcats.map(s => s.id);
       if (catIds.length > 0) {
         query += ` AND p.category_id IN (${catIds.map(() => '?').join(',')})`;
@@ -102,13 +109,13 @@ exports.getProductById = async (req, res) => {
     const product = await db.getAsync(`
       SELECT p.*, c.name_ar as category_name_ar, c.name_en as category_name_en, m.name as merchant_name 
       FROM products p
-      LEFT JOIN categories c ON p.category_id = c.id
+      INNER JOIN categories c ON p.category_id = c.id
       LEFT JOIN merchants m ON p.merchant_id = m.id
-      WHERE p.id = ?
+      WHERE p.id = ? AND (c.active = 1 OR c.active IS NULL)
     `, [id]);
 
     if (!product) {
-      return res.status(404).json({ error_ar: 'المنتج غير موجود', error_en: 'Product not found' });
+      return res.status(404).json({ error_ar: 'المنتج غير موجود أو غير متاح حالياً', error_en: 'Product not found or currently unavailable' });
     }
 
     const rating = product.rating_count > 0 ? (product.rating_sum / product.rating_count) : 0;
