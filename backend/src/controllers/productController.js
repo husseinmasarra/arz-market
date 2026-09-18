@@ -1,6 +1,31 @@
 const db = require('../config/db');
 const { fileToBase64 } = require('../utils/fileHelper');
 
+function formatSizesForClient(sizesJson) {
+  if (!sizesJson) return [];
+  let list = [];
+  try {
+    list = typeof sizesJson === 'string' ? JSON.parse(sizesJson) : sizesJson;
+  } catch (e) {
+    list = [];
+  }
+  if (!Array.isArray(list)) return [];
+
+  return list.map(item => {
+    if (typeof item === 'object' && item !== null) {
+      const name = item.name || '';
+      const price = item.price !== undefined && item.price !== null && !isNaN(item.price)
+        ? Number(item.price)
+        : null;
+      if (price !== null) {
+        return `${name} ($${price.toFixed(2)})`;
+      }
+      return name;
+    }
+    return String(item);
+  }).filter(Boolean);
+}
+
 exports.getProducts = async (req, res) => {
   const { category_id, search, min_price, max_price, min_rating } = req.query;
   
@@ -53,9 +78,8 @@ exports.getProducts = async (req, res) => {
     let filteredProducts = products.map(p => {
       const rating = p.rating_count > 0 ? (p.rating_sum / p.rating_count) : 0;
       let parsedColors = [];
-      let parsedSizes = [];
       try { parsedColors = JSON.parse(p.colors || '[]'); } catch (e) { parsedColors = []; }
-      try { parsedSizes = JSON.parse(p.sizes || '[]'); } catch (e) { parsedSizes = []; }
+      const parsedSizes = formatSizesForClient(p.sizes);
       return { ...p, rating, colors: parsedColors, sizes: parsedSizes };
     });
 
@@ -89,9 +113,8 @@ exports.getProductById = async (req, res) => {
 
     const rating = product.rating_count > 0 ? (product.rating_sum / product.rating_count) : 0;
     let parsedColors = [];
-    let parsedSizes = [];
     try { parsedColors = JSON.parse(product.colors || '[]'); } catch (e) { parsedColors = []; }
-    try { parsedSizes = JSON.parse(product.sizes || '[]'); } catch (e) { parsedSizes = []; }
+    const parsedSizes = formatSizesForClient(product.sizes);
     res.json({ ...product, rating, colors: parsedColors, sizes: parsedSizes });
   } catch (err) {
     console.error('Get product by ID error:', err);
