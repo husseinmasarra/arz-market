@@ -235,6 +235,11 @@ async function initializeDatabasePostgres() {
     
     try {
       await pgPool.query("ALTER TABLE settings ADD COLUMN IF NOT EXISTS contact_email TEXT DEFAULT 'info@arz-mart.com'");
+      await pgPool.query("ALTER TABLE settings ADD COLUMN IF NOT EXISTS supplier_catalog_url TEXT DEFAULT 'https://drphonewholesale.online'");
+      await pgPool.query("ALTER TABLE settings ADD COLUMN IF NOT EXISTS supplier_catalog_passcode TEXT DEFAULT 'Drphone123'");
+      await pgPool.query("ALTER TABLE settings ADD COLUMN IF NOT EXISTS supplier_markup_percent DOUBLE PRECISION DEFAULT 45");
+      await pgPool.query("ALTER TABLE settings ADD COLUMN IF NOT EXISTS last_sync_time TEXT DEFAULT ''");
+      await pgPool.query("ALTER TABLE settings ADD COLUMN IF NOT EXISTS last_sync_status TEXT DEFAULT ''");
     } catch (e) {}
 
     // 2. Users Table
@@ -666,9 +671,12 @@ function initializeDatabase() {
       const alterQuery = isPostgres 
         ? "ALTER TABLE settings ADD COLUMN IF NOT EXISTS contact_email TEXT DEFAULT 'info@arz-mart.com'" 
         : "ALTER TABLE settings ADD COLUMN contact_email TEXT DEFAULT 'info@arz-mart.com'";
-      db.run(alterQuery, [], (err) => {
-        // Ignore errors for SQLite if column already exists
-      });
+      db.run(alterQuery, [], () => {});
+      db.run("ALTER TABLE settings ADD COLUMN supplier_catalog_url TEXT DEFAULT 'https://drphonewholesale.online'", [], () => {});
+      db.run("ALTER TABLE settings ADD COLUMN supplier_catalog_passcode TEXT DEFAULT 'Drphone123'", [], () => {});
+      db.run("ALTER TABLE settings ADD COLUMN supplier_markup_percent REAL DEFAULT 45", [], () => {});
+      db.run("ALTER TABLE settings ADD COLUMN last_sync_time TEXT DEFAULT ''", [], () => {});
+      db.run("ALTER TABLE settings ADD COLUMN last_sync_status TEXT DEFAULT ''", [], () => {});
     });
 
     // 2. Users Table

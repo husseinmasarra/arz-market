@@ -78,10 +78,10 @@ router.delete('/merchants/:id', authenticateToken, requirePermission('merchants'
 
 // --- DR PHONE Wholesale Sync Routes ---
 const { syncDrPhoneToArzMart } = require('../utils/drphone_sync_service');
-router.post('/drphone/sync', async (req, res) => {
+router.post('/drphone/sync', authenticateToken, requirePermission('settings'), async (req, res) => {
   try {
-    const { passcode = 'Drphone123', markupPercent = 45 } = req.body || {};
-    const result = await syncDrPhoneToArzMart({ passcode, markupPercent: Number(markupPercent) });
+    const { url, passcode, markupPercent } = req.body || {};
+    const result = await syncDrPhoneToArzMart({ url, passcode, markupPercent });
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -91,13 +91,20 @@ router.post('/drphone/sync', async (req, res) => {
 router.get('/drphone/status', async (req, res) => {
   try {
     const db = require('../config/db');
+    const settings = await db.getAsync("SELECT supplier_catalog_url, supplier_catalog_passcode, supplier_markup_percent, last_sync_time, last_sync_status FROM settings ORDER BY id DESC LIMIT 1");
     const products = await db.getAsync("SELECT count(*) as c FROM products WHERE merchant_id = (SELECT id FROM merchants WHERE name = 'DR PHONE Wholesale')");
     const total = await db.getAsync("SELECT count(*) as c FROM products");
+    const categoriesCount = await db.getAsync("SELECT count(*) as c FROM categories");
     res.json({
       merchant: 'DR PHONE Wholesale',
       drphoneProductsCount: products ? products.c : 0,
       totalStoreProducts: total ? total.c : 0,
-      activeMarkup: '+45%'
+      totalCategories: categoriesCount ? categoriesCount.c : 0,
+      supplierUrl: settings ? (settings.supplier_catalog_url || 'https://drphonewholesale.online') : 'https://drphonewholesale.online',
+      supplierPasscode: settings ? (settings.supplier_catalog_passcode || 'Drphone123') : 'Drphone123',
+      activeMarkup: (settings && settings.supplier_markup_percent ? settings.supplier_markup_percent : 45) + '%',
+      lastSyncTime: settings ? settings.last_sync_time : '',
+      lastSyncStatus: settings ? settings.last_sync_status : ''
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -79,8 +79,21 @@ function applyMarkup(price, markupPercent = 45) {
   return Math.round(num * factor * 100) / 100;
 }
 
+// Clean and normalize target URL
+function cleanUrl(inputUrl) {
+  let url = (inputUrl || BASE_URL).trim();
+  // Strip hash (e.g. #keyboard-mouse)
+  url = url.split('#')[0];
+  // Strip query parameters
+  url = url.split('?')[0].replace(/\/+$/, '');
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    url = 'https://' + url;
+  }
+  return url;
+}
+
 // Download image locally if missing
-function downloadImageLocally(remoteUrl, filename) {
+function downloadImageLocally(remoteUrl, filename, targetBaseUrl = BASE_URL) {
   return new Promise((resolve) => {
     const dest = path.join(UPLOADS_DIR, filename);
     if (fs.existsSync(dest) && fs.statSync(dest).size > 0) {
@@ -90,7 +103,7 @@ function downloadImageLocally(remoteUrl, filename) {
     https.get(remoteUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0',
-        'Referer': 'https://drphonewholesale.online/'
+        'Referer': targetBaseUrl + '/'
       }
     }, res => {
       if (res.statusCode !== 200) {
@@ -112,9 +125,10 @@ function downloadImageLocally(remoteUrl, filename) {
 }
 
 // Login & Fetch Raw DR PHONE Catalog
-function fetchDrPhoneCatalog(passcode = 'Drphone123') {
+function fetchDrPhoneCatalog(passcode = 'Drphone123', targetBaseUrl = BASE_URL) {
+  const cleanBase = cleanUrl(targetBaseUrl);
   return new Promise((resolve, reject) => {
-    https.get(BASE_URL + '/', res => {
+    https.get(cleanBase + '/', res => {
       let html = '';
       const cookie1 = (res.headers['set-cookie'] || []).map(c => c.split(';')[0]).join('; ');
       res.on('data', c => html += c);
@@ -128,24 +142,24 @@ function fetchDrPhoneCatalog(passcode = 'Drphone123') {
           catalog_login: '1'
         }).toString();
 
-        const req = https.request(BASE_URL + '/', {
+        const req = https.request(cleanBase + '/', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
             'Content-Length': Buffer.byteLength(body),
             'Cookie': cookie1,
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-            'Referer': BASE_URL + '/'
+            'Referer': cleanBase + '/'
           }
         }, postRes => {
           const newCookies = postRes.headers['set-cookie'] || [];
           const authCookie = newCookies.map(c => c.split(';')[0]).join('; ') || cookie1;
 
-          https.get(BASE_URL + '/api/catalog.php', {
+          https.get(cleanBase + '/api/catalog.php', {
             headers: {
               'Cookie': authCookie,
               'User-Agent': 'Mozilla/5.0',
-              'Referer': BASE_URL + '/'
+              'Referer': cleanBase + '/'
             }
           }, apiRes => {
             if (apiRes.statusCode === 401) {
@@ -176,16 +190,20 @@ function fetchDrPhoneCatalog(passcode = 'Drphone123') {
  * Synchronize all DR PHONE catalog data into Arz-Mart database
  */
 async function syncDrPhoneToArzMart(options = {}) {
-  const passcode = options.passcode || 'Drphone123';
-  const markupPercent = options.markupPercent !== undefined ? Number(options.markupPercent) : 45;
+  const settings = await db.getAsync("SELECT * FROM settings ORDER BY id DESC LIMIT 1");
+  const targetUrl = cleanUrl(options.url || (settings && settings.supplier_catalog_url) || BASE_URL);
+  const passcode = (options.passcode || (settings && settings.supplier_catalog_passcode) || 'Drphone123').trim();
+  const markupPercent = options.markupPercent !== undefined 
+    ? Number(options.markupPercent) 
+    : (settings && settings.supplier_markup_percent ? Number(settings.supplier_markup_percent) : 45);
 
-  console.log(`[DR PHONE Sync Service] Starting synchronization (Markup: +${markupPercent}%)...`);
+  console.log(`[DR PHONE Sync Service] Starting synchronization from ${targetUrl} (Markup: +${markupPercent}%)...`);
 
   // Step 1: Fetch raw catalog
-  const catalogData = await fetchDrPhoneCatalog(passcode);
+  const catalogData = await fetchDrPhoneCatalog(passcode, targetUrl);
   const rawCategories = catalogData.catalog || [];
 
-  console.log(`[DR PHONE Sync Service] Retrieved ${rawCategories.length} categories from DR PHONE.`);
+  console.log(`[DR PHONE Sync Service] Retrieved ${rawCategories.length} categories from ${targetUrl}.`);
 
   // Step 2: Ensure "DR PHONE Wholesale" merchant exists in Arz-Mart
   let merchant = await db.getAsync("SELECT id FROM merchants WHERE name = 'DR PHONE Wholesale'");
@@ -266,7 +284,7 @@ async function syncDrPhoneToArzMart(options = {}) {
 
       // Check if image needs downloading
       if (imageFilename && !fs.existsSync(path.join(UPLOADS_DIR, imageFilename))) {
-        downloadImageLocally(`https://drphonewholesale.online/uploads/products/${imageFilename}`, imageFilename).catch(() => {});
+        downloadImageLocally(`${targetUrl}/uploads/products/${imageFilename}`, imageFilename, targetUrl).catch(() => {});
       }
 
       const nameEn = p.name.trim();
@@ -331,15 +349,30 @@ async function syncDrPhoneToArzMart(options = {}) {
     }
   }
 
+  const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
+  const statusMsg = `نجح الجلب: تم مزامنة ${totalProcessed} منتج و ${rawCategories.length} تصنيف`;
+  try {
+    if (settings) {
+      await db.runAsync(
+        "UPDATE settings SET last_sync_time = ?, last_sync_status = ? WHERE id = ?",
+        [now, statusMsg, settings.id]
+      );
+    }
+  } catch (e) {
+    console.error('[DR PHONE Sync Service] Note updating last_sync_status:', e.message);
+  }
+
   const result = {
     success: true,
-    syncedAt: new Date().toISOString(),
+    syncedAt: now,
+    targetUrl,
     markupPercent,
     totalProcessed,
     insertedCount,
     updatedCount,
     unchangedCount,
-    totalCategories: rawCategories.length
+    totalCategories: rawCategories.length,
+    message: statusMsg
   };
 
   console.log(`[DR PHONE Sync Service] Complete! Processed: ${totalProcessed}, Inserted: ${insertedCount}, Updated: ${updatedCount}, Unchanged: ${unchangedCount}`);

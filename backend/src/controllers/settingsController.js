@@ -18,7 +18,17 @@ exports.getSettings = async (req, res) => {
 };
 
 exports.updateSettings = async (req, res) => {
-  const { app_name, exchange_rate, free_delivery_threshold, delivery_fee, online_payment_enabled, contact_email } = req.body;
+  const { 
+    app_name, 
+    exchange_rate, 
+    free_delivery_threshold, 
+    delivery_fee, 
+    online_payment_enabled, 
+    contact_email,
+    supplier_catalog_url,
+    supplier_catalog_passcode,
+    supplier_markup_percent
+  } = req.body;
 
   try {
     const settings = await db.getAsync('SELECT * FROM settings ORDER BY id DESC LIMIT 1');
@@ -35,18 +45,22 @@ exports.updateSettings = async (req, res) => {
     const delFee = delivery_fee !== undefined ? parseFloat(delivery_fee) : (settings ? settings.delivery_fee : 4);
     const payEnabled = online_payment_enabled !== undefined ? parseInt(online_payment_enabled) : (settings ? settings.online_payment_enabled : 0);
     const contactEmail = contact_email !== undefined ? contact_email : (settings ? settings.contact_email : 'info@arz-mart.com');
+    const supplierUrl = supplier_catalog_url !== undefined ? supplier_catalog_url : (settings?.supplier_catalog_url || 'https://drphonewholesale.online');
+    const supplierPass = supplier_catalog_passcode !== undefined ? supplier_catalog_passcode : (settings?.supplier_catalog_passcode || 'Drphone123');
+    const supplierMarkup = supplier_markup_percent !== undefined ? parseFloat(supplier_markup_percent) : (settings?.supplier_markup_percent || 45);
 
     if (settings) {
       await db.runAsync(`
         UPDATE settings 
-        SET app_name = ?, logo_url = ?, exchange_rate = ?, free_delivery_threshold = ?, delivery_fee = ?, online_payment_enabled = ?, contact_email = ?
+        SET app_name = ?, logo_url = ?, exchange_rate = ?, free_delivery_threshold = ?, delivery_fee = ?, online_payment_enabled = ?, contact_email = ?,
+            supplier_catalog_url = ?, supplier_catalog_passcode = ?, supplier_markup_percent = ?
         WHERE id = ?
-      `, [appName, logoUrl, exRate, freeThreshold, delFee, payEnabled, contactEmail, id]);
+      `, [appName, logoUrl, exRate, freeThreshold, delFee, payEnabled, contactEmail, supplierUrl, supplierPass, supplierMarkup, id]);
     } else {
       await db.runAsync(`
-        INSERT INTO settings (app_name, logo_url, exchange_rate, free_delivery_threshold, delivery_fee, online_payment_enabled, contact_email, hero_banners)
-        VALUES (?, ?, ?, ?, ?, ?, ?, '[]')
-      `, [appName, logoUrl, exRate, freeThreshold, delFee, payEnabled, contactEmail]);
+        INSERT INTO settings (app_name, logo_url, exchange_rate, free_delivery_threshold, delivery_fee, online_payment_enabled, contact_email, hero_banners, supplier_catalog_url, supplier_catalog_passcode, supplier_markup_percent)
+        VALUES (?, ?, ?, ?, ?, ?, ?, '[]', ?, ?, ?)
+      `, [appName, logoUrl, exRate, freeThreshold, delFee, payEnabled, contactEmail, supplierUrl, supplierPass, supplierMarkup]);
     }
 
     res.json({
@@ -59,7 +73,10 @@ exports.updateSettings = async (req, res) => {
         free_delivery_threshold: freeThreshold,
         delivery_fee: delFee,
         online_payment_enabled: payEnabled,
-        contact_email: contactEmail
+        contact_email: contactEmail,
+        supplier_catalog_url: supplierUrl,
+        supplier_catalog_passcode: supplierPass,
+        supplier_markup_percent: supplierMarkup
       }
     });
   } catch (err) {

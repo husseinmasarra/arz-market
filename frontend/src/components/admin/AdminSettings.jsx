@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
-import { Settings, Image, Plus, Trash2, Save } from 'lucide-react';
+import { Settings, Image, Plus, Trash2, Save, Globe, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export default function AdminSettings() {
   const { lang, settings, fetchSettings, apiBase } = useApp();
@@ -16,9 +16,33 @@ export default function AdminSettings() {
   const [contactEmail, setContactEmail] = useState('');
   const [logoFile, setLogoFile] = useState(null);
 
+  // Supplier Catalog Sync states
+  const [supplierUrl, setSupplierUrl] = useState('https://drphonewholesale.online');
+  const [supplierPasscode, setSupplierPasscode] = useState('Drphone123');
+  const [supplierMarkup, setSupplierMarkup] = useState(45);
+  const [syncing, setSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState(null);
+  const [syncStats, setSyncStats] = useState(null);
+
   // Banners states
   const [banners, setBanners] = useState([]);
   const [bannerFiles, setBannerFiles] = useState({}); // key: banner ID, value: file
+
+  const fetchSyncStatus = async () => {
+    try {
+      const res = await fetch(`${apiBase}/drphone/status`);
+      if (res.ok) {
+        const data = await res.json();
+        setSyncStats(data);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
+    fetchSyncStatus();
+  }, []);
 
   useEffect(() => {
     if (settings) {
@@ -28,6 +52,9 @@ export default function AdminSettings() {
       setDeliveryFee(settings.delivery_fee || 4);
       setOnlinePayEnabled(settings.online_payment_enabled || 0);
       setContactEmail(settings.contact_email || 'info@arz-mart.com');
+      setSupplierUrl(settings.supplier_catalog_url || 'https://drphonewholesale.online');
+      setSupplierPasscode(settings.supplier_catalog_passcode || 'Drphone123');
+      setSupplierMarkup(settings.supplier_markup_percent !== undefined ? settings.supplier_markup_percent : 45);
       
       // Ensure all loaded banners have unique IDs for stable editing key
       const bannersWithIds = (settings.hero_banners || []).map((b, idx) => ({
@@ -42,6 +69,89 @@ export default function AdminSettings() {
     setLogoFile(e.target.files[0]);
   };
 
+  const handleSyncNow = async () => {
+    if (!supplierUrl.trim()) {
+      alert(lang === 'ar' ? 'الرجاء إدخال رابط موقع المورد' : 'Please enter supplier website URL');
+      return;
+    }
+
+    setSyncing(true);
+    setSyncStatus(null);
+    try {
+      // First save settings so the URL is persisted
+      const formData = new FormData();
+      formData.append('supplier_catalog_url', supplierUrl.trim());
+      formData.append('supplier_catalog_passcode', supplierPasscode.trim());
+      formData.append('supplier_markup_percent', supplierMarkup);
+      await fetch(`${apiBase}/settings`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+
+      // Trigger sync
+      const res = await fetch(`${apiBase}/drphone/sync`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          url: supplierUrl.trim(),
+          passcode: supplierPasscode.trim(),
+          markupPercent: Number(supplierMarkup) || 45
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSyncStatus({
+          success: true,
+          message: lang === 'ar' 
+            ? `تم الجلب والمزامنة بنجاح! إجمالي المنتجات المعالجة: ${data.totalProcessed}، المضافة: ${data.insertedCount}، المحدثة: ${data.updatedCount} عبر ${data.totalCategories} تصنيف.`
+            : `Synced successfully! Processed: ${data.totalProcessed}, Inserted: ${data.insertedCount}, Updated: ${data.updatedCount} across ${data.totalCategories} categories.`
+        });
+        fetchSyncStatus();
+        fetchSettings();
+      } else {
+        setSyncStatus({
+          success: false,
+          message: data.error || (lang === 'ar' ? 'فشل الاتصال بموقع المورد أو رمز المرور غير صحيح' : 'Failed to connect to supplier website or invalid passcode')
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      setSyncStatus({
+        success: false,
+        message: lang === 'ar' ? 'حدث خطأ أثناء مزامنة الكتالوج: ' + err.message : 'Error syncing catalog: ' + err.message
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleSaveSyncSettings = async () => {
+    try {
+      const formData = new FormData();
+      formData.append('supplier_catalog_url', supplierUrl.trim());
+      formData.append('supplier_catalog_passcode', supplierPasscode.trim());
+      formData.append('supplier_markup_percent', supplierMarkup);
+      const res = await fetch(`${apiBase}/settings`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+      if (res.ok) {
+        fetchSettings();
+        fetchSyncStatus();
+        alert(lang === 'ar' ? 'تم حفظ إعدادات رابط المورد بنجاح!' : 'Supplier settings saved successfully!');
+      }
+    } catch (e) {
+      console.error(e);
+      alert(lang === 'ar' ? 'خطأ في حفظ الإعدادات' : 'Error saving settings');
+    }
+  };
+
   const handleSettingsSubmit = async (e) => {
     e.preventDefault();
 
@@ -52,6 +162,9 @@ export default function AdminSettings() {
     formData.append('delivery_fee', deliveryFee);
     formData.append('online_payment_enabled', onlinePayEnabled);
     formData.append('contact_email', contactEmail);
+    formData.append('supplier_catalog_url', supplierUrl.trim());
+    formData.append('supplier_catalog_passcode', supplierPasscode.trim());
+    formData.append('supplier_markup_percent', supplierMarkup);
     if (logoFile) {
       formData.append('logo', logoFile);
     }
@@ -151,6 +264,175 @@ export default function AdminSettings() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       
+      {/* 0. Supplier Catalog Auto-Sync Card */}
+      <div className="dashboard-card" style={{ padding: '24px', border: '1px solid var(--border-color)', borderRadius: '16px', background: 'linear-gradient(145deg, var(--bg-secondary) 0%, rgba(37, 99, 235, 0.04) 100%)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ width: '42px', height: '42px', borderRadius: '10px', backgroundColor: 'rgba(37, 99, 235, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)' }}>
+              <Globe size={24} />
+            </div>
+            <div>
+              <h4 style={{ fontSize: '1.2rem', fontWeight: '800', margin: 0 }}>
+                {lang === 'ar' ? 'الربط التلقائي وجلب المنتجات والتصنيفات من موقع المورد' : 'Supplier Catalog & Auto-Sync'}
+              </h4>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', margin: '4px 0 0' }}>
+                {lang === 'ar'
+                  ? 'ضع رابط موقع المورد ليقوم النظام بسحب المنتجات والتصنيفات والأسعار والصور وتحديثها في متجرك بضغطة زر'
+                  : 'Enter supplier website URL to fetch and auto-synchronize products, categories, images, and prices'}
+              </p>
+            </div>
+          </div>
+
+          {/* Quick Stats Badges */}
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', fontSize: '0.8rem', fontWeight: '700' }}>
+            <span style={{ padding: '4px 10px', backgroundColor: 'var(--bg-tertiary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              {lang === 'ar' ? 'المنتجات:' : 'Products:'} <strong style={{ color: 'var(--accent-blue)' }}>{syncStats?.totalStoreProducts ?? '...'}</strong>
+            </span>
+            <span style={{ padding: '4px 10px', backgroundColor: 'var(--bg-tertiary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              {lang === 'ar' ? 'التصنيفات:' : 'Categories:'} <strong style={{ color: 'var(--accent-blue)' }}>{syncStats?.totalCategories ?? '...'}</strong>
+            </span>
+            <span style={{ padding: '4px 10px', backgroundColor: 'var(--bg-tertiary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              {lang === 'ar' ? 'الهامش:' : 'Markup:'} <strong style={{ color: '#10b981' }}>+{supplierMarkup}%</strong>
+            </span>
+          </div>
+        </div>
+
+        {/* Inputs Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+          <div>
+            <label className="input-label" style={{ fontWeight: '700' }}>
+              {lang === 'ar' ? 'رابط موقع المورد (Supplier Website URL)' : 'Supplier Website URL'}
+            </label>
+            <input
+              type="text"
+              className="input-field"
+              placeholder="https://drphonewholesale.online"
+              value={supplierUrl}
+              onChange={(e) => setSupplierUrl(e.target.value)}
+              style={{ direction: 'ltr', textAlign: 'left', fontWeight: '600' }}
+            />
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '4px', display: 'block' }}>
+              {lang === 'ar' ? 'مثال: https://drphonewholesale.online' : 'Example: https://drphonewholesale.online'}
+            </span>
+          </div>
+
+          <div>
+            <label className="input-label" style={{ fontWeight: '700' }}>
+              {lang === 'ar' ? 'رمز مرور الدخول للكتالوج (Passcode)' : 'Catalog Passcode'}
+            </label>
+            <input
+              type="text"
+              className="input-field"
+              placeholder="Drphone123"
+              value={supplierPasscode}
+              onChange={(e) => setSupplierPasscode(e.target.value)}
+              style={{ direction: 'ltr', textAlign: 'left', fontWeight: '600' }}
+            />
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '4px', display: 'block' }}>
+              {lang === 'ar' ? 'الرمز المعتمد لفتح كتالوج المورد (مثل: Drphone123)' : 'Passcode for supplier catalog'}
+            </span>
+          </div>
+
+          <div>
+            <label className="input-label" style={{ fontWeight: '700' }}>
+              {lang === 'ar' ? 'نسبة هامش الربح المضافة % (Markup)' : 'Profit Markup %'}
+            </label>
+            <input
+              type="number"
+              className="input-field"
+              placeholder="45"
+              value={supplierMarkup}
+              onChange={(e) => setSupplierMarkup(e.target.value)}
+              style={{ fontWeight: '600' }}
+            />
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '4px', display: 'block' }}>
+              {lang === 'ar' ? 'تطبق تلقائياً على سعر الجملة (عدا الحمايات 2.50$)' : 'Applied on wholesale prices (except protectors $2.50)'}
+            </span>
+          </div>
+        </div>
+
+        {/* Action Buttons & Status */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={handleSyncNow}
+              disabled={syncing}
+              className="input-field"
+              style={{
+                width: 'auto',
+                padding: '10px 22px',
+                backgroundColor: syncing ? 'var(--text-light)' : '#10b981',
+                color: 'white',
+                border: 'none',
+                fontWeight: '800',
+                cursor: syncing ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: syncing ? 'none' : '0 4px 14px rgba(16, 185, 129, 0.35)',
+                transition: 'all 0.2s'
+              }}
+            >
+              <RefreshCw size={18} style={{ animation: syncing ? 'spin 1s linear infinite' : 'none' }} />
+              <span>
+                {syncing 
+                  ? (lang === 'ar' ? 'جاري جلب وتحديث المنتجات والتصنيفات...' : 'Syncing Catalog Now...') 
+                  : (lang === 'ar' ? 'جلب وتحديث المنتجات والتصنيفات الآن' : 'Fetch & Sync Catalog Now')}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleSaveSyncSettings}
+              disabled={syncing}
+              className="input-field"
+              style={{
+                width: 'auto',
+                padding: '10px 18px',
+                backgroundColor: 'var(--bg-tertiary)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--border-color)',
+                fontWeight: '700',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <Save size={16} />
+              <span>{lang === 'ar' ? 'حفظ إعدادات الرابط' : 'Save URL Settings'}</span>
+            </button>
+          </div>
+
+          {syncStats?.lastSyncTime && (
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>
+              {lang === 'ar' ? 'آخر مزامنة:' : 'Last Sync:'} <strong style={{ color: 'var(--text-primary)' }}>{syncStats.lastSyncTime}</strong>
+            </div>
+          )}
+        </div>
+
+        {/* Live sync status banner */}
+        {syncStatus && (
+          <div style={{
+            marginTop: '16px',
+            padding: '12px 16px',
+            borderRadius: '10px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            backgroundColor: syncStatus.success ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+            border: `1px solid ${syncStatus.success ? '#10b981' : '#ef4444'}`,
+            color: syncStatus.success ? '#10b981' : '#ef4444',
+            fontSize: '0.9rem',
+            fontWeight: '700'
+          }}>
+            {syncStatus.success ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
+            <span>{syncStatus.message}</span>
+          </div>
+        )}
+      </div>
+
       {/* General Settings */}
       <div className="dashboard-card" style={{ padding: '20px' }}>
         <h4 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
