@@ -1146,47 +1146,6 @@ export default function App() {
                     );
                   })}
                 </div>
-
-                {/* All Products Showcase on Home Page */}
-                <div style={{ marginTop: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid var(--border-color)', paddingBottom: '10px' }}>
-                    <h2 style={{ fontSize: '1.5rem', fontWeight: '800' }}>
-                      {lang === 'ar' ? 'جميع المنتجات المتوفرة' : 'All Available Products'}
-                    </h2>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-light)', fontWeight: '600' }}>
-                      {products.length} {lang === 'ar' ? 'منتج' : 'products'}
-                    </span>
-                  </div>
-
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-                    gap: '24px'
-                  }}>
-                    {products.map((p) => (
-                      <ProductCard 
-                        key={p.id} 
-                        product={p} 
-                        onDetailsClick={setSelectedProduct} 
-                      />
-                    ))}
-                  </div>
-
-                  {products.length === 0 && (
-                    <div style={{
-                      textAlign: 'center',
-                      padding: '40px 0',
-                      color: 'var(--text-light)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '12px',
-                      alignItems: 'center'
-                    }}>
-                      <FileText size={40} strokeWidth={1} />
-                      <p style={{ fontWeight: '600' }}>{t('no_products')}</p>
-                    </div>
-                  )}
-                </div>
               </div>
             ) : (
               /* --- 2. PRODUCT GRID & NAVIGATION VIEW --- */
