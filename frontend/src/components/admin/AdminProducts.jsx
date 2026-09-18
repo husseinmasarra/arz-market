@@ -155,13 +155,15 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
       formData.append('product_image', selectedFile);
     }
     const colorsArray = colorsInput ? colorsInput.split(',').map(c => c.trim()).filter(Boolean) : [];
-    const sizesArray = sizesList.map(opt => {
-      if (!opt.name) return null;
-      if (!opt.price) return opt.name;
-      if (opt.type === 'relative') return `${opt.name} (+${opt.price})`;
-      if (opt.type === 'negative') return `${opt.name} (-${opt.price})`;
-      return `${opt.name} ($${opt.price})`;
-    }).filter(Boolean);
+    const sizesArray = sizesList
+      .filter(opt => opt && opt.name && opt.name.trim())
+      .map(opt => {
+        const val = parseFloat(opt.price);
+        return {
+          name: opt.name.trim(),
+          price: !isNaN(val) ? val : (parseFloat(priceUsd) || 0)
+        };
+      });
     formData.append('colors', JSON.stringify(colorsArray));
     formData.append('sizes', JSON.stringify(sizesArray));
 
@@ -203,20 +205,34 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
     setSelectedFile(null);
     setColorsInput((product.colors || []).join(', '));
     let parsedSizes = [];
-    if (product.sizes && Array.isArray(product.sizes)) {
-      parsedSizes = product.sizes.map(s => {
-        const priceRegex = /\(\s*([+-]?\s*\$?\s*[0-9.]+)\s*\$?_?\)/;
-        const match = s.match(priceRegex);
-        if (match) {
-          const name = s.replace(/\s*\(\s*[+-]?\s*\$?\s*[0-9.]+\s*\$?_?\)/g, '').trim();
-          const priceVal = match[1].replace(/[+\-$]/g, '').trim();
-          let type = 'absolute';
-          if (s.includes('+')) type = 'relative';
-          else if (s.includes('-')) type = 'negative';
-          return { name, price: priceVal, type };
-        }
-        return { name: s, price: '', type: 'absolute' };
-      });
+    if (product.sizes) {
+      let rawSizes = product.sizes;
+      if (typeof rawSizes === 'string') {
+        try { rawSizes = JSON.parse(rawSizes); } catch (e) { rawSizes = []; }
+      }
+      if (Array.isArray(rawSizes)) {
+        parsedSizes = rawSizes.map(s => {
+          if (typeof s === 'object' && s !== null) {
+            return {
+              name: s.name || '',
+              price: s.price !== undefined && s.price !== null ? String(s.price) : '',
+              type: 'absolute'
+            };
+          }
+          const str = String(s);
+          const priceRegex = /\(\s*([+-]?\s*\$?\s*[0-9.]+)\s*\$?_?\)/;
+          const match = str.match(priceRegex);
+          if (match) {
+            const name = str.replace(/\s*\(\s*[+-]?\s*\$?\s*[0-9.]+\s*\$?_?\)/g, '').trim();
+            const priceVal = match[1].replace(/[+\-$]/g, '').trim();
+            let type = 'absolute';
+            if (str.includes('+')) type = 'relative';
+            else if (str.includes('-')) type = 'negative';
+            return { name, price: priceVal, type };
+          }
+          return { name: str, price: '', type: 'absolute' };
+        });
+      }
     }
     setSizesList(parsedSizes.length > 0 ? parsedSizes : [{ name: '', price: '', type: 'absolute' }]);
   };

@@ -245,8 +245,16 @@ async function syncDrPhoneToArzMart(options = {}) {
 
     for (const p of items) {
       totalProcessed++;
-      const wholesalePrice = Number(p.price) || 0;
-      const retailPrice = applyMarkup(wholesalePrice, markupPercent);
+      const isScreenProtector = cat.name.trim().toLowerCase() === 'screen protector' || 
+                                cat.name.toLowerCase().includes('screen') || 
+                                cat.name.toLowerCase().includes('protector');
+
+      let wholesalePrice = Number(p.price) || 0;
+      if (wholesalePrice <= 0 && p.options && p.options.length > 0) {
+        wholesalePrice = Number(p.options[0].price) || 0;
+      }
+      let retailPrice = isScreenProtector ? 2.50 : applyMarkup(wholesalePrice, markupPercent);
+      if (retailPrice <= 0) retailPrice = 2.50;
       const oldPrice = retailPrice > 0 ? Math.round(retailPrice * 1.15 * 100) / 100 : null;
 
       // Local image filename
@@ -266,15 +274,13 @@ async function syncDrPhoneToArzMart(options = {}) {
       const descEn = p.description || `${nameEn} - Authentic high quality product with warranty.`;
       const descAr = p.description_ar || `${nameEn} - منتج أصلي عالي الجودة مع ضمان.`;
       const stock = typeof p.stock === 'number' ? p.stock : 50;
-      // Map options / variants / sizes
-      const optionPrices = (p.options || []).map(o => Number(o.price) || 0);
-      const allSame = optionPrices.length > 0 && optionPrices.every(pr => Math.abs(pr - optionPrices[0]) < 0.001);
 
+      // Map options / variants / sizes
       const sizesJson = JSON.stringify((p.options || []).map(o => {
         const oPrice = Number(o.price) || 0;
         let finalPrice;
-        if (allSame && retailPrice > 0) {
-          finalPrice = retailPrice;
+        if (isScreenProtector) {
+          finalPrice = 2.50;
         } else if (oPrice > 0) {
           finalPrice = applyMarkup(oPrice, markupPercent);
         } else {
