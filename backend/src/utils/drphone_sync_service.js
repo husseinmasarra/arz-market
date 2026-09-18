@@ -288,6 +288,7 @@ async function syncDrPhoneToArzMart(options = {}) {
         }
         return { name: o.name, price: finalPrice };
       }));
+      const colorsJson = '[]';
 
       // Check if product already exists by name_en or sku
       const existing = await db.getAsync(
