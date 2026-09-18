@@ -154,7 +154,7 @@ exports.getUsers = async (req, res) => {
 
 exports.updateUserRoleAndPermissions = async (req, res) => {
   const { id } = req.params;
-  const { role, permissions } = req.body; // role: 'user' or 'employee', permissions: array of strings
+  const { role, permissions } = req.body; // role: 'ceo', 'admin', 'employee', or 'user'
 
   if (!role || !permissions) {
     return res.status(400).json({ error_ar: 'المعطيات غير كاملة', error_en: 'Role and permissions are required' });
@@ -166,13 +166,17 @@ exports.updateUserRoleAndPermissions = async (req, res) => {
       return res.status(404).json({ error_ar: 'المستخدم غير موجود', error_en: 'User not found' });
     }
 
-    if (user.role === 'admin' && req.user.username !== 'husseinmassara' && req.user.username !== 'city-hunter') {
-      return res.status(403).json({ error_ar: 'لا يمكن تعديل صلاحيات المدير العام إلا من قبله', error_en: 'Only the super admin can modify super admin permissions' });
+    if ((user.role === 'admin' || user.role === 'ceo') && req.user.username !== 'husseinmassara' && req.user.username !== 'city-hunter') {
+      return res.status(403).json({ error_ar: 'لا يمكن تعديل صلاحيات المدير العام أو الرئيس التنفيذي إلا من قبله', error_en: 'Only the super admin / CEO can modify executive permissions' });
     }
+
+    const effectivePermissions = (role === 'ceo' || role === 'admin')
+      ? ['products', 'categories', 'orders', 'users', 'settings', 'employees', 'reports', 'inventory', 'coupons', 'chat', 'merchants']
+      : permissions;
 
     await db.runAsync(
       'UPDATE users SET role = ?, permissions = ? WHERE id = ?',
-      [role, JSON.stringify(permissions), id]
+      [role, JSON.stringify(effectivePermissions), id]
     );
 
     res.json({ message_ar: 'تم تحديث صلاحيات المستخدم بنجاح', message_en: 'User permissions updated successfully' });

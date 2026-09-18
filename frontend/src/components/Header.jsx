@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useChat } from '../context/ChatContext';
-import { ShoppingCart, Moon, Sun, Globe, DollarSign, LogOut, User, Shield, MessageSquare, Fingerprint, Smartphone } from 'lucide-react';
+import { ShoppingCart, Moon, Sun, Globe, DollarSign, LogOut, User, Shield, MessageSquare, Fingerprint, Smartphone, Crown } from 'lucide-react';
 
 export default function Header({ currentView, setCurrentView, searchVal, setSearchVal, onLogoClick }) {
   const { lang, setLang, theme, setTheme, currency, toggleCurrency, settings, t, apiHost } = useApp();
@@ -98,7 +98,7 @@ export default function Header({ currentView, setCurrentView, searchVal, setSear
         {/* Navigation & Controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
           {/* Admin Dashboard Entry Button */}
-          {user && (user.role === 'admin' || user.role === 'employee') && (
+          {user && (user.role === 'admin' || user.role === 'ceo' || user.role === 'employee') && (
             <a
               href={currentView === 'admin' ? '/' : '/?view=admin'}
               onClick={(e) => {
@@ -111,18 +111,19 @@ export default function Header({ currentView, setCurrentView, searchVal, setSear
                 alignItems: 'center',
                 gap: '6px',
                 padding: '6px 12px',
-                backgroundColor: 'var(--accent-blue)',
-                color: 'white',
+                backgroundColor: user.role === 'ceo' ? '#f59e0b' : 'var(--accent-blue)',
+                color: user.role === 'ceo' ? '#111827' : 'white',
                 border: 'none',
                 borderRadius: '6px',
                 cursor: 'pointer',
-                fontWeight: '600',
+                fontWeight: '700',
                 fontSize: '0.85rem',
-                textDecoration: 'none'
+                textDecoration: 'none',
+                boxShadow: user.role === 'ceo' ? '0 2px 8px rgba(245, 158, 11, 0.4)' : 'none'
               }}
             >
-              <Shield size={16} />
-              {currentView === 'admin' ? t('go_to_store') : t('dashboard')}
+              {user.role === 'ceo' ? <Crown size={16} /> : <Shield size={16} />}
+              {currentView === 'admin' ? t('go_to_store') : (user.role === 'ceo' ? (lang === 'ar' ? 'لوحة الرئيس التنفيذي' : 'CEO Dashboard') : t('dashboard'))}
             </a>
           )}
 
@@ -326,6 +327,33 @@ export default function Header({ currentView, setCurrentView, searchVal, setSear
               >
                 <User size={14} />
                 <span style={{ fontSize: '0.85rem', fontWeight: '600' }}>{user.username}</span>
+                {user.role === 'ceo' && (
+                  <span style={{
+                    fontSize: '0.68rem',
+                    padding: '1px 6px',
+                    borderRadius: '4px',
+                    backgroundColor: '#f59e0b',
+                    color: '#111827',
+                    fontWeight: '800',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '2px'
+                  }}>
+                    <Crown size={10} /> CEO
+                  </span>
+                )}
+                {user.role === 'admin' && (
+                  <span style={{
+                    fontSize: '0.68rem',
+                    padding: '1px 6px',
+                    borderRadius: '4px',
+                    backgroundColor: 'var(--accent-blue)',
+                    color: 'white',
+                    fontWeight: '700'
+                  }}>
+                    Admin
+                  </span>
+                )}
               </a>
               {window.AndroidApp && localStorage.getItem('biometric_username') && (
                 <button

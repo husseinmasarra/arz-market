@@ -79,7 +79,7 @@ export const AuthProvider = ({ children }) => {
 
   const hasPermission = (permission) => {
     if (!user) return false;
-    if (user.role === 'admin') return true; // Admin has all permissions
+    if (user.role === 'admin' || user.role === 'ceo') return true; // CEO and Admin have all permissions
     return user.permissions && user.permissions.includes(permission);
   };
 

@@ -20,7 +20,7 @@ function authenticateToken(req, res, next) {
 }
 
 function requireAdmin(req, res, next) {
-  if (req.user && (req.user.role === 'admin' || req.user.role === 'employee')) {
+  if (req.user && (req.user.role === 'admin' || req.user.role === 'ceo' || req.user.role === 'employee')) {
     next();
   } else {
     res.status(403).json({ error_ar: 'غير مسموح، هذه الصفحة للمدراء فقط', error_en: 'Forbidden, admin privileges required' });
@@ -29,8 +29,8 @@ function requireAdmin(req, res, next) {
 
 function requirePermission(permissionName) {
   return (req, res, next) => {
-    if (req.user && req.user.role === 'admin') {
-      return next(); // Admin has all permissions
+    if (req.user && (req.user.role === 'admin' || req.user.role === 'ceo')) {
+      return next(); // CEO and Admin have all permissions
     }
     if (req.user && req.user.role === 'employee') {
       const permissions = JSON.parse(req.user.permissions || '[]');

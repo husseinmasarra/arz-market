@@ -5,7 +5,7 @@ import { useChat } from '../../context/ChatContext';
 import { 
   Package, Folder, ShoppingBag, Users, BarChart3, Settings, Tag, ShieldAlert,
   DollarSign, TrendingUp, AlertTriangle, ArrowRight, MessageSquare, Send, Store,
-  ExternalLink
+  ExternalLink, Crown
 } from 'lucide-react';
 
 // Sub-components
@@ -20,7 +20,7 @@ import AdminMerchants from './AdminMerchants';
 
 export default function AdminDashboard({ setCurrentView }) {
   const { lang, formatPrice, t, apiBase } = useApp();
-  const { token, hasPermission } = useAuth();
+  const { token, hasPermission, user } = useAuth();
   const { chatUsers, activeChatUserId, setActiveChatUserId, messages, sendMessage } = useChat();
 
   const [activeTab, setActiveTab] = useState(() => {
@@ -127,9 +127,14 @@ export default function AdminDashboard({ setCurrentView }) {
         gap: '24px'
       }}>
         <div style={{ padding: '0 10px' }}>
-          <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-primary)' }}>
-            {t('admin_title')}
-          </h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {user?.role === 'ceo' && <Crown size={22} color="#f59e0b" fill="#f59e0b" />}
+            <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: user?.role === 'ceo' ? '#d97706' : 'var(--text-primary)' }}>
+              {user?.role === 'ceo' 
+                ? (lang === 'ar' ? 'لوحة الرئيس التنفيذي (CEO)' : 'CEO Executive Dashboard') 
+                : t('admin_title')}
+            </h3>
+          </div>
           <a 
             href="/"
             onClick={(e) => {
