@@ -189,6 +189,52 @@ function fetchDrPhoneCatalog(passcode = 'Drphone123', targetBaseUrl = BASE_URL) 
 /**
  * Synchronize all DR PHONE catalog data into Arz-Mart database
  */
+
+// Fetch catalog from a Shopify store via open JSON feed
+function fetchShopifyCatalog(targetBaseUrl) {
+  const cleanBase = cleanUrl(targetBaseUrl);
+  return new Promise((resolve, reject) => {
+    https.get(cleanBase + '/products.json?limit=250', {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+        'Accept': 'application/json'
+      }
+    }, res => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          const shopifyProducts = json.products || [];
+          const catMap = {};
+          for (const p of shopifyProducts) {
+            const cat = (p.product_type || 'منتجات منوعة').trim();
+            if (!catMap[cat]) catMap[cat] = [];
+            catMap[cat].push({
+              name: p.title,
+              name_ar: p.title,
+              description: (p.body_html || '').replace(/<[^>]+>/g, '').trim(),
+              description_ar: (p.body_html || '').replace(/<[^>]+>/g, '').trim(),
+              price: p.variants && p.variants[0] ? Number(p.variants[0].price) : 10,
+              image: p.images && p.images[0] ? p.images[0].src : '',
+              stock: p.variants && p.variants[0] ? (p.variants[0].inventory_quantity || 30) : 30,
+              options: (p.variants || []).map(v => ({ name: v.title, price: Number(v.price) }))
+            });
+          }
+          const catalog = Object.keys(catMap).map(catName => ({
+            name: catName,
+            name_ar: catName,
+            items: catMap[catName]
+          }));
+          resolve({ catalog });
+        } catch (e) {
+          reject(new Error('Failed to parse Shopify catalog: ' + e.message));
+        }
+      });
+    }).on('error', reject);
+  });
+}
+
 async function syncDrPhoneToArzMart(options = {}) {
   const settings = await db.getAsync("SELECT * FROM settings ORDER BY id DESC LIMIT 1");
   const targetUrl = cleanUrl(options.url || (settings && settings.supplier_catalog_url) || BASE_URL);
@@ -199,22 +245,38 @@ async function syncDrPhoneToArzMart(options = {}) {
 
   console.log(`[DR PHONE Sync Service] Starting synchronization from ${targetUrl} (Markup: +${markupPercent}%)...`);
 
-  // Step 1: Fetch raw catalog
-  const catalogData = await fetchDrPhoneCatalog(passcode, targetUrl);
-  const rawCategories = catalogData.catalog || [];
+  // Step 1: Fetch raw catalog based on source type
+  let catalogData;
+  const syncType = options.syncType || (targetUrl.includes('myshopify.com') ? 'shopify_json' : 'drphone_catalog');
+  if (syncType === 'shopify_json' || targetUrl.includes('/products.json')) {
+    catalogData = await fetchShopifyCatalog(targetUrl);
+  } else {
+    try {
+      catalogData = await fetchDrPhoneCatalog(passcode, targetUrl);
+    } catch (err) {
+      // Fallback: try shopify feed if wholesale failed
+      try {
+        catalogData = await fetchShopifyCatalog(targetUrl);
+      } catch (e2) {
+        throw err;
+      }
+    }
+  }
+  const rawCategories = (catalogData && catalogData.catalog) || [];
 
   console.log(`[DR PHONE Sync Service] Retrieved ${rawCategories.length} categories from ${targetUrl}.`);
 
-  // Step 2: Ensure "DR PHONE Wholesale" merchant exists in Arz-Mart
-  let merchant = await db.getAsync("SELECT id FROM merchants WHERE name = 'DR PHONE Wholesale'");
+  // Step 2: Ensure merchant exists in Arz-Mart
+  const merchantName = options.merchantName || 'DR PHONE Wholesale';
+  let merchant = await db.getAsync("SELECT id FROM merchants WHERE name = ?", [merchantName]);
   let merchantId;
   if (!merchant) {
     const res = await db.runAsync(
       "INSERT INTO merchants (name, phone, company, email) VALUES (?, ?, ?, ?)",
-      ['DR PHONE Wholesale', '+96170908028', 'DR PHONE Lebanon', 'wholesale@drphonewholesale.online']
+      [merchantName, '', targetUrl, '']
     );
     merchantId = res.lastID;
-    console.log(`[DR PHONE Sync Service] Created merchant 'DR PHONE Wholesale' with ID: ${merchantId}`);
+    console.log(`[Sync Service] Created merchant '${merchantName}' with ID: ${merchantId}`);
   } else {
     merchantId = merchant.id;
   }
@@ -352,6 +414,12 @@ async function syncDrPhoneToArzMart(options = {}) {
   const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
   const statusMsg = `نجح الجلب: تم مزامنة ${totalProcessed} منتج و ${rawCategories.length} تصنيف`;
   try {
+    if (options.sourceId) {
+      await db.runAsync(
+        "UPDATE supplier_sources SET last_sync_time = ?, last_sync_status = ? WHERE id = ?",
+        [now, statusMsg, options.sourceId]
+      );
+    }
     if (settings) {
       await db.runAsync(
         "UPDATE settings SET last_sync_time = ?, last_sync_status = ? WHERE id = ?",

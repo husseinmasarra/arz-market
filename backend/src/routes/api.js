@@ -75,6 +75,14 @@ router.post('/merchants', authenticateToken, requirePermission('merchants'), mer
 router.put('/merchants/:id', authenticateToken, requirePermission('merchants'), merchantController.updateMerchant);
 router.delete('/merchants/:id', authenticateToken, requirePermission('merchants'), merchantController.deleteMerchant);
 
+// --- Supplier Sources Routes (Multi-Supplier Catalog Sync) ---
+const supplierSourceController = require('../controllers/supplierSourceController');
+router.get('/supplier-sources', authenticateToken, requirePermission('settings'), supplierSourceController.getSources);
+router.post('/supplier-sources', authenticateToken, requirePermission('settings'), supplierSourceController.createSource);
+router.put('/supplier-sources/:id', authenticateToken, requirePermission('settings'), supplierSourceController.updateSource);
+router.delete('/supplier-sources/:id', authenticateToken, requirePermission('settings'), supplierSourceController.deleteSource);
+router.post('/supplier-sources/:id/sync', authenticateToken, requirePermission('settings'), supplierSourceController.syncSource);
+
 // --- DR PHONE Wholesale Sync Routes ---
 const { syncDrPhoneToArzMart } = require('../utils/drphone_sync_service');
 router.post('/drphone/sync', authenticateToken, requirePermission('settings'), async (req, res) => {

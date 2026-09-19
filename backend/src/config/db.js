@@ -412,6 +412,32 @@ async function initializeDatabasePostgres() {
       )
     `);
 
+    // 12. Supplier Sources Table (Multiple Supplier Catalogs & Websites)
+    await pgPool.query(`
+      CREATE TABLE IF NOT EXISTS supplier_sources (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        url TEXT NOT NULL,
+        passcode TEXT DEFAULT '',
+        markup_percent DOUBLE PRECISION DEFAULT 45,
+        sync_type TEXT DEFAULT 'drphone_catalog',
+        is_default INTEGER DEFAULT 0,
+        last_sync_time TEXT DEFAULT '',
+        last_sync_status TEXT DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    try {
+      const sourcesCount = await pgPool.query('SELECT COUNT(*) FROM supplier_sources');
+      if (parseInt(sourcesCount.rows[0].count) === 0) {
+        await pgPool.query(
+          "INSERT INTO supplier_sources (name, url, passcode, markup_percent, sync_type, is_default) VALUES ($1, $2, $3, $4, $5, $6)",
+          ['DR PHONE Wholesale', 'https://drphonewholesale.online', 'Drphone123', 45, 'drphone_catalog', 1]
+        );
+      }
+    } catch (e) {}
+
     console.log('[Database] PostgreSQL tables created successfully. Checking seeding...');
 
     // Seed settings
@@ -884,6 +910,32 @@ function initializeDatabase() {
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
       )
     `);
+
+    // 12. Supplier Sources Table (Multiple Supplier Catalogs & Websites)
+    runInit(`
+      CREATE TABLE IF NOT EXISTS supplier_sources (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        url TEXT NOT NULL,
+        passcode TEXT DEFAULT '',
+        markup_percent REAL DEFAULT 45,
+        sync_type TEXT DEFAULT 'drphone_catalog',
+        is_default INTEGER DEFAULT 0,
+        last_sync_time TEXT DEFAULT '',
+        last_sync_status TEXT DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `, [], () => {
+      db.get('SELECT COUNT(*) as count FROM supplier_sources', [], (err, row) => {
+        if (!err && row && parseInt(row.count) === 0) {
+          db.run(
+            "INSERT INTO supplier_sources (name, url, passcode, markup_percent, sync_type, is_default) VALUES (?, ?, ?, ?, ?, ?)",
+            ['DR PHONE Wholesale', 'https://drphonewholesale.online', 'Drphone123', 45, 'drphone_catalog', 1],
+            () => {}
+          );
+        }
+      });
+    });
 
     // Seed default settings if empty
     db.get('SELECT COUNT(*) as count FROM settings', [], (err, row) => {
