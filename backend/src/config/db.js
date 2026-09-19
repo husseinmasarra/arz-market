@@ -924,12 +924,6 @@ function initializeDatabase() {
       }
     });
 
-    // Seed default coupon code WELCOME10 if empty
-    db.get('SELECT COUNT(*) as count FROM coupons', [], (err, row) => {
-      if (row && parseInt(row.count) === 0) {
-        db.run('INSERT INTO coupons (code, discount_percent, active) VALUES (?, ?, ?)', ['WELCOME10', 10, 1]);
-      }
-    });
 
     // Seed Merchants if empty
     db.get('SELECT COUNT(*) as count FROM merchants', [], (err, row) => {

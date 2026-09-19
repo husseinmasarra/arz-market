@@ -62,8 +62,6 @@ export default function App() {
   const [showBiometricEnrollPrompt, setShowBiometricEnrollPrompt] = useState(false);
   const [tempCredentials, setTempCredentials] = useState(null);
   
-  // Registration celebration state
-  const [congratsPromo, setCongratsPromo] = useState('');
 
   // User orders history state
   const [userOrders, setUserOrders] = useState([]);
@@ -291,9 +289,6 @@ export default function App() {
       await login(username, password);
       
       const onNext = () => {
-        if (data.congrats) {
-          setCongratsPromo(data.discount_code);
-        }
         setCurrentView('store');
         setUsername('');
         setPassword('');
@@ -363,53 +358,6 @@ export default function App() {
         }}
       />
 
-      {/* 2. Congratulatory New User Discount Banner Modal */}
-      {congratsPromo && (
-        <div style={{
-          position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.7)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 2000
-        }}>
-          <div className="animate-scale" style={{
-            backgroundColor: 'var(--bg-primary)',
-            padding: '30px',
-            borderRadius: '16px',
-            border: '2px solid var(--accent-red-gold)',
-            textAlign: 'center',
-            maxWidth: '450px',
-            boxShadow: 'var(--shadow-lg)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px'
-          }}>
-            <h2 style={{ color: 'var(--accent-red-gold)', fontWeight: '800' }}>{t('congrats_title')}</h2>
-            <p style={{ fontWeight: '500' }}>{t('congrats_desc')}</p>
-            <div style={{
-              backgroundColor: 'var(--bg-secondary)',
-              border: '2px dashed var(--accent-blue)',
-              padding: '12px',
-              fontSize: '1.25rem',
-              fontWeight: 'bold',
-              borderRadius: '8px',
-              margin: '10px 0',
-              color: 'var(--text-primary)'
-            }}>
-              {t('congrats_code')}
-            </div>
-            <button
-              onClick={() => setCongratsPromo('')}
-              className="input-field"
-              style={{ backgroundColor: 'var(--accent-blue)', color: 'white', border: 'none', fontWeight: '700', cursor: 'pointer' }}
-            >
-              🎉 شكراً لك! (Got it!)
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Biometric Enrollment Prompt Modal */}
       {showBiometricEnrollPrompt && (

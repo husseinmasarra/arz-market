@@ -59,12 +59,10 @@ exports.register = async (req, res) => {
       [cleanUsername, hashedPassword, cleanPhone, cleanEmail, cleanFullName]
     );
 
-    // Return success + one-time 10% discount promo code
+    // Return success
     res.status(201).json({
-      message_ar: 'تم إنشاء الحساب بنجاح! تهانينا، لقد حصلت على خصم ١٠٪ على طلبيتك الأولى.',
-      message_en: 'Account created successfully! Congratulations, you have received a 10% discount on your first order.',
-      congrats: true,
-      discount_code: 'WELCOME10',
+      message_ar: 'تم إنشاء الحساب بنجاح!',
+      message_en: 'Account created successfully!',
       user: {
         id: result.lastID,
         username: cleanUsername,

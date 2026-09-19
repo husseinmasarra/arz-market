@@ -38,49 +38,30 @@ export default function Checkout({ onClose }) {
     try {
       const code = couponCode.toUpperCase().replace(/\s+/g, '');
       
-      if (code === 'WELCOME10') {
-        if (!token) {
-          setCouponError(lang === 'ar' ? 'يجب تسجيل الدخول لاستخدام خصم الترحيب' : 'Please log in to use the welcome discount');
-          return;
-        }
-        
-        // Fetch profile to see if used
-        const profileRes = await fetch(`${apiBase}/auth/profile`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (profileRes.ok) {
-          const profileData = await profileRes.json();
-          if (profileData.user.discount_used === 0) {
-            setDiscountPercent(10);
-            setAppliedCode(code);
-          } else {
-            setCouponError(lang === 'ar' ? 'تم استخدام كود الترحيب مسبقاً' : 'Welcome code has already been used');
-          }
+      if (!token) {
+        setCouponError(lang === 'ar' ? 'عذراً، يجب تسجيل الدخول لاستخدام أكواد الخصم' : 'Please log in to use discount codes');
+        return;
+      }
+
+      // Fetch coupons from database
+      const res = await fetch(`${apiBase}/coupons`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const coupons = await res.json();
+        const activeCoupon = (coupons || []).find(c => c.code === code && c.active === 1);
+        if (activeCoupon) {
+          setDiscountPercent(activeCoupon.discount_percent);
+          setAppliedCode(code);
         } else {
-          setCouponError(lang === 'ar' ? 'خطأ في التحقق من الحساب' : 'Error verifying account status');
+          setCouponError(lang === 'ar' ? 'الكود غير صحيح أو منتهي الصلاحية' : 'Invalid or expired code');
         }
       } else {
-        // Fetch other coupons from database
-        const res = await fetch(`${apiBase}/coupons`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const coupons = await res.json();
-          const activeCoupon = coupons.find(c => c.code === code && c.active === 1);
-          if (activeCoupon) {
-            setDiscountPercent(activeCoupon.discount_percent);
-            setAppliedCode(code);
-          } else {
-            setCouponError(lang === 'ar' ? 'الكود غير صحيح أو منتهي الصلاحية' : 'Invalid or expired coupon code');
-          }
-        } else {
-          // If guest, only WELCOME10 can be verified via backend check if they register, or general coupon check requires token
-          setCouponError(lang === 'ar' ? 'عذراً، يجب تسجيل الدخول لاستخدام أكواد الخصم' : 'Sorry, you must log in to use coupons');
-        }
+        setCouponError(lang === 'ar' ? 'خطأ في التحقق من الكود' : 'Error verifying code');
       }
     } catch (err) {
       console.error(err);
-      setCouponError('Error applying coupon');
+      setCouponError('Error applying code');
     }
   };
 
@@ -427,7 +408,7 @@ export default function Checkout({ onClose }) {
                 <input
                   type="text"
                   className="input-field"
-                  placeholder="e.g. WELCOME10"
+                  placeholder=""
                   value={couponCode}
                   onChange={(e) => setCouponCode(e.target.value)}
                   style={{ padding: '6px 10px' }}

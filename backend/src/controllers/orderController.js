@@ -96,25 +96,14 @@ exports.createOrder = async (req, res) => {
 
     // Handle discounts
     let discountPercent = 0;
-    let welcomeDiscountUsed = false;
 
     if (coupon_code) {
       const code = coupon_code.toUpperCase().trim();
-      if (code === 'WELCOME10' && userId) {
-        const user = await db.getAsync('SELECT discount_used FROM users WHERE id = ?', [userId]);
-        if (user && user.discount_used === 0) {
-          discountPercent = 10;
-          welcomeDiscountUsed = true;
-        } else {
-          return res.status(400).json({ error_ar: 'تم استخدام كود ترحيب ١٠٪ مسبقاً', error_en: 'Welcome 10% discount already used' });
-        }
+      const coupon = await db.getAsync('SELECT * FROM coupons WHERE code = ? AND active = 1', [code]);
+      if (coupon) {
+        discountPercent = coupon.discount_percent;
       } else {
-        const coupon = await db.getAsync('SELECT * FROM coupons WHERE code = ? AND active = 1', [code]);
-        if (coupon) {
-          discountPercent = coupon.discount_percent;
-        } else {
-          return res.status(400).json({ error_ar: 'كوبون الخصم غير صحيح أو منتهي الصلاحية', error_en: 'Invalid or expired coupon code' });
-        }
+        return res.status(400).json({ error_ar: 'كوبون الخصم غير صحيح أو منتهي الصلاحية', error_en: 'Invalid or expired coupon code' });
       }
     }
 
@@ -149,9 +138,6 @@ exports.createOrder = async (req, res) => {
       payment_method || 'COD'
     ]);
 
-    if (welcomeDiscountUsed && userId) {
-      await db.runAsync('UPDATE users SET discount_used = 1 WHERE id = ?', [userId]);
-    }
 
     // Clear saved cart in DB upon successful order creation
     if (userId) {
