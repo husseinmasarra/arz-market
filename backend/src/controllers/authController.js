@@ -82,18 +82,31 @@ exports.login = async (req, res) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
-    return res.status(400).json({ error_ar: 'الرجاء إدخال اسم المستخدم وكلمة المرور', error_en: 'Please enter username and password' });
+    return res.status(400).json({ error_ar: 'الرجاء إدخال البريد الإلكتروني أو رقم الهاتف وكلمة المرور', error_en: 'Please enter email/phone and password' });
   }
 
+  const identifier = username.trim();
+  const cleanDigits = identifier.replace(/[^0-9]/g, '');
+
   try {
-    const user = await db.getAsync('SELECT * FROM users WHERE username = ?', [username.trim()]);
+    let user = await db.getAsync(`
+      SELECT * FROM users 
+      WHERE LOWER(username) = LOWER(?) 
+         OR LOWER(email) = LOWER(?) 
+         OR phone = ?
+    `, [identifier, identifier, identifier]);
+
+    if (!user && cleanDigits.length >= 7) {
+      user = await db.getAsync('SELECT * FROM users WHERE phone LIKE ?', [`%${cleanDigits.slice(-7)}`]);
+    }
+
     if (!user) {
-      return res.status(400).json({ error_ar: 'اسم المستخدم أو كلمة المرور غير صحيحة', error_en: 'Invalid username or password' });
+      return res.status(400).json({ error_ar: 'البريد الإلكتروني / رقم الهاتف أو كلمة المرور غير صحيحة', error_en: 'Invalid credentials or password' });
     }
 
     const isMatch = bcrypt.compareSync(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ error_ar: 'اسم المستخدم أو كلمة المرور غير صحيحة', error_en: 'Invalid username or password' });
+      return res.status(400).json({ error_ar: 'البريد الإلكتروني / رقم الهاتف أو كلمة المرور غير صحيحة', error_en: 'Invalid credentials or password' });
     }
 
     // Generate token

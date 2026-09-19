@@ -5,6 +5,13 @@ exports.createOrder = async (req, res) => {
   const userId = req.user ? req.user.id : null;
   const userName = req.user ? req.user.username : 'Guest';
 
+  if (!userId) {
+    return res.status(401).json({ 
+      error_ar: 'يرجى تسجيل الدخول بالبريد الإلكتروني أو رقم الهاتف لتأكيد الطلبية ومراجعة طلباتك السابقة', 
+      error_en: 'Please log in with email or phone to confirm your order and review past orders' 
+    });
+  }
+
   if (!phone || !address || !items || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error_ar: 'الرجاء إدخال رقم الهاتف، العنوان والمنتجات', error_en: 'Please provide phone, address, and items' });
   }

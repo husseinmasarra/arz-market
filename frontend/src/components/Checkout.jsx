@@ -1,18 +1,74 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart, getOptionPrice } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { X, CheckCircle } from 'lucide-react';
+import { X, CheckCircle, ShieldCheck, LogIn, UserPlus } from 'lucide-react';
 
 export default function Checkout({ onClose }) {
   const { lang, formatPrice, settings, t, apiBase } = useApp();
-  const { token } = useAuth();
+  const { user, token, login, register } = useAuth();
   const { cartItems, subtotal, deliveryFee, total, clearCart } = useCart();
 
-  const [phone, setPhone] = useState('');
+  const [phone, setPhone] = useState(user?.phone || '');
   const [address, setAddress] = useState('');
   const [couponCode, setCouponCode] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('COD');
+  
+  // Inline Auth states for non-logged-in customers
+  const [authMode, setAuthMode] = useState('login'); // 'login' | 'register'
+  const [authIdentifier, setAuthIdentifier] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authFullName, setAuthFullName] = useState('');
+  const [authPhone, setAuthPhone] = useState('');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+
+  useEffect(() => {
+    if (user?.phone && !phone) {
+      setPhone(user.phone);
+    }
+  }, [user]);
+
+  const handleInlineLogin = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    if (!authIdentifier.trim() || !authPassword) {
+      setAuthError(lang === 'ar' ? 'الرجاء إدخال البريد الإلكتروني أو رقم الهاتف وكلمة المرور' : 'Please enter email/phone and password');
+      return;
+    }
+    setAuthLoading(true);
+    try {
+      const data = await login(authIdentifier.trim(), authPassword);
+      if (data.user?.phone) {
+        setPhone(data.user.phone);
+      }
+    } catch (err) {
+      setAuthError(err.message || 'Login failed');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleInlineRegister = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    if (!authPhone.trim() || !authEmail.trim() || !authPassword || !authFullName.trim()) {
+      setAuthError(lang === 'ar' ? 'الرجاء ملء كافة الحقول المطلوبة' : 'Please fill all required fields');
+      return;
+    }
+    setAuthLoading(true);
+    try {
+      const generatedUsername = (authEmail.split('@')[0] || 'user').replace(/[^a-zA-Z0-9_]/g, '') + '_' + Math.floor(1000 + Math.random() * 9000);
+      await register(generatedUsername, authPassword, authFullName.trim(), authPhone.trim(), authEmail.trim());
+      await login(authPhone.trim(), authPassword);
+      setPhone(authPhone.trim());
+    } catch (err) {
+      setAuthError(err.message || 'Registration failed');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
   
   // Credit card mockup states
   const [cardNumber, setCardNumber] = useState('');
@@ -68,6 +124,10 @@ export default function Checkout({ onClose }) {
   const handleSubmitOrder = async (e) => {
     e.preventDefault();
     setCheckoutError('');
+    if (!user) {
+      setCheckoutError(lang === 'ar' ? 'يرجى تسجيل الدخول أو إنشاء حساب بالبريد الإلكتروني أو الهاتف أولاً' : 'Please log in or register first');
+      return;
+    }
     if (!phone || !address) {
       setCheckoutError(lang === 'ar' ? 'الرجاء ملء رقم الهاتف والعنوان بالتفصيل' : 'Please fill in both phone and address fields');
       return;
@@ -190,6 +250,21 @@ export default function Checkout({ onClose }) {
             </div>
           </div>
 
+          <div style={{
+            backgroundColor: 'rgba(16, 185, 129, 0.08)',
+            border: '1px solid rgba(16, 185, 129, 0.2)',
+            borderRadius: '8px',
+            padding: '10px 14px',
+            fontSize: '0.85rem',
+            color: 'var(--text-primary)',
+            width: '100%',
+            marginTop: '6px'
+          }}>
+            {lang === 'ar'
+              ? '✓ تم حفظ طلبيتك في حسابك بنجاح! يمكنك مراجعتها وتتبع تفاصيلها في أي وقت من «طلباتي السابقة».'
+              : '✓ Your order was successfully saved to your account! You can review and track it anytime under "Order History".'}
+          </div>
+
           <button
             onClick={onClose}
             className="input-field"
@@ -273,93 +348,338 @@ export default function Checkout({ onClose }) {
           </div>
         )}
 
-        <form onSubmit={handleSubmitOrder} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+        <form onSubmit={handleSubmitOrder} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
           {/* Form Side */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div>
-              <label className="input-label">{t('phone')}</label>
-              <input
-                type="tel"
-                required
-                className="input-field"
-                placeholder="e.g. +961 70 123 456"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
-            </div>
+          {!user ? (
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '14px',
+              backgroundColor: 'var(--bg-secondary)',
+              padding: '18px',
+              borderRadius: '12px',
+              border: '1px solid var(--border-color)'
+            }}>
+              <div style={{
+                backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                border: '1px solid rgba(59, 130, 246, 0.2)',
+                borderRadius: '10px',
+                padding: '12px',
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: '10px'
+              }}>
+                <ShieldCheck size={26} color="var(--accent-blue)" style={{ flexShrink: 0, marginTop: '2px' }} />
+                <div style={{ fontSize: '0.82rem', lineHeight: '1.4' }}>
+                  <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '2px' }}>
+                    {lang === 'ar' ? 'تسجيل الدخول مطلوب لتأكيد الطلب' : 'Sign In Required to Place Order'}
+                  </strong>
+                  <span style={{ color: 'var(--text-secondary)' }}>
+                    {lang === 'ar'
+                      ? 'يرجى تسجيل الدخول بالبريد الإلكتروني أو رقم الهاتف لربط طلبيتك بحسابك وتتبعها في «طلباتي السابقة».'
+                      : 'Please sign in with your email or phone to link your order and track it under "Order History".'}
+                  </span>
+                </div>
+              </div>
 
-            <div>
-              <label className="input-label">{t('address')}</label>
-              <textarea
-                required
-                rows={3}
-                className="input-field"
-                placeholder={lang === 'ar' ? 'المحافظة، المدينة، الشارع، البناية، الطابق...' : 'Governorate, City, Street, Building, Floor...'}
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                style={{ resize: 'none' }}
-              />
-            </div>
+              {/* Toggle between Login and Register */}
+              <div style={{
+                display: 'flex',
+                backgroundColor: 'var(--bg-tertiary)',
+                borderRadius: '8px',
+                padding: '3px',
+                gap: '4px'
+              }}>
+                <button
+                  type="button"
+                  onClick={() => { setAuthMode('login'); setAuthError(''); }}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    backgroundColor: authMode === 'login' ? 'var(--bg-primary)' : 'transparent',
+                    color: authMode === 'login' ? 'var(--accent-blue)' : 'var(--text-secondary)',
+                    fontWeight: authMode === 'login' ? '700' : '500',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    boxShadow: authMode === 'login' ? 'var(--shadow-sm)' : 'none',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <LogIn size={15} />
+                  <span>{lang === 'ar' ? 'تسجيل الدخول' : 'Sign In'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setAuthMode('register'); setAuthError(''); }}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    backgroundColor: authMode === 'register' ? 'var(--bg-primary)' : 'transparent',
+                    color: authMode === 'register' ? 'var(--accent-blue)' : 'var(--text-secondary)',
+                    fontWeight: authMode === 'register' ? '700' : '500',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    boxShadow: authMode === 'register' ? 'var(--shadow-sm)' : 'none',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <UserPlus size={15} />
+                  <span>{lang === 'ar' ? 'حساب جديد' : 'New Account'}</span>
+                </button>
+              </div>
 
-            <div>
-              <label className="input-label">{t('payment_method')}</label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', cursor: 'pointer' }}>
-                  <input
-                    type="radio"
-                    name="payment"
-                    value="COD"
-                    checked={paymentMethod === 'COD'}
-                    onChange={() => setPaymentMethod('COD')}
-                  />
-                  <span>{t('cod')}</span>
-                </label>
-                {settings?.online_payment_enabled === 1 && (
+              {authError && (
+                <div style={{
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                  color: '#ef4444',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  fontSize: '0.8rem',
+                  fontWeight: '600'
+                }}>
+                  {authError}
+                </div>
+              )}
+
+              {authMode === 'login' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div>
+                    <label className="input-label">
+                      {lang === 'ar' ? 'البريد الإلكتروني أو رقم الهاتف' : 'Email or Phone Number'}
+                    </label>
+                    <input
+                      id="inline-auth-identifier"
+                      type="text"
+                      className="input-field"
+                      placeholder={lang === 'ar' ? 'مثال: 70123456 أو user@example.com' : 'e.g. 70123456 or user@example.com'}
+                      value={authIdentifier}
+                      onChange={(e) => setAuthIdentifier(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="input-label">
+                      {lang === 'ar' ? 'كلمة المرور' : 'Password'}
+                    </label>
+                    <input
+                      type="password"
+                      className="input-field"
+                      placeholder="••••••••"
+                      value={authPassword}
+                      onChange={(e) => setAuthPassword(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleInlineLogin(e); }}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleInlineLogin}
+                    disabled={authLoading}
+                    className="input-field"
+                    style={{
+                      backgroundColor: 'var(--accent-blue)',
+                      color: 'white',
+                      border: 'none',
+                      fontWeight: '700',
+                      cursor: authLoading ? 'not-allowed' : 'pointer',
+                      padding: '10px 0',
+                      marginTop: '4px'
+                    }}
+                  >
+                    {authLoading ? '...' : (lang === 'ar' ? 'تسجيل الدخول ومتابعة الطلب' : 'Sign In & Continue')}
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div>
+                    <label className="input-label">
+                      {lang === 'ar' ? 'الاسم الكامل' : 'Full Name'}
+                    </label>
+                    <input
+                      type="text"
+                      className="input-field"
+                      placeholder={lang === 'ar' ? 'الاسم الثلاثي أو الثنائي' : 'Full Name'}
+                      value={authFullName}
+                      onChange={(e) => setAuthFullName(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="input-label">
+                      {lang === 'ar' ? 'رقم الهاتف' : 'Phone Number'}
+                    </label>
+                    <input
+                      type="tel"
+                      className="input-field"
+                      placeholder="e.g. +961 70 123 456"
+                      value={authPhone}
+                      onChange={(e) => setAuthPhone(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="input-label">
+                      {lang === 'ar' ? 'البريد الإلكتروني' : 'Email Address'}
+                    </label>
+                    <input
+                      type="email"
+                      className="input-field"
+                      placeholder="name@example.com"
+                      value={authEmail}
+                      onChange={(e) => setAuthEmail(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="input-label">
+                      {lang === 'ar' ? 'كلمة المرور' : 'Password'}
+                    </label>
+                    <input
+                      type="password"
+                      className="input-field"
+                      placeholder="••••••••"
+                      value={authPassword}
+                      onChange={(e) => setAuthPassword(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleInlineRegister(e); }}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleInlineRegister}
+                    disabled={authLoading}
+                    className="input-field"
+                    style={{
+                      backgroundColor: 'var(--accent-blue)',
+                      color: 'white',
+                      border: 'none',
+                      fontWeight: '700',
+                      cursor: authLoading ? 'not-allowed' : 'pointer',
+                      padding: '10px 0',
+                      marginTop: '4px'
+                    }}
+                  >
+                    {authLoading ? '...' : (lang === 'ar' ? 'إنشاء الحساب ومتابعة الطلب' : 'Create Account & Continue')}
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Logged in User Badge */}
+              <div style={{
+                backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                border: '1px solid rgba(16, 185, 129, 0.25)',
+                borderRadius: '10px',
+                padding: '10px 14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
+              }}>
+                <ShieldCheck size={24} color="#10b981" style={{ flexShrink: 0 }} />
+                <div style={{ fontSize: '0.82rem', lineHeight: '1.4' }}>
+                  <span style={{ fontWeight: '700', color: '#10b981', display: 'block' }}>
+                    {lang === 'ar' ? `مرحباً بك، ${user.full_name || user.username}` : `Welcome, ${user.full_name || user.username}`}
+                  </span>
+                  <p style={{ margin: '2px 0 0', color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
+                    {lang === 'ar'
+                      ? 'سيتم ربط هذه الطلبية بحسابك لتتمكن من مراجعتها لاحقاً في «طلباتي السابقة».'
+                      : 'This order will be linked to your account for tracking in "Order History".'}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <label className="input-label">{t('phone')}</label>
+                <input
+                  type="tel"
+                  required
+                  className="input-field"
+                  placeholder="e.g. +961 70 123 456"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="input-label">{t('address')}</label>
+                <textarea
+                  required
+                  rows={3}
+                  className="input-field"
+                  placeholder={lang === 'ar' ? 'المحافظة، المدينة، الشارع، البناية، الطابق...' : 'Governorate, City, Street, Building, Floor...'}
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  style={{ resize: 'none' }}
+                />
+              </div>
+
+              <div>
+                <label className="input-label">{t('payment_method')}</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', cursor: 'pointer' }}>
                     <input
                       type="radio"
                       name="payment"
-                      value="Online"
-                      checked={paymentMethod === 'Online'}
-                      onChange={() => setPaymentMethod('Online')}
+                      value="COD"
+                      checked={paymentMethod === 'COD'}
+                      onChange={() => setPaymentMethod('COD')}
                     />
-                    <span>{t('online')}</span>
+                    <span>{t('cod')}</span>
                   </label>
-                )}
+                  {settings?.online_payment_enabled === 1 && (
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', cursor: 'pointer' }}>
+                      <input
+                        type="radio"
+                        name="payment"
+                        value="Online"
+                        checked={paymentMethod === 'Online'}
+                        onChange={() => setPaymentMethod('Online')}
+                      />
+                      <span>{t('online')}</span>
+                    </label>
+                  )}
+                </div>
               </div>
-            </div>
 
-            {/* Online payment card input mockup */}
-            {paymentMethod === 'Online' && (
-              <div className="animate-fade" style={{ display: 'flex', flexDirection: 'column', gap: '10px', backgroundColor: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                <div>
-                  <input
-                    type="text"
-                    className="input-field"
-                    placeholder="Card Number"
-                    value={cardNumber}
-                    onChange={(e) => setCardNumber(e.target.value)}
-                  />
+              {/* Online payment card input mockup */}
+              {paymentMethod === 'Online' && (
+                <div className="animate-fade" style={{ display: 'flex', flexDirection: 'column', gap: '10px', backgroundColor: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <div>
+                    <input
+                      type="text"
+                      className="input-field"
+                      placeholder="Card Number"
+                      value={cardNumber}
+                      onChange={(e) => setCardNumber(e.target.value)}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <input
+                      type="text"
+                      className="input-field"
+                      placeholder="MM/YY"
+                      value={cardExpiry}
+                      onChange={(e) => setCardExpiry(e.target.value)}
+                    />
+                    <input
+                      type="text"
+                      className="input-field"
+                      placeholder="CVC"
+                      value={cardCvc}
+                      onChange={(e) => setCardCvc(e.target.value)}
+                    />
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <input
-                    type="text"
-                    className="input-field"
-                    placeholder="MM/YY"
-                    value={cardExpiry}
-                    onChange={(e) => setCardExpiry(e.target.value)}
-                  />
-                  <input
-                    type="text"
-                    className="input-field"
-                    placeholder="CVC"
-                    value={cardCvc}
-                    onChange={(e) => setCardCvc(e.target.value)}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
           {/* Checkout Summary Side */}
           <div style={{
@@ -449,21 +769,30 @@ export default function Checkout({ onClose }) {
             </div>
 
             <button
-              type="submit"
-              disabled={loading}
+              type={user ? "submit" : "button"}
+              onClick={!user ? () => {
+                const input = document.getElementById('inline-auth-identifier');
+                if (input) input.focus();
+                setAuthError(lang === 'ar' ? 'الرجاء تسجيل الدخول أو إنشاء حساب أولاً لمتابعة الطلبية' : 'Please sign in or create an account first');
+              } : undefined}
+              disabled={loading || authLoading}
               className="input-field"
               style={{
-                backgroundColor: 'var(--accent-red-gold)',
+                backgroundColor: user ? 'var(--accent-red-gold)' : 'var(--accent-blue)',
                 color: 'white',
                 border: 'none',
                 fontWeight: '700',
-                cursor: loading ? 'not-allowed' : 'pointer',
+                cursor: (loading || authLoading) ? 'not-allowed' : 'pointer',
                 textAlign: 'center',
-                padding: '10px 0',
+                padding: '12px 0',
                 marginTop: '10px'
               }}
             >
-              {loading ? '...' : t('place_order')}
+              {loading ? '...' : (
+                !user
+                  ? (lang === 'ar' ? 'سجّل الدخول أولاً لتأكيد الطلبية' : 'Sign in first to place order')
+                  : t('place_order')
+              )}
             </button>
           </div>
         </form>

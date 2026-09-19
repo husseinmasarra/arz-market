@@ -39,14 +39,7 @@ router.delete('/products/:id', authenticateToken, requirePermission('products'),
 router.post('/products/:id/rate', productController.rateProduct);
 
 // --- Order Routes ---
-router.post('/orders', (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  if (authHeader) {
-    authenticateToken(req, res, next);
-  } else {
-    next();
-  }
-}, orderController.createOrder);
+router.post('/orders', authenticateToken, orderController.createOrder);
 
 router.get('/orders', authenticateToken, requirePermission('orders'), orderController.getOrders);
 router.get('/orders/history', authenticateToken, orderController.getUserOrders);
