@@ -30,7 +30,7 @@ export default function AdminDashboard({ setCurrentView }) {
   });
   const [openInNewTab, setOpenInNewTab] = useState(() => {
     const saved = localStorage.getItem('admin_open_new_tab');
-    return saved !== null ? JSON.parse(saved) : true;
+    return saved !== null ? JSON.parse(saved) : false;
   });
   const [filterProductsOutOfStock, setFilterProductsOutOfStock] = useState(() => {
     const params = new URLSearchParams(window.location.search);
