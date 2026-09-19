@@ -34,7 +34,7 @@ export default function Checkout({ onClose }) {
     e.preventDefault();
     setAuthError('');
     if (!authIdentifier.trim() || !authPassword) {
-      setAuthError(lang === 'ar' ? 'الرجاء إدخال البريد الإلكتروني أو رقم الهاتف وكلمة المرور' : 'Please enter email/phone and password');
+      setAuthError(lang === 'ar' ? 'الرجاء إدخال الاسم الكامل أو رقم الهاتف وكلمة المرور' : 'Please enter full name or phone and password');
       return;
     }
     setAuthLoading(true);
@@ -376,8 +376,8 @@ export default function Checkout({ onClose }) {
                   </strong>
                   <span style={{ color: 'var(--text-secondary)' }}>
                     {lang === 'ar'
-                      ? 'يرجى تسجيل الدخول بالبريد الإلكتروني أو رقم الهاتف لربط طلبيتك بحسابك وتتبعها في «طلباتي السابقة».'
-                      : 'Please sign in with your email or phone to link your order and track it under "Order History".'}
+                      ? 'يرجى تسجيل الدخول بالاسم الكامل أو رقم الهاتف لربط طلبيتك بحسابك وتتبعها في «طلباتي السابقة».'
+                      : 'Please sign in with your full name or phone to link your order and track it under "Order History".'}
                   </span>
                 </div>
               </div>
@@ -457,13 +457,13 @@ export default function Checkout({ onClose }) {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div>
                     <label className="input-label">
-                      {lang === 'ar' ? 'البريد الإلكتروني أو رقم الهاتف' : 'Email or Phone Number'}
+                      {lang === 'ar' ? 'الاسم الكامل أو رقم الهاتف' : 'Full Name or Phone Number'}
                     </label>
                     <input
                       id="inline-auth-identifier"
                       type="text"
                       className="input-field"
-                      placeholder={lang === 'ar' ? 'مثال: 70123456 أو user@example.com' : 'e.g. 70123456 or user@example.com'}
+                      placeholder={lang === 'ar' ? 'أدخل اسمك الكامل أو رقم الهاتف' : 'Enter full name or phone number'}
                       value={authIdentifier}
                       onChange={(e) => setAuthIdentifier(e.target.value)}
                     />

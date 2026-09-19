@@ -640,13 +640,18 @@ export default function App() {
 
             <form onSubmit={currentView === 'login' ? handleLoginSubmit : handleRegisterSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
-                <label className="input-label">{t('username')}</label>
+                <label className="input-label">
+                  {currentView === 'login' ? (lang === 'ar' ? 'الاسم الكامل' : 'Full Name') : t('username')}
+                </label>
                 <div style={{ position: 'relative' }}>
                   <input
                     type="text"
                     required
-                    autocomplete="off" // No usernames hints
+                    autoComplete="off" // No usernames hints
                     className="input-field"
+                    placeholder={currentView === 'login' 
+                      ? (lang === 'ar' ? 'أدخل اسمك الكامل أو رقم الهاتف' : 'Enter your full name or phone') 
+                      : (lang === 'ar' ? 'اسم المستخدم' : 'Username')}
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     style={{ paddingStart: '36px' }}

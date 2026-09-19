@@ -82,32 +82,44 @@ exports.login = async (req, res) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
-    return res.status(400).json({ error_ar: 'الرجاء إدخال البريد الإلكتروني أو رقم الهاتف وكلمة المرور', error_en: 'Please enter email/phone and password' });
+    return res.status(400).json({ 
+      error_ar: 'الرجاء إدخال الاسم الكامل أو رقم الهاتف أو البريد وكلمة المرور', 
+      error_en: 'Please enter your full name, phone or email and password' 
+    });
   }
 
   const identifier = username.trim();
   const cleanDigits = identifier.replace(/[^0-9]/g, '');
 
   try {
-    let user = await db.getAsync(`
+    let users = await db.allAsync(`
       SELECT * FROM users 
       WHERE LOWER(username) = LOWER(?) 
+         OR LOWER(full_name) = LOWER(?)
          OR LOWER(email) = LOWER(?) 
          OR phone = ?
-    `, [identifier, identifier, identifier]);
+    `, [identifier, identifier, identifier, identifier]);
 
-    if (!user && cleanDigits.length >= 7) {
-      user = await db.getAsync('SELECT * FROM users WHERE phone LIKE ?', [`%${cleanDigits.slice(-7)}`]);
+    if ((!users || users.length === 0) && cleanDigits.length >= 7) {
+      users = await db.allAsync('SELECT * FROM users WHERE phone LIKE ?', [`%${cleanDigits.slice(-7)}`]);
     }
 
-    if (!user) {
-      return res.status(400).json({ error_ar: 'البريد الإلكتروني / رقم الهاتف أو كلمة المرور غير صحيحة', error_en: 'Invalid credentials or password' });
+    if (!users || users.length === 0) {
+      return res.status(400).json({ 
+        error_ar: 'الاسم الكامل أو رقم الهاتف/البريد أو كلمة المرور غير صحيحة', 
+        error_en: 'Invalid credentials or password' 
+      });
     }
 
-    const isMatch = bcrypt.compareSync(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ error_ar: 'البريد الإلكتروني / رقم الهاتف أو كلمة المرور غير صحيحة', error_en: 'Invalid credentials or password' });
+    const matchedUser = users.find(u => bcrypt.compareSync(password, u.password));
+    if (!matchedUser) {
+      return res.status(400).json({ 
+        error_ar: 'الاسم الكامل أو رقم الهاتف/البريد أو كلمة المرور غير صحيحة', 
+        error_en: 'Invalid credentials or password' 
+      });
     }
+
+    const user = matchedUser;
 
     // Generate token
     const token = jwt.sign(
@@ -117,12 +129,15 @@ exports.login = async (req, res) => {
     );
 
     res.json({
-      message_ar: `مرحباً بك مجدداً، ${user.username}!`,
-      message_en: `Welcome back, ${user.username}!`,
+      message_ar: `مرحباً بك مجدداً، ${user.full_name || user.username}!`,
+      message_en: `Welcome back, ${user.full_name || user.username}!`,
       token,
       user: {
         id: user.id,
         username: user.username,
+        full_name: user.full_name,
+        phone: user.phone,
+        email: user.email,
         role: user.role,
         permissions: JSON.parse(user.permissions || '[]')
       }
@@ -135,7 +150,7 @@ exports.login = async (req, res) => {
 
 exports.getProfile = async (req, res) => {
   try {
-    const user = await db.getAsync('SELECT id, username, role, permissions, discount_used, created_at FROM users WHERE id = ?', [req.user.id]);
+    const user = await db.getAsync('SELECT id, username, full_name, phone, email, role, permissions, discount_used, created_at FROM users WHERE id = ?', [req.user.id]);
     if (!user) {
       return res.status(404).json({ error_ar: 'المستخدم غير موجود', error_en: 'User not found' });
     }
