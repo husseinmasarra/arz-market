@@ -100,9 +100,11 @@ function downloadImageLocally(remoteUrl, filename, targetBaseUrl = BASE_URL) {
       return resolve(true);
     }
     const file = fs.createWriteStream(dest);
-    https.get(remoteUrl, {
+    const fullUrl = remoteUrl.startsWith('http') ? remoteUrl : `${targetBaseUrl}${remoteUrl.startsWith('/') ? '' : '/'}${remoteUrl}`;
+    
+    https.get(fullUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
         'Referer': targetBaseUrl + '/'
       }
     }, res => {
@@ -193,45 +195,94 @@ function fetchDrPhoneCatalog(passcode = 'Drphone123', targetBaseUrl = BASE_URL) 
 // Fetch catalog from a Shopify store via open JSON feed
 function fetchShopifyCatalog(targetBaseUrl) {
   const cleanBase = cleanUrl(targetBaseUrl);
+  let storeOrigin = cleanBase;
+  try {
+    storeOrigin = new URL(cleanBase).origin;
+  } catch (e) {}
+
   return new Promise((resolve, reject) => {
-    https.get(cleanBase + '/products.json?limit=250', {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-        'Accept': 'application/json'
+    const endpoints = [
+      `${storeOrigin}/products.json?limit=250`,
+      `${cleanBase}/products.json?limit=250`
+    ];
+
+    function tryEndpoint(idx) {
+      if (idx >= endpoints.length) {
+        return reject(new Error('Failed to fetch Shopify catalog: no valid endpoint found'));
       }
-    }, res => {
-      let data = '';
-      res.on('data', c => data += c);
-      res.on('end', () => {
-        try {
-          const json = JSON.parse(data);
-          const shopifyProducts = json.products || [];
-          const catMap = {};
-          for (const p of shopifyProducts) {
-            const cat = (p.product_type || 'منتجات منوعة').trim();
-            if (!catMap[cat]) catMap[cat] = [];
-            catMap[cat].push({
-              name: p.title,
-              name_ar: p.title,
-              description: (p.body_html || '').replace(/<[^>]+>/g, '').trim(),
-              description_ar: (p.body_html || '').replace(/<[^>]+>/g, '').trim(),
-              price: p.variants && p.variants[0] ? Number(p.variants[0].price) : 10,
-              image: p.images && p.images[0] ? p.images[0].src : '',
-              stock: p.variants && p.variants[0] ? (p.variants[0].inventory_quantity || 30) : 30,
-              options: (p.variants || []).map(v => ({ name: v.title, price: Number(v.price) }))
-            });
-          }
-          const catalog = Object.keys(catMap).map(catName => ({
-            name: catName,
-            name_ar: catName,
-            items: catMap[catName]
-          }));
-          resolve({ catalog });
-        } catch (e) {
-          reject(new Error('Failed to parse Shopify catalog: ' + e.message));
+      const ep = endpoints[idx];
+      https.get(ep, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+          'Accept': 'application/json'
         }
-      });
-    }).on('error', reject);
+      }, res => {
+        if (res.statusCode !== 200) {
+          return tryEndpoint(idx + 1);
+        }
+        let data = '';
+        res.on('data', c => data += c);
+        res.on('end', () => {
+          try {
+            const json = JSON.parse(data);
+            const shopifyProducts = json.products || [];
+            if (shopifyProducts.length === 0 && idx < endpoints.length - 1) {
+              return tryEndpoint(idx + 1);
+            }
+
+            const catMap = {};
+            for (const p of shopifyProducts) {
+              let cat = (p.product_type || '').trim();
+              if (!cat && p.tags && p.tags.length > 0) {
+                cat = String(p.tags[0]).trim();
+              }
+              if (!cat) {
+                const titleLower = p.title.toLowerCase();
+                if (titleLower.includes('cable') || titleLower.includes('wire') || titleLower.includes('plug')) {
+                  cat = 'كابلات وتوصيلات (Cables & Plugs)';
+                } else if (titleLower.includes('module') || titleLower.includes('converter') || titleLower.includes('sensor')) {
+                  cat = 'وحدات ومحولات إلكترونية (Modules & Converters)';
+                } else if (titleLower.includes('battery') || titleLower.includes('power') || titleLower.includes('charger')) {
+                  cat = 'بطاريات وشواحن (Batteries & Power)';
+                } else {
+                  cat = 'قطع وإلكترونيات منوعة (Electronics & Accessories)';
+                }
+              }
+
+              if (!catMap[cat]) catMap[cat] = [];
+              const price = p.variants && p.variants[0] ? Number(p.variants[0].price) : 5;
+              const img = p.images && p.images[0] ? p.images[0].src : (p.image ? p.image.src : '');
+              const stock = p.variants && p.variants[0] && p.variants[0].inventory_quantity !== null
+                ? Math.max(5, p.variants[0].inventory_quantity)
+                : 30;
+
+              catMap[cat].push({
+                name: p.title,
+                name_ar: p.title,
+                description: (p.body_html || p.title).replace(/<[^>]+>/g, '').trim(),
+                description_ar: (p.body_html || p.title).replace(/<[^>]+>/g, '').trim(),
+                price: price,
+                image: img,
+                stock: stock,
+                options: (p.variants || []).map(v => ({ name: v.title, price: Number(v.price) }))
+              });
+            }
+
+            const catalog = Object.keys(catMap).map(catName => ({
+              name: catName,
+              name_ar: catName,
+              items: catMap[catName]
+            }));
+
+            resolve({ catalog, totalItems: shopifyProducts.length });
+          } catch (e) {
+            tryEndpoint(idx + 1);
+          }
+        });
+      }).on('error', () => tryEndpoint(idx + 1));
+    }
+
+    tryEndpoint(0);
   });
 }
 
@@ -247,19 +298,25 @@ async function syncDrPhoneToArzMart(options = {}) {
 
   // Step 1: Fetch raw catalog based on source type
   let catalogData;
-  const syncType = options.syncType || (targetUrl.includes('myshopify.com') ? 'shopify_json' : 'drphone_catalog');
-  if (syncType === 'shopify_json' || targetUrl.includes('/products.json')) {
-    catalogData = await fetchShopifyCatalog(targetUrl);
+  const isShopifyCandidate = options.syncType === 'shopify_json' || 
+                             options.syncType === 'open_json' || 
+                             targetUrl.includes('myshopify.com') || 
+                             targetUrl.toLowerCase().includes('collection') ||
+                             targetUrl.includes('products.json');
+
+  if (isShopifyCandidate) {
+    try {
+      catalogData = await fetchShopifyCatalog(targetUrl);
+    } catch (shopifyErr) {
+      console.log('[Sync Service] Shopify fetch error, falling back to wholesale:', shopifyErr.message);
+      catalogData = await fetchDrPhoneCatalog(passcode, targetUrl);
+    }
   } else {
     try {
       catalogData = await fetchDrPhoneCatalog(passcode, targetUrl);
-    } catch (err) {
-      // Fallback: try shopify feed if wholesale failed
-      try {
-        catalogData = await fetchShopifyCatalog(targetUrl);
-      } catch (e2) {
-        throw err;
-      }
+    } catch (wholesaleErr) {
+      console.log('[Sync Service] Wholesale fetch error, falling back to Shopify/JSON:', wholesaleErr.message);
+      catalogData = await fetchShopifyCatalog(targetUrl);
     }
   }
   const rawCategories = (catalogData && catalogData.catalog) || [];
@@ -329,18 +386,21 @@ async function syncDrPhoneToArzMart(options = {}) {
                                 cat.name.toLowerCase().includes('screen') || 
                                 cat.name.toLowerCase().includes('protector');
 
-      let wholesalePrice = Number(p.price) || 0;
+      let wholesalePrice = (!isNaN(p.price) && p.price !== null) ? Number(p.price) : 0;
+      if (isNaN(wholesalePrice) || wholesalePrice < 0) wholesalePrice = 0;
       if (wholesalePrice <= 0 && p.options && p.options.length > 0) {
-        wholesalePrice = Number(p.options[0].price) || 0;
+        const optPrice = Number(p.options[0].price);
+        wholesalePrice = (!isNaN(optPrice) && optPrice > 0) ? optPrice : 0;
       }
       let retailPrice = isScreenProtector ? 2.50 : applyMarkup(wholesalePrice, markupPercent);
-      if (retailPrice <= 0) retailPrice = 2.50;
+      if (isNaN(retailPrice) || retailPrice <= 0) retailPrice = 2.50;
       const oldPrice = retailPrice > 0 ? Math.round(retailPrice * 1.15 * 100) / 100 : null;
 
       // Local image filename
       let imageFilename = '';
       if (p.image) {
-        imageFilename = p.image.split('/').pop();
+        const cleanImg = p.image.split('?')[0];
+        imageFilename = cleanImg.split('/').pop();
       }
       const localImageUrl = imageFilename ? `/uploads/products/${imageFilename}` : '';
 
@@ -353,7 +413,10 @@ async function syncDrPhoneToArzMart(options = {}) {
       const nameAr = p.name_ar ? p.name_ar.trim() : nameEn;
       const descEn = p.description || `${nameEn} - Authentic high quality product with warranty.`;
       const descAr = p.description_ar || `${nameEn} - منتج أصلي عالي الجودة مع ضمان.`;
-      const stock = typeof p.stock === 'number' ? p.stock : 50;
+      let stock = 50;
+      if (p.stock !== undefined && p.stock !== null && !isNaN(p.stock)) {
+        stock = Math.max(0, parseInt(p.stock) || 0);
+      }
 
       // Map options / variants / sizes
       const sizesJson = JSON.stringify((p.options || []).map(o => {
