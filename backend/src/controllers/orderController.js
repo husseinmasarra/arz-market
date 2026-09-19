@@ -153,6 +153,11 @@ exports.createOrder = async (req, res) => {
       await db.runAsync('UPDATE users SET discount_used = 1 WHERE id = ?', [userId]);
     }
 
+    // Clear saved cart in DB upon successful order creation
+    if (userId) {
+      await db.runAsync('DELETE FROM user_carts WHERE user_id = ?', [userId]).catch(() => {});
+    }
+
     res.status(201).json({
       message_ar: 'تم تسجيل طلبيتك بنجاح!',
       message_en: 'Your order was successfully registered!',

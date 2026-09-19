@@ -29,7 +29,7 @@ export function getOptionPrice(optionItem, basePrice) {
 }
 
 export const CartProvider = ({ children }) => {
-  const { settings } = useApp();
+  const { settings, apiBase } = useApp();
   const { user } = useAuth();
   
   const cartKey = user ? `cart_${user.username}` : 'cart_guest';
@@ -39,9 +39,46 @@ export const CartProvider = ({ children }) => {
 
   useEffect(() => {
     const localData = localStorage.getItem(cartKey);
-    setCartItems(localData ? JSON.parse(localData) : []);
-    setLoadedKey(cartKey);
-  }, [cartKey]);
+    if (localData) {
+      try {
+        setCartItems(JSON.parse(localData));
+      } catch (e) {
+        setCartItems([]);
+      }
+      setLoadedKey(cartKey);
+    } else {
+      setCartItems([]);
+      setLoadedKey(cartKey);
+
+      // If logged-in user has no local cart, check backend for saved cart
+      const token = localStorage.getItem('token');
+      if (user && token && apiBase) {
+        fetch(`${apiBase}/cart/my-cart`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data && Array.isArray(data.items) && data.items.length > 0) {
+              const restoredItems = data.items.map(it => ({
+                product: {
+                  id: it.product_id,
+                  name_ar: it.name_ar,
+                  name_en: it.name_en,
+                  image: it.image,
+                  price_usd: it.price_usd,
+                  stock: 999
+                },
+                quantity: Number(it.quantity) || 1,
+                selectedColor: it.selectedColor,
+                selectedSize: it.selectedSize
+              }));
+              setCartItems(restoredItems);
+            }
+          })
+          .catch(() => {});
+      }
+    }
+  }, [cartKey, user, apiBase]);
 
   useEffect(() => {
     if (loadedKey === cartKey) {
@@ -102,15 +139,63 @@ export const CartProvider = ({ children }) => {
     );
   };
 
-  const clearCart = () => {
-    setCartItems([]);
-  };
-
   // Subtotal in USD
   const subtotal = cartItems.reduce((sum, item) => {
     const itemPrice = getOptionPrice(item.selectedSize, item.product.price_usd);
     return sum + itemPrice * item.quantity;
   }, 0);
+
+  // Auto-sync cart to server if user is logged in
+  useEffect(() => {
+    if (!user || loadedKey !== cartKey || !apiBase) return;
+
+    const timer = setTimeout(() => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const itemsToSync = cartItems.map(item => ({
+        product_id: item.product.id,
+        name_ar: item.product.name_ar,
+        name_en: item.product.name_en,
+        image: item.product.image,
+        price_usd: getOptionPrice(item.selectedSize, item.product.price_usd),
+        quantity: item.quantity,
+        selectedColor: item.selectedColor,
+        selectedSize: item.selectedSize
+      }));
+
+      fetch(`${apiBase}/cart/sync`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          items: itemsToSync,
+          total_usd: subtotal
+        })
+      }).catch(() => {});
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [cartItems, user, loadedKey, cartKey, subtotal, apiBase]);
+
+  const clearCart = () => {
+    setCartItems([]);
+    if (user && apiBase) {
+      const token = localStorage.getItem('token');
+      if (token) {
+        fetch(`${apiBase}/cart/sync`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ items: [], total_usd: 0 })
+        }).catch(() => {});
+      }
+    }
+  };
 
   // Delivery calculations
   const freeThreshold = settings ? settings.free_delivery_threshold : 50;

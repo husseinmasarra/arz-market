@@ -393,6 +393,19 @@ async function initializeDatabasePostgres() {
       )
     `);
 
+    // 11. User Carts Table (Active / Abandoned Carts)
+    await pgPool.query(`
+      CREATE TABLE IF NOT EXISTS user_carts (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER UNIQUE NOT NULL,
+        items TEXT NOT NULL,
+        total_usd DOUBLE PRECISION DEFAULT 0,
+        items_count INTEGER DEFAULT 0,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+      )
+    `);
+
     console.log('[Database] PostgreSQL tables created successfully. Checking seeding...');
 
     // Seed settings
@@ -848,6 +861,19 @@ function initializeDatabase() {
         visitor_id TEXT NOT NULL,
         url TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 11. User Carts Table (Active / Abandoned Carts)
+    runInit(`
+      CREATE TABLE IF NOT EXISTS user_carts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER UNIQUE NOT NULL,
+        items TEXT NOT NULL,
+        total_usd REAL DEFAULT 0,
+        items_count INTEGER DEFAULT 0,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
       )
     `);
 

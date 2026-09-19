@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { useChat } from '../../context/ChatContext';
 import { 
-  Package, Folder, ShoppingBag, Users, BarChart3, Settings, Tag, ShieldAlert,
+  Package, Folder, ShoppingBag, ShoppingCart, Users, BarChart3, Settings, Tag, ShieldAlert,
   DollarSign, TrendingUp, AlertTriangle, ArrowRight, MessageSquare, Send, Store,
   ExternalLink
 } from 'lucide-react';
@@ -12,6 +12,7 @@ import {
 import AdminProducts from './AdminProducts';
 import AdminCategories from './AdminCategories';
 import AdminOrders from './AdminOrders';
+import AdminCarts from './AdminCarts';
 import AdminUsers from './AdminUsers';
 import AdminReports from './AdminReports';
 import AdminSettings from './AdminSettings';
@@ -87,6 +88,7 @@ export default function AdminDashboard({ setCurrentView }) {
     { id: 'products', name: t('products'), icon: Package, perm: 'products' },
     { id: 'categories', name: t('categories'), icon: Folder, perm: 'categories' },
     { id: 'orders', name: t('orders'), icon: ShoppingBag, perm: 'orders' },
+    { id: 'carts', name: lang === 'ar' ? 'سلات الزبائن النشطة' : 'Customer Carts', icon: ShoppingCart, perm: 'orders' },
     { id: 'chats', name: lang === 'ar' ? 'محادثات العملاء' : 'Customer Chats', icon: MessageSquare, perm: 'orders' },
     { id: 'merchants', name: lang === 'ar' ? 'إدارة الموردين والتجار' : 'Merchants & Suppliers', icon: Store, perm: 'merchants' },
     { id: 'users', name: t('users'), icon: Users, perm: 'users' },
@@ -512,6 +514,7 @@ export default function AdminDashboard({ setCurrentView }) {
           )}
           {activeTab === 'categories' && hasPermission('categories') && <AdminCategories />}
           {activeTab === 'orders' && hasPermission('orders') && <AdminOrders />}
+          {activeTab === 'carts' && hasPermission('orders') && <AdminCarts />}
           {activeTab === 'merchants' && hasPermission('merchants') && <AdminMerchants />}
           {activeTab === 'users' && hasPermission('users') && <AdminUsers />}
           {activeTab === 'coupons' && hasPermission('coupons') && <AdminCoupons />}

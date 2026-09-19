@@ -12,6 +12,7 @@ const couponController = require('../controllers/couponController');
 const settingsController = require('../controllers/settingsController');
 const chatController = require('../controllers/chatController');
 const merchantController = require('../controllers/merchantController');
+const cartController = require('../controllers/cartController');
 
 // --- Auth Routes ---
 router.post('/auth/register', authController.register);
@@ -57,6 +58,11 @@ router.delete('/orders/:id', authenticateToken, requireAdmin, orderController.de
 router.get('/coupons', authenticateToken, couponController.getCoupons);
 router.post('/coupons', authenticateToken, requirePermission('coupons'), couponController.createCoupon);
 router.delete('/coupons/:id', authenticateToken, requirePermission('coupons'), couponController.deleteCoupon);
+
+// --- Cart Sync & Admin Routes ---
+router.post('/cart/sync', authenticateToken, cartController.syncCart);
+router.get('/cart/my-cart', authenticateToken, cartController.getMyCart);
+router.get('/admin/carts', authenticateToken, requireAdmin, cartController.getAdminCarts);
 
 // --- Settings Routes ---
 router.get('/settings', settingsController.getSettings);
