@@ -9,6 +9,7 @@ let pgPool = null;
 let sqliteDb = null;
 
 const db = {};
+db.isPostgres = isPostgres;
 
 // Helper to convert SQLite SQL placeholders (?) to PostgreSQL ($1, $2...)
 function convertSql(sql) {
@@ -240,6 +241,8 @@ async function initializeDatabasePostgres() {
       await pgPool.query("ALTER TABLE settings ADD COLUMN IF NOT EXISTS supplier_markup_percent DOUBLE PRECISION DEFAULT 45");
       await pgPool.query("ALTER TABLE settings ADD COLUMN IF NOT EXISTS last_sync_time TEXT DEFAULT ''");
       await pgPool.query("ALTER TABLE settings ADD COLUMN IF NOT EXISTS last_sync_status TEXT DEFAULT ''");
+      await pgPool.query("ALTER TABLE settings ADD COLUMN IF NOT EXISTS visitor_baseline_count INTEGER DEFAULT 0");
+      await pgPool.query("ALTER TABLE settings ADD COLUMN IF NOT EXISTS show_visitor_counter INTEGER DEFAULT 1");
     } catch (e) {}
 
     // 2. Users Table
@@ -690,6 +693,8 @@ function initializeDatabase() {
       db.run("ALTER TABLE settings ADD COLUMN supplier_markup_percent REAL DEFAULT 45", [], () => {});
       db.run("ALTER TABLE settings ADD COLUMN last_sync_time TEXT DEFAULT ''", [], () => {});
       db.run("ALTER TABLE settings ADD COLUMN last_sync_status TEXT DEFAULT ''", [], () => {});
+      db.run("ALTER TABLE settings ADD COLUMN visitor_baseline_count INTEGER DEFAULT 0", [], () => {});
+      db.run("ALTER TABLE settings ADD COLUMN show_visitor_counter INTEGER DEFAULT 1", [], () => {});
     });
 
     // 2. Users Table

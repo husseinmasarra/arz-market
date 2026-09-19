@@ -1224,6 +1224,35 @@ export default function App() {
               </a>
             </div>
           )}
+
+          {/* Public Store Visitor Counter Badge */}
+          {settings?.show_visitor_counter !== 0 && (
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '5px 14px',
+              borderRadius: '20px',
+              backgroundColor: 'var(--bg-tertiary)',
+              border: '1px solid var(--border-color)',
+              fontSize: '0.78rem',
+              color: 'var(--text-secondary)',
+              marginTop: '4px'
+            }}>
+              <span style={{
+                width: '7px',
+                height: '7px',
+                borderRadius: '50%',
+                backgroundColor: '#10b981',
+                display: 'inline-block',
+                boxShadow: '0 0 6px #10b981'
+              }} />
+              <span>{lang === 'ar' ? 'زوار المتجر:' : 'Store Visitors:'}</span>
+              <strong style={{ color: 'var(--accent-blue)', fontWeight: '800' }}>
+                {Number(settings?.visitor_count || settings?.unique_visitors || 0).toLocaleString()}
+              </strong>
+            </div>
+          )}
           <div>
             <button
               onClick={() => {

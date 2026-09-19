@@ -130,23 +130,45 @@ export default function AdminReports() {
         
         {/* Unique Visitors */}
         <div className="dashboard-card" style={{ borderLeft: '4px solid #8b5cf6', padding: '20px' }}>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontWeight: '600' }}>الزوار الفريدون (Unique Visitors)</span>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontWeight: '600' }}>إجمالي الزوار الفريدين (Total Visitors)</span>
           <h3 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '4px 0', color: '#8b5cf6' }}>
             {summary.unique_visitors || 0}
           </h3>
+          <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: '600' }}>
+            ✓ إجمالي تراكمي دائم (لا يتصفر أبداً)
+          </span>
+        </div>
+
+        {/* New Visitors Today */}
+        <div className="dashboard-card" style={{ borderLeft: '4px solid #06b6d4', padding: '20px' }}>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontWeight: '600' }}>الزوار الجدد اليوم (New Visitors Today)</span>
+          <h3 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '4px 0', color: '#06b6d4' }}>
+            {summary.new_visitors_today || 0}
+          </h3>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
-            عدد المستخدمين الفريدين الذين فتحوا المتجر
+            زوار جدد تصفحوا المتجر اليوم
+          </span>
+        </div>
+
+        {/* Page Views Today */}
+        <div className="dashboard-card" style={{ borderLeft: '4px solid #3b82f6', padding: '20px' }}>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontWeight: '600' }}>مشاهدات الصفحات اليوم (Views Today)</span>
+          <h3 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '4px 0', color: '#3b82f6' }}>
+            {summary.views_today || 0}
+          </h3>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
+            نقرات وتصفح الصفحات لليوم الحالي
           </span>
         </div>
 
         {/* Total Page Views */}
         <div className="dashboard-card" style={{ borderLeft: '4px solid var(--accent-red-gold)', padding: '20px' }}>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontWeight: '600' }}>إجمالي مشاهدات الصفحات (Page Views)</span>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontWeight: '600' }}>إجمالي مشاهدات الصفحات (All-Time Views)</span>
           <h3 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '4px 0', color: 'var(--accent-red-gold)' }}>
             {summary.total_views || 0}
           </h3>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
-            إجمالي النقرات وتصفح الأقسام على الموقع والتطبيق
+            إجمالي النقرات وتصفح الأقسام التراكمي
           </span>
         </div>
 

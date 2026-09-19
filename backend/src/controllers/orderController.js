@@ -371,20 +371,45 @@ exports.getReports = async (req, res) => {
 
     let totalViews = 0;
     let uniqueVisitors = 0;
+    let newVisitorsToday = 0;
+    let viewsToday = 0;
+
     try {
-      const viewsStats = await db.getAsync(`
-        SELECT 
-          COUNT(id) as total_views,
-          COUNT(DISTINCT visitor_id) as unique_visitors
-        FROM page_views
-      `);
+      let viewsStats = null;
+      try {
+        viewsStats = await db.getAsync(`
+          SELECT 
+            COUNT(id) as total_views,
+            COUNT(DISTINCT visitor_id) as unique_visitors,
+            COUNT(DISTINCT CASE WHEN created_at >= CURRENT_DATE THEN visitor_id END) as new_visitors_today,
+            COUNT(CASE WHEN created_at >= CURRENT_DATE THEN 1 END) as views_today
+          FROM page_views
+        `);
+      } catch (e) {
+        viewsStats = await db.getAsync(`
+          SELECT 
+            COUNT(id) as total_views,
+            COUNT(DISTINCT visitor_id) as unique_visitors,
+            COUNT(DISTINCT CASE WHEN date(created_at) = date('now') THEN visitor_id END) as new_visitors_today,
+            COUNT(CASE WHEN date(created_at) = date('now') THEN 1 END) as views_today
+          FROM page_views
+        `);
+      }
+
       if (viewsStats) {
-        totalViews = viewsStats.total_views || 0;
-        uniqueVisitors = viewsStats.unique_visitors || 0;
+        totalViews = parseInt(viewsStats.total_views || 0, 10);
+        uniqueVisitors = parseInt(viewsStats.unique_visitors || 0, 10);
+        newVisitorsToday = parseInt(viewsStats.new_visitors_today || 0, 10);
+        viewsToday = parseInt(viewsStats.views_today || 0, 10);
       }
     } catch (e) {
       console.error('Error fetching page views stats:', e);
     }
+
+    const settingsRow = await db.getAsync('SELECT visitor_baseline_count FROM settings WHERE id = 1').catch(() => null);
+    const baseline = parseInt(settingsRow?.visitor_baseline_count || 0, 10);
+    const cumulativeVisitors = baseline + uniqueVisitors;
+    const cumulativeViews = baseline + totalViews;
 
     res.json({
       summary: {
@@ -396,8 +421,11 @@ exports.getReports = async (req, res) => {
         delivered_orders: stats.delivered_orders || 0,
         estimated_profit_usd: netProfitUsd, // Exact net profit in USD
         estimated_profit_lbp: netProfitLbp,  // Exact net profit in LBP
-        total_views: totalViews,
-        unique_visitors: uniqueVisitors
+        total_views: cumulativeViews,
+        views_today: viewsToday,
+        unique_visitors: cumulativeVisitors,
+        new_visitors_today: newVisitorsToday,
+        visitor_baseline_count: baseline
       },
       dailySales,
       monthlySales,

@@ -7,9 +7,59 @@ exports.getSettings = async (req, res) => {
     if (!settings) {
       return res.status(404).json({ error_ar: 'الإعدادات غير متوفرة', error_en: 'Settings not available' });
     }
+
+    // Live visitor statistics calculation
+    let totalViews = 0;
+    let uniqueVisitors = 0;
+    let newVisitorsToday = 0;
+    let viewsToday = 0;
+
+    try {
+      let viewsStats = null;
+      try {
+        viewsStats = await db.getAsync(`
+          SELECT 
+            COUNT(id) as total_views,
+            COUNT(DISTINCT visitor_id) as unique_visitors,
+            COUNT(DISTINCT CASE WHEN created_at >= CURRENT_DATE THEN visitor_id END) as new_visitors_today,
+            COUNT(CASE WHEN created_at >= CURRENT_DATE THEN 1 END) as views_today
+          FROM page_views
+        `);
+      } catch (e) {
+        viewsStats = await db.getAsync(`
+          SELECT 
+            COUNT(id) as total_views,
+            COUNT(DISTINCT visitor_id) as unique_visitors,
+            COUNT(DISTINCT CASE WHEN date(created_at) = date('now') THEN visitor_id END) as new_visitors_today,
+            COUNT(CASE WHEN date(created_at) = date('now') THEN 1 END) as views_today
+          FROM page_views
+        `);
+      }
+
+      if (viewsStats) {
+        totalViews = parseInt(viewsStats.total_views || 0, 10);
+        uniqueVisitors = parseInt(viewsStats.unique_visitors || 0, 10);
+        newVisitorsToday = parseInt(viewsStats.new_visitors_today || 0, 10);
+        viewsToday = parseInt(viewsStats.views_today || 0, 10);
+      }
+    } catch (e) {
+      console.error('Error calculating visitor stats for settings:', e);
+    }
+
+    const baseline = parseInt(settings.visitor_baseline_count || 0, 10);
+    const cumulativeVisitors = baseline + uniqueVisitors;
+    const cumulativeViews = baseline + totalViews;
+
     res.json({
       ...settings,
-      hero_banners: JSON.parse(settings.hero_banners || '[]')
+      hero_banners: JSON.parse(settings.hero_banners || '[]'),
+      visitor_count: cumulativeVisitors,
+      unique_visitors: cumulativeVisitors,
+      new_visitors_today: newVisitorsToday,
+      total_views: cumulativeViews,
+      views_today: viewsToday,
+      visitor_baseline_count: baseline,
+      show_visitor_counter: settings.show_visitor_counter !== 0 ? 1 : 0
     });
   } catch (err) {
     console.error('Get settings error:', err);
@@ -27,7 +77,9 @@ exports.updateSettings = async (req, res) => {
     contact_email,
     supplier_catalog_url,
     supplier_catalog_passcode,
-    supplier_markup_percent
+    supplier_markup_percent,
+    visitor_baseline_count,
+    show_visitor_counter
   } = req.body;
 
   try {
@@ -48,19 +100,22 @@ exports.updateSettings = async (req, res) => {
     const supplierUrl = supplier_catalog_url !== undefined ? supplier_catalog_url : (settings?.supplier_catalog_url || 'https://drphonewholesale.online');
     const supplierPass = supplier_catalog_passcode !== undefined ? supplier_catalog_passcode : (settings?.supplier_catalog_passcode || 'Drphone123');
     const supplierMarkup = supplier_markup_percent !== undefined ? parseFloat(supplier_markup_percent) : (settings?.supplier_markup_percent || 45);
+    const baselineCount = visitor_baseline_count !== undefined ? parseInt(visitor_baseline_count, 10) : (settings?.visitor_baseline_count || 0);
+    const showCounter = show_visitor_counter !== undefined ? parseInt(show_visitor_counter, 10) : (settings?.show_visitor_counter !== undefined ? settings.show_visitor_counter : 1);
 
     if (settings) {
       await db.runAsync(`
         UPDATE settings 
         SET app_name = ?, logo_url = ?, exchange_rate = ?, free_delivery_threshold = ?, delivery_fee = ?, online_payment_enabled = ?, contact_email = ?,
-            supplier_catalog_url = ?, supplier_catalog_passcode = ?, supplier_markup_percent = ?
+            supplier_catalog_url = ?, supplier_catalog_passcode = ?, supplier_markup_percent = ?,
+            visitor_baseline_count = ?, show_visitor_counter = ?
         WHERE id = ?
-      `, [appName, logoUrl, exRate, freeThreshold, delFee, payEnabled, contactEmail, supplierUrl, supplierPass, supplierMarkup, id]);
+      `, [appName, logoUrl, exRate, freeThreshold, delFee, payEnabled, contactEmail, supplierUrl, supplierPass, supplierMarkup, baselineCount, showCounter, id]);
     } else {
       await db.runAsync(`
-        INSERT INTO settings (app_name, logo_url, exchange_rate, free_delivery_threshold, delivery_fee, online_payment_enabled, contact_email, hero_banners, supplier_catalog_url, supplier_catalog_passcode, supplier_markup_percent)
-        VALUES (?, ?, ?, ?, ?, ?, ?, '[]', ?, ?, ?)
-      `, [appName, logoUrl, exRate, freeThreshold, delFee, payEnabled, contactEmail, supplierUrl, supplierPass, supplierMarkup]);
+        INSERT INTO settings (app_name, logo_url, exchange_rate, free_delivery_threshold, delivery_fee, online_payment_enabled, contact_email, hero_banners, supplier_catalog_url, supplier_catalog_passcode, supplier_markup_percent, visitor_baseline_count, show_visitor_counter)
+        VALUES (?, ?, ?, ?, ?, ?, ?, '[]', ?, ?, ?, ?, ?)
+      `, [appName, logoUrl, exRate, freeThreshold, delFee, payEnabled, contactEmail, supplierUrl, supplierPass, supplierMarkup, baselineCount, showCounter]);
     }
 
     res.json({
@@ -76,7 +131,9 @@ exports.updateSettings = async (req, res) => {
         contact_email: contactEmail,
         supplier_catalog_url: supplierUrl,
         supplier_catalog_passcode: supplierPass,
-        supplier_markup_percent: supplierMarkup
+        supplier_markup_percent: supplierMarkup,
+        visitor_baseline_count: baselineCount,
+        show_visitor_counter: showCounter
       }
     });
   } catch (err) {

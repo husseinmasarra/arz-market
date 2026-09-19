@@ -15,6 +15,8 @@ export default function AdminSettings() {
   const [onlinePayEnabled, setOnlinePayEnabled] = useState(0);
   const [contactEmail, setContactEmail] = useState('');
   const [logoFile, setLogoFile] = useState(null);
+  const [visitorBaselineCount, setVisitorBaselineCount] = useState(0);
+  const [showVisitorCounter, setShowVisitorCounter] = useState(1);
 
   // Supplier Catalog Sync states
   const [supplierUrl, setSupplierUrl] = useState('https://drphonewholesale.online');
@@ -55,6 +57,8 @@ export default function AdminSettings() {
       setSupplierUrl(settings.supplier_catalog_url || 'https://drphonewholesale.online');
       setSupplierPasscode(settings.supplier_catalog_passcode || 'Drphone123');
       setSupplierMarkup(settings.supplier_markup_percent !== undefined ? settings.supplier_markup_percent : 45);
+      setVisitorBaselineCount(settings.visitor_baseline_count || 0);
+      setShowVisitorCounter(settings.show_visitor_counter !== undefined ? settings.show_visitor_counter : 1);
       
       // Ensure all loaded banners have unique IDs for stable editing key
       const bannersWithIds = (settings.hero_banners || []).map((b, idx) => ({
@@ -165,6 +169,8 @@ export default function AdminSettings() {
     formData.append('supplier_catalog_url', supplierUrl.trim());
     formData.append('supplier_catalog_passcode', supplierPasscode.trim());
     formData.append('supplier_markup_percent', supplierMarkup);
+    formData.append('visitor_baseline_count', visitorBaselineCount);
+    formData.append('show_visitor_counter', showVisitorCounter);
     if (logoFile) {
       formData.append('logo', logoFile);
     }
@@ -471,6 +477,26 @@ export default function AdminSettings() {
           <div>
             <label className="input-label">شعار المتجر (Store Logo)</label>
             <input type="file" accept="image/*" onChange={handleLogoChange} className="input-field" style={{ padding: '6px' }} />
+          </div>
+          <div>
+            <label className="input-label">الرقم الابتدائي لعداد الزوار (Baseline Visitors)</label>
+            <input 
+              type="number" 
+              className="input-field" 
+              value={visitorBaselineCount} 
+              onChange={(e) => setVisitorBaselineCount(Math.max(0, parseInt(e.target.value) || 0))} 
+              placeholder="0"
+            />
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-light)', display: 'block', marginTop: '3px' }}>
+              الرقم التراكمي المبدئي (لا يتم تصفيره ويضاف إليه كل زائر جديد تلقائياً)
+            </span>
+          </div>
+          <div>
+            <label className="input-label">عرض عداد الزوار في أسفل المتجر (Store Footer)</label>
+            <select className="input-field" value={showVisitorCounter} onChange={(e) => setShowVisitorCounter(parseInt(e.target.value))}>
+              <option value={1}>نعم - إظهار عداد الزوار التراكمي في أسفل المتجر</option>
+              <option value={0}>إخفاء العداد من أسفل المتجر</option>
+            </select>
           </div>
 
           <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '10px', marginTop: '10px' }}>

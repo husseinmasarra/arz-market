@@ -5,7 +5,7 @@ import { useChat } from '../../context/ChatContext';
 import { 
   Package, Folder, ShoppingBag, ShoppingCart, Users, BarChart3, Settings, Tag, ShieldAlert,
   DollarSign, TrendingUp, AlertTriangle, ArrowRight, MessageSquare, Send, Store,
-  ExternalLink
+  ExternalLink, UserPlus
 } from 'lucide-react';
 
 // Sub-components
@@ -41,7 +41,11 @@ export default function AdminDashboard({ setCurrentView }) {
     delivered_revenue_usd: 0,
     delivered_revenue_lbp: 0,
     pending_orders: 0,
-    out_of_stock: 0
+    out_of_stock: 0,
+    unique_visitors: 0,
+    new_visitors_today: 0,
+    total_views: 0,
+    views_today: 0
   });
 
   const [chatInput, setChatInput] = useState('');
@@ -62,6 +66,8 @@ export default function AdminDashboard({ setCurrentView }) {
 
   useEffect(() => {
     fetchStats();
+    const interval = setInterval(fetchStats, 25000);
+    return () => clearInterval(interval);
   }, [activeTab]);
 
   useEffect(() => {
@@ -296,7 +302,7 @@ export default function AdminDashboard({ setCurrentView }) {
       <main style={{ flex: '1', padding: '24px', backgroundColor: 'var(--bg-primary)', overflowY: 'auto' }}>
         
         {/* Stats Summary Cards */}
-        {activeTab !== 'settings' && activeTab !== 'reports' && (
+        {activeTab !== 'reports' && (
           <section className="no-print dashboard-grid animate-fade">
             
             {/* Earnings USD */}
@@ -370,18 +376,57 @@ export default function AdminDashboard({ setCurrentView }) {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontWeight: '600' }}>الطلبات الجديدة</span>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontWeight: '600' }}>الطلبات المعلقة</span>
                   <h3 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '4px 0' }}>
                     {stats.pending_orders || 0}
                   </h3>
                 </div>
                 <div style={{ backgroundColor: 'rgba(59,130,246,0.1)', padding: '10px', borderRadius: '50%' }}>
-                  <ShoppingBag size={22} color="var(--accent-blue)" />
+                  <Clock size={22} color="var(--accent-blue)" />
                 </div>
               </div>
             </div>
 
-            {/* Stock Warning */}
+            {/* Net Profit USD */}
+            {hasPermission('reports') && (
+              <div 
+                className="dashboard-card" 
+                style={{ 
+                  borderLeft: '4px solid #10b981',
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+                }}
+                onClick={() => {
+                  if (openInNewTab) {
+                    window.open('/?view=admin&tab=reports', '_blank');
+                  } else {
+                    setActiveTab('reports');
+                  }
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-3px)';
+                  e.currentTarget.style.boxShadow = 'var(--shadow-lg)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'none';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontWeight: '600' }}>صافي الأرباح (Net Profit)</span>
+                    <h3 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '4px 0', color: '#10b981' }}>
+                      {formatPrice(stats.estimated_profit_usd || 0)}
+                    </h3>
+                  </div>
+                  <div style={{ backgroundColor: 'rgba(16,185,129,0.1)', padding: '10px', borderRadius: '50%' }}>
+                    <DollarSign size={22} color="#10b981" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Out of Stock Alert */}
             <div 
               className="dashboard-card" 
               style={{ 
@@ -394,8 +439,8 @@ export default function AdminDashboard({ setCurrentView }) {
                   if (openInNewTab) {
                     window.open('/?view=admin&tab=products&filter=outofstock', '_blank');
                   } else {
-                    setFilterProductsOutOfStock(true);
                     setActiveTab('products');
+                    setFilterProductsOutOfStock(true);
                   }
                 }
               }}
@@ -412,7 +457,7 @@ export default function AdminDashboard({ setCurrentView }) {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontWeight: '600' }}>السلع المنتهية</span>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontWeight: '600' }}>نواقص المخزون</span>
                   <h3 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '4px 0' }}>
                     {stats.out_of_stock || 0}
                   </h3>
@@ -450,13 +495,58 @@ export default function AdminDashboard({ setCurrentView }) {
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontWeight: '600' }}>الزوار الفريدون (Unique Visitors)</span>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontWeight: '600' }}>إجمالي الزوار (Total Visitors)</span>
                     <h3 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '4px 0', color: '#8b5cf6' }}>
                       {stats.unique_visitors || 0}
                     </h3>
+                    <span style={{ fontSize: '0.7rem', color: '#10b981', fontWeight: '700' }}>
+                      ✓ تراكمي دائم (لا يتصفر)
+                    </span>
                   </div>
                   <div style={{ backgroundColor: 'rgba(139,92,246,0.1)', padding: '10px', borderRadius: '50%' }}>
                     <Users size={22} color="#8b5cf6" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* New Visitors Today */}
+            {hasPermission('reports') && (
+              <div 
+                className="dashboard-card" 
+                style={{ 
+                  borderLeft: '4px solid #06b6d4',
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+                }}
+                onClick={() => {
+                  if (openInNewTab) {
+                    window.open('/?view=admin&tab=reports', '_blank');
+                  } else {
+                    setActiveTab('reports');
+                  }
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-3px)';
+                  e.currentTarget.style.boxShadow = 'var(--shadow-lg)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'none';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontWeight: '600' }}>الزوار الجدد اليوم (New Today)</span>
+                    <h3 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '4px 0', color: '#06b6d4' }}>
+                      {stats.new_visitors_today || 0}
+                    </h3>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>
+                      زوار جدد مسجلون اليوم
+                    </span>
+                  </div>
+                  <div style={{ backgroundColor: 'rgba(6,182,212,0.1)', padding: '10px', borderRadius: '50%' }}>
+                    <UserPlus size={22} color="#06b6d4" />
                   </div>
                 </div>
               </div>
@@ -493,6 +583,9 @@ export default function AdminDashboard({ setCurrentView }) {
                     <h3 style={{ fontSize: '1.5rem', fontWeight: '800', margin: '4px 0', color: 'var(--accent-red-gold)' }}>
                       {stats.total_views || 0}
                     </h3>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-light)' }}>
+                      اليوم: {stats.views_today || 0} مشاهدة
+                    </span>
                   </div>
                   <div style={{ backgroundColor: 'rgba(217,119,6,0.1)', padding: '10px', borderRadius: '50%' }}>
                     <BarChart3 size={22} color="var(--accent-red-gold)" />
