@@ -14,7 +14,10 @@ db.isPostgres = isPostgres;
 // Helper to convert SQLite SQL placeholders (?) to PostgreSQL ($1, $2...)
 function convertSql(sql) {
   let index = 1;
-  return sql.replace(/\?/g, () => `$${index++}`);
+  let s = sql.replace(/\?/g, () => `$${index++}`);
+  s = s.replace(/strftime\s*\(\s*'%Y-%m'\s*,\s*([^)]+)\s*\)/gi, "TO_CHAR($1, 'YYYY-MM')");
+  s = s.replace(/strftime\s*\(\s*'%Y-%m-%d'\s*,\s*([^)]+)\s*\)/gi, "TO_CHAR($1, 'YYYY-MM-DD')");
+  return s;
 }
 
 // Helper to adapt SQLite schema queries for PostgreSQL

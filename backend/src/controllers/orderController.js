@@ -343,20 +343,24 @@ exports.getReports = async (req, res) => {
     const netProfitUsd = deliveredRevenueUsd - deliveredCostUsd;
     const netProfitLbp = netProfitUsd * exchangeRate;
 
+    const isPg = db.isPostgres;
+    const dateExpr = isPg ? "TO_CHAR(created_at, 'YYYY-MM-DD')" : "DATE(created_at)";
+    const monthExpr = isPg ? "TO_CHAR(created_at, 'YYYY-MM')" : "strftime('%Y-%m', created_at)";
+
     const dailySales = await db.allAsync(`
-      SELECT DATE(created_at) as date, COUNT(id) as count, SUM(total_usd) as revenue_usd, SUM(total_cost_usd) as cost_usd
+      SELECT ${dateExpr} as date, COUNT(id) as count, SUM(total_usd) as revenue_usd, SUM(total_cost_usd) as cost_usd
       FROM orders
       WHERE status = 'delivered'
-      GROUP BY DATE(created_at)
+      GROUP BY ${dateExpr}
       ORDER BY date DESC
       LIMIT 30
     `);
 
     const monthlySales = await db.allAsync(`
-      SELECT strftime('%Y-%m', created_at) as month, COUNT(id) as count, SUM(total_usd) as revenue_usd, SUM(total_cost_usd) as cost_usd
+      SELECT ${monthExpr} as month, COUNT(id) as count, SUM(total_usd) as revenue_usd, SUM(total_cost_usd) as cost_usd
       FROM orders
       WHERE status = 'delivered'
-      GROUP BY strftime('%Y-%m', created_at)
+      GROUP BY ${monthExpr}
       ORDER BY month DESC
       LIMIT 12
     `);
