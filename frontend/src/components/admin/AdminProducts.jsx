@@ -69,8 +69,10 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
   const [newSourceName, setNewSourceName] = useState('');
   const [newSourceUrl, setNewSourceUrl] = useState('');
   const [newSourcePasscode, setNewSourcePasscode] = useState('');
-  const [newSourceMarkup, setNewSourceMarkup] = useState(45);
   const [newSourceType, setNewSourceType] = useState('drphone_catalog');
+  const [newSourceWhatsapp, setNewSourceWhatsapp] = useState('');
+  const [newSourceEmail, setNewSourceEmail] = useState('');
+  const [newSourceNotes, setNewSourceNotes] = useState('');
   const [savingSource, setSavingSource] = useState(false);
 
   
@@ -191,7 +193,10 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
           url: newSourceUrl.trim(),
           passcode: newSourcePasscode.trim(),
           markup_percent: Number(newSourceMarkup) || 45,
-          sync_type: newSourceType
+          sync_type: newSourceType,
+          whatsapp_number: newSourceWhatsapp.trim(),
+          email: newSourceEmail.trim(),
+          shipping_notes: newSourceNotes.trim()
         })
       });
 
@@ -577,6 +582,9 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                     setNewSourcePasscode('');
                     setNewSourceMarkup(45);
                     setNewSourceType('drphone_catalog');
+                    setNewSourceWhatsapp('');
+                    setNewSourceEmail('');
+                    setNewSourceNotes('');
                     setShowSourceModal(true);
                   }}
                   style={{
@@ -727,6 +735,11 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                                   </span>
                                 ) : null}
                               </div>
+                              {source.whatsapp_number && (
+                                <div style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: '700', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px', direction: 'ltr' }}>
+                                  <span>💬 {source.whatsapp_number}</span>
+                                </div>
+                              )}
                             </td>
 
                             {/* Website URL */}
@@ -920,6 +933,9 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                                     setNewSourcePasscode(source.passcode || '');
                                     setNewSourceMarkup(source.markup_percent !== undefined ? source.markup_percent : 45);
                                     setNewSourceType(source.sync_type || 'drphone_catalog');
+                                    setNewSourceWhatsapp(source.whatsapp_number || source.phone || '');
+                                    setNewSourceEmail(source.email || '');
+                                    setNewSourceNotes(source.shipping_notes || '');
                                     setShowSourceModal(true);
                                   }}
                                   title={lang === 'ar' ? 'تعديل بيانات الموقع' : 'Edit site'}
@@ -1077,6 +1093,61 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                     className="input-field"
                     value={newSourceMarkup}
                     onChange={(e) => setNewSourceMarkup(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Dropshipping Contact Settings */}
+              <div style={{
+                padding: '14px',
+                borderRadius: '12px',
+                backgroundColor: 'rgba(37, 99, 235, 0.05)',
+                border: '1px solid rgba(37, 99, 235, 0.2)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px'
+              }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: '800', color: '#2563eb' }}>
+                  📦 {lang === 'ar' ? 'بيانات التواصل للدروب شيبينغ (إرسال الطلبات للمورد)' : 'Dropshipping Dispatch Info'}
+                </span>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <label className="input-label" style={{ fontSize: '0.78rem' }}>
+                      {lang === 'ar' ? 'رقم واتساب المورد *' : 'Supplier WhatsApp *'}
+                    </label>
+                    <input
+                      type="text"
+                      className="input-field"
+                      placeholder="+96171234567"
+                      value={newSourceWhatsapp}
+                      onChange={(e) => setNewSourceWhatsapp(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="input-label" style={{ fontSize: '0.78rem' }}>
+                      {lang === 'ar' ? 'بريد المورد الإلكتروني' : 'Supplier Email'}
+                    </label>
+                    <input
+                      type="email"
+                      className="input-field"
+                      placeholder="orders@supplier.com"
+                      value={newSourceEmail}
+                      onChange={(e) => setNewSourceEmail(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="input-label" style={{ fontSize: '0.78rem' }}>
+                    {lang === 'ar' ? 'ملاحظات وتوجيهات الشحن للمورد' : 'Supplier Shipping Instructions'}
+                  </label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder={lang === 'ar' ? 'مثال: الرجاء الشحن باسم أرز مارت COD' : 'e.g. Please ship under Arz-Mart COD'}
+                    value={newSourceNotes}
+                    onChange={(e) => setNewSourceNotes(e.target.value)}
                   />
                 </div>
               </div>

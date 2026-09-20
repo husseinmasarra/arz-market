@@ -194,10 +194,53 @@ exports.getOrders = async (req, res) => {
 
   try {
     const orders = await db.allAsync(query, params);
-    const formattedOrders = orders.map(o => ({
-      ...o,
-      items: JSON.parse(o.items)
-    }));
+
+    // Fetch supplier contact details to enrich items for dropshipping
+    let supplierMap = {};
+    try {
+      const sources = await db.allAsync('SELECT name, phone, email, whatsapp_number, shipping_notes FROM supplier_sources');
+      const merchants = await db.allAsync('SELECT name, phone, email, whatsapp_number FROM merchants');
+      (sources || []).forEach(s => {
+        supplierMap[s.name.toLowerCase().trim()] = {
+          phone: s.phone || '',
+          email: s.email || '',
+          whatsapp_number: s.whatsapp_number || s.phone || '',
+          shipping_notes: s.shipping_notes || ''
+        };
+      });
+      (merchants || []).forEach(m => {
+        const key = m.name.toLowerCase().trim();
+        if (!supplierMap[key]) {
+          supplierMap[key] = {
+            phone: m.phone || '',
+            email: m.email || '',
+            whatsapp_number: m.whatsapp_number || m.phone || '',
+            shipping_notes: ''
+          };
+        }
+      });
+    } catch (e) {
+      console.error('Error loading supplier contact map:', e);
+    }
+
+    const formattedOrders = orders.map(o => {
+      const parsedItems = JSON.parse(o.items || '[]');
+      const enrichedItems = parsedItems.map(item => {
+        const key = (item.merchant_name || '').toLowerCase().trim();
+        const contact = supplierMap[key] || {};
+        return {
+          ...item,
+          supplier_phone: contact.phone || '',
+          supplier_email: contact.email || '',
+          supplier_whatsapp: contact.whatsapp_number || contact.phone || '',
+          supplier_shipping_notes: contact.shipping_notes || ''
+        };
+      });
+      return {
+        ...o,
+        items: enrichedItems
+      };
+    });
     res.json(formattedOrders);
   } catch (err) {
     console.error('Get orders error:', err);
@@ -237,19 +280,7 @@ exports.getOrderById = async (req, res) => {
 
 exports.updateOrderStatus = async (req, res) => {
   const { id } = req.params;
-  const { status } = req.body;
-
-  if (!['pending', 'processing', 'shipped', 'delivered', 'cancelled'].includes(status)) {
-    return res.status(400).json({ error_ar: 'حالة الطلب غير صالحة', error_en: 'Invalid order status' });
-  }
-
-  // Cancelled status is restricted to general manager/admin only
-  if (status === 'cancelled' && req.user.role !== 'admin') {
-    return res.status(403).json({ 
-      error_ar: 'عذراً، إلغاء الطلبيات مسموح به للمدير العام فقط وليس للموظفين', 
-      error_en: 'Forbidden, only the general manager can cancel orders' 
-    });
-  }
+  const { status, supplier_fulfillment_status } = req.body;
 
   try {
     const order = await db.getAsync('SELECT * FROM orders WHERE id = ?', [id]);
@@ -257,21 +288,40 @@ exports.updateOrderStatus = async (req, res) => {
       return res.status(404).json({ error_ar: 'الطلبية غير موجودة', error_en: 'Order not found' });
     }
 
-    // Restore stock if status changes to cancelled
-    if (status === 'cancelled' && order.status !== 'cancelled') {
-      try {
-        const items = JSON.parse(order.items || '[]');
-        for (const item of items) {
-          if (item.product_id && item.quantity) {
-            await db.runAsync('UPDATE products SET stock = stock + ? WHERE id = ?', [item.quantity, item.product_id]);
-          }
-        }
-      } catch (e) {
-        console.error('Error restoring stock for cancelled order:', e);
-      }
+    if (supplier_fulfillment_status) {
+      await db.runAsync('UPDATE orders SET supplier_fulfillment_status = ? WHERE id = ?', [supplier_fulfillment_status, id]);
     }
 
-    await db.runAsync('UPDATE orders SET status = ? WHERE id = ?', [status, id]);
+    if (status) {
+      if (!['pending', 'processing', 'shipped', 'delivered', 'cancelled', 'archived'].includes(status)) {
+        return res.status(400).json({ error_ar: 'حالة الطلب غير صالحة', error_en: 'Invalid order status' });
+      }
+
+      // Cancelled status is restricted to general manager/admin only
+      if (status === 'cancelled' && req.user.role !== 'admin') {
+        return res.status(403).json({ 
+          error_ar: 'عذراً، إلغاء الطلبيات مسموح به للمدير العام فقط وليس للموظفين', 
+          error_en: 'Forbidden, only the general manager can cancel orders' 
+        });
+      }
+
+      // Restore stock if status changes to cancelled
+      if (status === 'cancelled' && order.status !== 'cancelled') {
+        try {
+          const items = JSON.parse(order.items || '[]');
+          for (const item of items) {
+            if (item.product_id && item.quantity) {
+              await db.runAsync('UPDATE products SET stock = stock + ? WHERE id = ?', [item.quantity, item.product_id]);
+            }
+          }
+        } catch (e) {
+          console.error('Error restoring stock for cancelled order:', e);
+        }
+      }
+
+      await db.runAsync('UPDATE orders SET status = ? WHERE id = ?', [status, id]);
+    }
+
     res.json({ message_ar: 'تم تحديث حالة الطلبية بنجاح', message_en: 'Order status updated successfully' });
   } catch (err) {
     console.error('Update order status error:', err);
@@ -415,6 +465,34 @@ exports.getReports = async (req, res) => {
     const cumulativeVisitors = baseline + uniqueVisitors;
     const cumulativeViews = baseline + totalViews;
 
+    // Calculate supplier breakdown from delivered orders
+    const deliveredOrders = await db.allAsync("SELECT items FROM orders WHERE status = 'delivered'");
+    const supplierStatsMap = {};
+    (deliveredOrders || []).forEach(o => {
+      try {
+        const items = JSON.parse(o.items || '[]');
+        items.forEach(it => {
+          const sName = it.merchant_name || 'عام / Direct';
+          if (!supplierStatsMap[sName]) {
+            supplierStatsMap[sName] = {
+              name: sName,
+              items_sold: 0,
+              total_revenue_usd: 0,
+              total_cost_usd: 0,
+              profit_usd: 0
+            };
+          }
+          const rev = Number(it.price_usd || 0) * it.quantity;
+          const cost = Number(it.cost_price_usd || 0) * it.quantity;
+          supplierStatsMap[sName].items_sold += it.quantity;
+          supplierStatsMap[sName].total_revenue_usd += rev;
+          supplierStatsMap[sName].total_cost_usd += cost;
+          supplierStatsMap[sName].profit_usd += (rev - cost);
+        });
+      } catch (e) {}
+    });
+    const supplierBreakdown = Object.values(supplierStatsMap);
+
     res.json({
       summary: {
         total_orders: stats.total_orders || 0,
@@ -433,6 +511,7 @@ exports.getReports = async (req, res) => {
       },
       dailySales,
       monthlySales,
+      supplierBreakdown,
       inventory: {
         total_products: inventory.total_products || 0,
         out_of_stock: inventory.out_of_stock || 0,

@@ -302,6 +302,67 @@ export default function AdminReports() {
 
       </div>
 
+      {/* Dropshipping Suppliers Breakdown Table */}
+      {reportData.supplierBreakdown && reportData.supplierBreakdown.length > 0 && (
+        <div className="dashboard-card" style={{ padding: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '1.3rem' }}>📦</span>
+              <h4 style={{ fontSize: '1.05rem', fontWeight: '800', margin: 0, color: 'var(--text-primary)' }}>
+                {lang === 'ar' ? 'تقرير مبيعات وأرباح الدروب شيبينغ حسب المورد' : 'Dropshipping Suppliers Performance & Payouts'}
+              </h4>
+            </div>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>
+              {lang === 'ar' ? 'مستحقات الموردين وصافي أرباحك لكل مورد' : 'Wholesale liabilities & your net margins'}
+            </span>
+          </div>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'start' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-light)', fontSize: '0.85rem' }}>
+                  <th style={{ padding: '10px 12px', textAlign: 'start' }}>{lang === 'ar' ? 'اسم المورد' : 'Supplier Name'}</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'center' }}>{lang === 'ar' ? 'المنتجات المبيعة' : 'Units Sold'}</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'end' }}>{lang === 'ar' ? 'إجمالي المبيعات (Revenue)' : 'Total Revenue'}</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'end' }}>{lang === 'ar' ? 'مستحقات المورد (Cost)' : 'Supplier Cost'}</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'end' }}>{lang === 'ar' ? 'صافي أرباحك 💰' : 'Your Net Profit 💰'}</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'center' }}>{lang === 'ar' ? 'نسبة الهامش' : 'Margin %'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reportData.supplierBreakdown.map((s, idx) => {
+                  const margin = s.total_revenue_usd > 0 ? ((s.profit_usd / s.total_revenue_usd) * 100).toFixed(1) : 0;
+                  return (
+                    <tr key={idx} style={{ borderBottom: '1px solid var(--border-color)', fontSize: '0.9rem' }}>
+                      <td style={{ padding: '12px', fontWeight: '700', color: '#2563eb' }}>
+                        {s.name}
+                      </td>
+                      <td style={{ padding: '12px', textAlign: 'center', fontWeight: '700' }}>
+                        {s.items_sold}
+                      </td>
+                      <td style={{ padding: '12px', textAlign: 'end', fontWeight: '700', color: 'var(--text-primary)' }}>
+                        {formatPrice(s.total_revenue_usd)}
+                      </td>
+                      <td style={{ padding: '12px', textAlign: 'end', fontWeight: '600', color: '#64748b' }}>
+                        {formatPrice(s.total_cost_usd)}
+                      </td>
+                      <td style={{ padding: '12px', textAlign: 'end', fontWeight: '800', color: '#059669' }}>
+                        +{formatPrice(s.profit_usd)}
+                      </td>
+                      <td style={{ padding: '12px', textAlign: 'center' }}>
+                        <span style={{ backgroundColor: 'rgba(16, 185, 129, 0.12)', color: '#059669', padding: '3px 10px', borderRadius: '12px', fontWeight: '800', fontSize: '0.8rem' }}>
+                          {margin}%
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

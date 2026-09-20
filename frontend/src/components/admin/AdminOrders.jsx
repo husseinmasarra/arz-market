@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
-import { Printer, Eye, CheckCircle2 } from 'lucide-react';
+import { Printer, Eye, CheckCircle2, MessageCircle, Mail, DollarSign, PackageCheck, Send } from 'lucide-react';
 
 export default function AdminOrders() {
   const { lang, formatPrice, apiBase, settings, apiHost } = useApp();
@@ -49,6 +49,93 @@ export default function AdminOrders() {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const handleUpdateSupplierStatus = async (id, newSupplierStatus) => {
+    try {
+      const res = await fetch(`${apiBase}/orders/${id}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ supplier_fulfillment_status: newSupplierStatus })
+      });
+      if (res.ok) {
+        fetchOrders();
+        if (selectedOrder && selectedOrder.id === id) {
+          setSelectedOrder(prev => ({ ...prev, supplier_fulfillment_status: newSupplierStatus }));
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDispatchToSupplierWhatsApp = (supplierName, supplierPhone, supplierItems, order) => {
+    let cleanPhone = (supplierPhone || '').replace(/[^0-9]/g, '');
+    if (!cleanPhone) {
+      const inputPhone = window.prompt(
+        lang === 'ar' ? `الرجاء إدخال رقم واتساب المورد (${supplierName}) مع رمز الدولة (مثال: 96171000000):` : `Enter WhatsApp number for ${supplierName} with country code:`
+      );
+      if (!inputPhone) return;
+      cleanPhone = inputPhone.replace(/[^0-9]/g, '');
+    }
+
+    const itemsText = supplierItems.map((item, idx) => {
+      const name = lang === 'ar' ? item.name_ar : item.name_en;
+      const opts = [];
+      if (item.selectedColor) opts.push(`اللون: ${item.selectedColor}`);
+      if (item.selectedSize) opts.push(`القياس: ${item.selectedSize}`);
+      const optsStr = opts.length > 0 ? ` (${opts.join(' - ')})` : '';
+      const costStr = item.cost_price_usd ? ` [تكلفة الجملة: $${(Number(item.cost_price_usd) * item.quantity).toFixed(2)}]` : '';
+      return `${idx + 1}. ${name} × ${item.quantity}${optsStr}${costStr}`;
+    }).join('\n');
+
+    const totalSupplierCost = supplierItems.reduce((acc, i) => acc + (Number(i.cost_price_usd || 0) * i.quantity), 0);
+
+    const message = 
+`*طلب دروب شيبينغ جديد من أرز مارت (Arz-Mart)* 📦
+----------------------------------
+*رقم الطلب:* #${order.tracking_number || order.id}
+*التاريخ:* ${new Date(order.created_at).toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-US')}
+
+*المنتجات المطلوبة:*
+${itemsText}
+
+${totalSupplierCost > 0 ? `*مجموع تكلفة الجملة:* $${totalSupplierCost.toFixed(2)} USD\n` : ''}----------------------------------
+*بيانات الشحن والتسليم للعميل:*
+👤 *الاسم:* ${order.user_name || 'عميل'}
+📞 *الهاتف:* ${order.phone}
+📍 *العنوان:* ${order.address}
+💵 *طريقة الدفع:* ${order.payment_method === 'COD' ? 'الدفع عند الاستلام (COD)' : 'مدفوع مسبقاً (Online)'}
+💰 *المبلغ المطلوب تحصيله من الزبون:* ${order.payment_method === 'COD' ? `$${Number(order.total_usd).toFixed(2)} (${formatPrice(order.total_lbp).replace('$', '')} L.L.)` : 'تم الدفع أونلاين ($0)'}
+----------------------------------
+شكراً لتعاونكم! الرجاء تأكيد الاستلام والبدء بالتجهيز.`;
+
+    const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+    window.open(waUrl, '_blank');
+
+    handleUpdateSupplierStatus(order.id, 'forwarded_to_supplier');
+  };
+
+  const handleDispatchToSupplierEmail = (supplierName, supplierEmail, supplierItems, order) => {
+    let email = supplierEmail;
+    if (!email) {
+      email = window.prompt(lang === 'ar' ? `الرجاء إدخال إيميل المورد (${supplierName}):` : `Enter email for ${supplierName}:`);
+      if (!email) return;
+    }
+
+    const itemsText = supplierItems.map((item, idx) => {
+      const name = lang === 'ar' ? item.name_ar : item.name_en;
+      return `${idx + 1}. ${name} × ${item.quantity} (Wholesale Cost: $${(Number(item.cost_price_usd || 0) * item.quantity).toFixed(2)})`;
+    }).join('\n');
+
+    const subject = `طلب دروب شيبينغ جديد #${order.tracking_number || order.id} - Arz-Mart`;
+    const body = `مرحباً ${supplierName}،\n\nنرجو تجهيز وشحن طلبية الدروب شيبينغ التالية:\nرقم الطلب: #${order.tracking_number || order.id}\n\nالمنتجات:\n${itemsText}\n\nعنوان الزبون للتوصيل:\nالاسم: ${order.user_name}\nالهاتف: ${order.phone}\nالعنوان: ${order.address}\nطريقة الدفع: ${order.payment_method === 'COD' ? `الدفع عند الاستلام ($${order.total_usd})` : 'مدفوع أونلاين'}\n\nشكراً لكم،\nفريق أرز مارت`;
+
+    window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    handleUpdateSupplierStatus(order.id, 'forwarded_to_supplier');
   };
 
   const handlePrint = (hidePrices = false) => {
@@ -198,16 +285,35 @@ export default function AdminOrders() {
                   <span style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--accent-red-gold)' }}>
                     {formatPrice(o.total_usd)}
                   </span>
-                  <span style={{
-                    fontSize: '0.7rem',
-                    fontWeight: 'bold',
-                    padding: '2px 8px',
-                    borderRadius: '12px',
-                    backgroundColor: o.status === 'pending' ? 'rgba(239,68,68,0.1)' : o.status === 'processing' ? 'rgba(59,130,246,0.1)' : o.status === 'shipped' ? 'rgba(217,119,6,0.1)' : o.status === 'cancelled' ? 'rgba(107,114,128,0.1)' : 'rgba(16,185,129,0.1)',
-                    color: o.status === 'pending' ? '#ef4444' : o.status === 'processing' ? 'var(--accent-blue)' : o.status === 'shipped' ? '#d97706' : o.status === 'cancelled' ? '#6b7280' : '#10b981'
-                  }}>
-                    {o.status === 'cancelled' ? (lang === 'ar' ? 'ملغاة' : 'CANCELLED') : o.status.toUpperCase()}
-                  </span>
+                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    <span style={{
+                      fontSize: '0.68rem',
+                      fontWeight: 'bold',
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      backgroundColor: o.status === 'pending' ? 'rgba(239,68,68,0.1)' : o.status === 'processing' ? 'rgba(59,130,246,0.1)' : o.status === 'shipped' ? 'rgba(217,119,6,0.1)' : o.status === 'cancelled' ? 'rgba(107,114,128,0.1)' : 'rgba(16,185,129,0.1)',
+                      color: o.status === 'pending' ? '#ef4444' : o.status === 'processing' ? 'var(--accent-blue)' : o.status === 'shipped' ? '#d97706' : o.status === 'cancelled' ? '#6b7280' : '#10b981'
+                    }}>
+                      {o.status === 'cancelled' ? (lang === 'ar' ? 'ملغاة' : 'CANCELLED') : o.status.toUpperCase()}
+                    </span>
+                    {o.supplier_fulfillment_status === 'forwarded_to_supplier' ? (
+                      <span style={{ fontSize: '0.66rem', backgroundColor: '#e0f2fe', color: '#0369a1', padding: '2px 6px', borderRadius: '12px', fontWeight: '800' }}>
+                        📤 {lang === 'ar' ? 'أُرسل للمورد' : 'Sent to Supplier'}
+                      </span>
+                    ) : o.supplier_fulfillment_status === 'shipped_by_supplier' ? (
+                      <span style={{ fontSize: '0.66rem', backgroundColor: '#dcfce7', color: '#15803d', padding: '2px 6px', borderRadius: '12px', fontWeight: '800' }}>
+                        🚚 {lang === 'ar' ? 'شحنه المورد' : 'Shipped'}
+                      </span>
+                    ) : o.supplier_fulfillment_status === 'delivered_settled' ? (
+                      <span style={{ fontSize: '0.66rem', backgroundColor: '#f0fdf4', color: '#166534', padding: '2px 6px', borderRadius: '12px', fontWeight: '800' }}>
+                        ✅ {lang === 'ar' ? 'مكتمل ومُحصّل' : 'Settled'}
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '0.66rem', backgroundColor: '#fef3c7', color: '#b45309', padding: '2px 6px', borderRadius: '12px', fontWeight: '700' }}>
+                        📦 {lang === 'ar' ? 'بانتظار المورد' : 'Dropship'}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             ))
@@ -270,6 +376,231 @@ export default function AdminOrders() {
                   </select>
                 )}
               </div>
+
+              {/* --- DROPSHIPPING & SUPPLIER DISPATCH CONTROL (NO-PRINT) --- */}
+              {(() => {
+                const supplierGroups = {};
+                (selectedOrder.items || []).forEach(item => {
+                  const mName = item.merchant_name || (lang === 'ar' ? 'المتجر الرئيسي / عام' : 'Direct / Main Store');
+                  if (!supplierGroups[mName]) {
+                    supplierGroups[mName] = {
+                      name: mName,
+                      phone: item.supplier_phone || '',
+                      whatsapp: item.supplier_whatsapp || item.supplier_phone || '',
+                      email: item.supplier_email || '',
+                      shipping_notes: item.supplier_shipping_notes || '',
+                      items: [],
+                      totalWholesale: 0,
+                      totalRetail: 0
+                    };
+                  }
+                  supplierGroups[mName].items.push(item);
+                  supplierGroups[mName].totalWholesale += Number(item.cost_price_usd || 0) * item.quantity;
+                  supplierGroups[mName].totalRetail += Number(item.price_usd || 0) * item.quantity;
+                });
+
+                const groupKeys = Object.keys(supplierGroups);
+                if (groupKeys.length === 0) return null;
+
+                const overallOrderWholesale = groupKeys.reduce((sum, k) => sum + supplierGroups[k].totalWholesale, 0);
+                const overallOrderRetail = groupKeys.reduce((sum, k) => sum + supplierGroups[k].totalRetail, 0);
+                const overallOrderProfit = overallOrderRetail - overallOrderWholesale;
+
+                return (
+                  <div className="no-print animate-fade" style={{
+                    marginBottom: '20px',
+                    padding: '18px 20px',
+                    borderRadius: '14px',
+                    backgroundColor: 'var(--bg-tertiary)',
+                    border: '2px solid var(--accent-blue)',
+                    boxShadow: 'var(--shadow-md)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '16px'
+                  }}>
+                    {/* Header with Profit Summary */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '1.4rem' }}>📦</span>
+                        <div>
+                          <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-primary)' }}>
+                            {lang === 'ar' ? 'منظومة الدروب شيبينغ وإرسال الطلبات للموردين' : 'Dropshipping & Supplier Fulfillment'}
+                          </h3>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
+                            {lang === 'ar' ? 'أرسل الطلب للمورد بضغطة زر مع بيانات الشحن وعنوان الزبون' : '1-Click Dispatch to suppliers with customer address & wholesale cost'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Financial Profit Pills */}
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <div style={{ padding: '6px 12px', borderRadius: '8px', backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', textAlign: 'center' }}>
+                          <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-light)' }}>{lang === 'ar' ? 'تكلفة الموردين' : 'Wholesale Cost'}</span>
+                          <strong style={{ fontSize: '0.9rem', color: '#64748b' }}>${overallOrderWholesale.toFixed(2)}</strong>
+                        </div>
+                        <div style={{ padding: '6px 12px', borderRadius: '8px', backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', textAlign: 'center' }}>
+                          <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-light)' }}>{lang === 'ar' ? 'سعر البيع' : 'Retail Price'}</span>
+                          <strong style={{ fontSize: '0.9rem', color: 'var(--accent-blue)' }}>${overallOrderRetail.toFixed(2)}</strong>
+                        </div>
+                        <div style={{ padding: '6px 12px', borderRadius: '8px', backgroundColor: 'rgba(16, 185, 129, 0.12)', border: '1px solid #10b981', textAlign: 'center' }}>
+                          <span style={{ display: 'block', fontSize: '0.7rem', color: '#047857', fontWeight: '700' }}>{lang === 'ar' ? 'صافي ربحك 💰' : 'Net Profit 💰'}</span>
+                          <strong style={{ fontSize: '1rem', color: '#059669', fontWeight: '900' }}>+${overallOrderProfit.toFixed(2)}</strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Status with Supplier Dropdown */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', backgroundColor: 'var(--bg-primary)', padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-primary)' }}>
+                        {lang === 'ar' ? 'حالة التوريد الحالية:' : 'Supplier Fulfillment Status:'}
+                      </span>
+                      <select
+                        className="input-field"
+                        style={{ width: 'auto', padding: '6px 14px', fontSize: '0.85rem', fontWeight: '800' }}
+                        value={selectedOrder.supplier_fulfillment_status || 'pending_supplier'}
+                        onChange={(e) => handleUpdateSupplierStatus(selectedOrder.id, e.target.value)}
+                      >
+                        <option value="pending_supplier">⏳ {lang === 'ar' ? 'بانتظار الإرسال للمورد (Pending Supplier)' : 'Pending Supplier'}</option>
+                        <option value="forwarded_to_supplier">📤 {lang === 'ar' ? 'تم إرسال الطلب للمورد (Forwarded to Supplier)' : 'Forwarded to Supplier'}</option>
+                        <option value="shipped_by_supplier">🚚 {lang === 'ar' ? 'تم الشحن من المورد (Shipped by Supplier)' : 'Shipped by Supplier'}</option>
+                        <option value="delivered_settled">✅ {lang === 'ar' ? 'تم التسليم والتحصيل (Settled & Complete)' : 'Settled & Complete'}</option>
+                      </select>
+                    </div>
+
+                    {/* Each Supplier Card */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {groupKeys.map(k => {
+                        const group = supplierGroups[k];
+                        const groupProfit = group.totalRetail - group.totalWholesale;
+
+                        return (
+                          <div 
+                            key={k} 
+                            style={{ 
+                              padding: '14px 16px', 
+                              borderRadius: '12px', 
+                              backgroundColor: 'var(--bg-primary)', 
+                              border: '1px solid var(--border-color)',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '12px'
+                            }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <strong style={{ fontSize: '1rem', color: '#2563eb' }}>{group.name}</strong>
+                                  <span style={{ fontSize: '0.75rem', backgroundColor: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '6px', color: 'var(--text-light)' }}>
+                                    {group.items.length} {lang === 'ar' ? 'منتج' : 'items'}
+                                  </span>
+                                </div>
+                                {(group.whatsapp || group.phone) && (
+                                  <div style={{ fontSize: '0.78rem', color: '#16a34a', marginTop: '2px', fontWeight: '700', direction: 'ltr' }}>
+                                    💬 {group.whatsapp || group.phone}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Supplier Action Buttons: 1-Click WhatsApp & Email */}
+                              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDispatchToSupplierWhatsApp(group.name, group.whatsapp, group.items, selectedOrder)}
+                                  title={lang === 'ar' ? 'إرسال تفاصيل المنتجات والشحن للمورد عبر واتساب بنقرة واحدة' : 'Send order & shipping details to supplier via WhatsApp'}
+                                  style={{
+                                    padding: '8px 16px',
+                                    backgroundColor: '#25D366',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontWeight: '800',
+                                    fontSize: '0.85rem',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    boxShadow: '0 3px 10px rgba(37, 211, 102, 0.35)',
+                                    transition: 'transform 0.15s ease'
+                                  }}
+                                  onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                                  onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                                >
+                                  <MessageCircle size={16} />
+                                  <span>{lang === 'ar' ? 'إرسال للمورد عبر واتساب 💬' : 'Send to Supplier via WhatsApp'}</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleDispatchToSupplierEmail(group.name, group.email, group.items, selectedOrder)}
+                                  title={lang === 'ar' ? 'إرسال بوليصة الطلب عبر البريد للمورد' : 'Send via email'}
+                                  style={{
+                                    padding: '8px 14px',
+                                    backgroundColor: 'var(--bg-secondary)',
+                                    color: 'var(--text-primary)',
+                                    border: '1px solid var(--border-color)',
+                                    borderRadius: '8px',
+                                    fontWeight: '700',
+                                    fontSize: '0.82rem',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px'
+                                  }}
+                                >
+                                  <Mail size={14} />
+                                  <span>{lang === 'ar' ? 'إيميل' : 'Email'}</span>
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Items List from this supplier */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px dashed var(--border-color)', paddingTop: '10px' }}>
+                              {group.items.map((it, iIdx) => (
+                                <div key={iIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem' }}>
+                                  <div>
+                                    <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>
+                                      {lang === 'ar' ? it.name_ar : it.name_en}
+                                    </span>
+                                    <span style={{ color: 'var(--text-light)', margin: '0 6px' }}>× {it.quantity}</span>
+                                    {(it.selectedColor || it.selectedSize) && (
+                                      <span style={{ fontSize: '0.74rem', color: 'var(--accent-blue)', opacity: 0.9 }}>
+                                        ({[it.selectedColor, it.selectedSize].filter(Boolean).join(' - ')})
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                    <span style={{ color: 'var(--text-light)', fontSize: '0.78rem' }}>
+                                      {lang === 'ar' ? 'جملة:' : 'Cost:'} ${Number(it.cost_price_usd || 0).toFixed(2)}
+                                    </span>
+                                    <span style={{ fontWeight: '700', color: 'var(--accent-blue)' }}>
+                                      {lang === 'ar' ? 'بيع:' : 'Retail:'} ${Number(it.price_usd || 0).toFixed(2)}
+                                    </span>
+                                    <span style={{ fontWeight: '800', color: '#059669', fontSize: '0.8rem' }}>
+                                      +{((Number(it.price_usd || 0) - Number(it.cost_price_usd || 0)) * it.quantity).toFixed(2)}$
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Group Subtotals */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-secondary)', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem' }}>
+                              <span style={{ color: 'var(--text-secondary)' }}>
+                                {lang === 'ar' ? `مجموع مستحقات ${group.name}: ` : `Total for ${group.name}: `}
+                                <strong style={{ color: 'var(--text-primary)' }}>${group.totalWholesale.toFixed(2)}</strong>
+                              </span>
+                              <span style={{ color: '#059669', fontWeight: '800' }}>
+                                {lang === 'ar' ? 'ربحك من هذا المورد: ' : 'Your profit from supplier: '}
+                                +${groupProfit.toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Printable Invoice Container */}
               {/* Printable Invoice Container */}

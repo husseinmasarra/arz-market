@@ -356,6 +356,10 @@ async function initializeDatabasePostgres() {
       )
     `);
 
+    try {
+      await pgPool.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS supplier_fulfillment_status TEXT DEFAULT 'pending_supplier'");
+    } catch (e) {}
+
     // 7. Chats Table
     await pgPool.query(`
       CREATE TABLE IF NOT EXISTS chats (
@@ -429,6 +433,12 @@ async function initializeDatabasePostgres() {
     `);
 
     try {
+      await pgPool.query("ALTER TABLE supplier_sources ADD COLUMN IF NOT EXISTS phone TEXT DEFAULT ''");
+      await pgPool.query("ALTER TABLE supplier_sources ADD COLUMN IF NOT EXISTS email TEXT DEFAULT ''");
+      await pgPool.query("ALTER TABLE supplier_sources ADD COLUMN IF NOT EXISTS whatsapp_number TEXT DEFAULT ''");
+      await pgPool.query("ALTER TABLE supplier_sources ADD COLUMN IF NOT EXISTS shipping_notes TEXT DEFAULT ''");
+      await pgPool.query("ALTER TABLE merchants ADD COLUMN IF NOT EXISTS whatsapp_number TEXT DEFAULT ''");
+      
       const sourcesCount = await pgPool.query('SELECT COUNT(*) FROM supplier_sources');
       if (parseInt(sourcesCount.rows[0].count) === 0) {
         await pgPool.query(

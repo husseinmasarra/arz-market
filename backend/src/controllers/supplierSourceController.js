@@ -31,7 +31,7 @@ exports.getSources = async (req, res) => {
 };
 
 exports.createSource = async (req, res) => {
-  const { name, url, passcode, markup_percent, sync_type } = req.body;
+  const { name, url, passcode, markup_percent, sync_type, phone, email, whatsapp_number, shipping_notes } = req.body;
   if (!name || !url) {
     return res.status(400).json({ error_ar: 'الاسم والرابط مطلوبان', error_en: 'Name and URL are required' });
   }
@@ -45,18 +45,27 @@ exports.createSource = async (req, res) => {
     const cleanPass = (passcode || '').trim();
     const markup = Number(markup_percent) >= 0 ? Number(markup_percent) : 45;
     const type = sync_type || 'drphone_catalog';
+    const cleanPhone = (phone || '').trim();
+    const cleanEmail = (email || '').trim();
+    const cleanWhatsapp = (whatsapp_number || cleanPhone || '').trim();
+    const cleanNotes = (shipping_notes || '').trim();
 
     const result = await db.runAsync(
-      "INSERT INTO supplier_sources (name, url, passcode, markup_percent, sync_type, is_default) VALUES (?, ?, ?, ?, ?, 0)",
-      [cleanName, cleanUrl, cleanPass, markup, type]
+      "INSERT INTO supplier_sources (name, url, passcode, markup_percent, sync_type, is_default, phone, email, whatsapp_number, shipping_notes) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)",
+      [cleanName, cleanUrl, cleanPass, markup, type, cleanPhone, cleanEmail, cleanWhatsapp, cleanNotes]
     );
 
-    // Ensure merchant exists
+    // Ensure merchant exists and has matching contact info
     const existingMerchant = await db.getAsync("SELECT id FROM merchants WHERE name = ?", [cleanName]);
     if (!existingMerchant) {
       await db.runAsync(
-        "INSERT INTO merchants (name, company, email, phone) VALUES (?, ?, ?, ?)",
-        [cleanName, cleanUrl, '', '']
+        "INSERT INTO merchants (name, company, email, phone, whatsapp_number) VALUES (?, ?, ?, ?, ?)",
+        [cleanName, cleanUrl, cleanEmail, cleanPhone, cleanWhatsapp]
+      );
+    } else {
+      await db.runAsync(
+        "UPDATE merchants SET phone = COALESCE(NULLIF(?, ''), phone), email = COALESCE(NULLIF(?, ''), email), whatsapp_number = COALESCE(NULLIF(?, ''), whatsapp_number) WHERE id = ?",
+        [cleanPhone, cleanEmail, cleanWhatsapp, existingMerchant.id]
       );
     }
 
@@ -70,7 +79,7 @@ exports.createSource = async (req, res) => {
 
 exports.updateSource = async (req, res) => {
   const { id } = req.params;
-  const { name, url, passcode, markup_percent, sync_type } = req.body;
+  const { name, url, passcode, markup_percent, sync_type, phone, email, whatsapp_number, shipping_notes } = req.body;
   try {
     const source = await db.getAsync("SELECT * FROM supplier_sources WHERE id = ?", [id]);
     if (!source) {
@@ -85,11 +94,21 @@ exports.updateSource = async (req, res) => {
     const cleanPass = passcode !== undefined ? passcode.trim() : source.passcode;
     const markup = markup_percent !== undefined ? Number(markup_percent) : source.markup_percent;
     const type = sync_type !== undefined ? sync_type : source.sync_type;
+    const cleanPhone = phone !== undefined ? phone.trim() : (source.phone || '');
+    const cleanEmail = email !== undefined ? email.trim() : (source.email || '');
+    const cleanWhatsapp = whatsapp_number !== undefined ? whatsapp_number.trim() : (source.whatsapp_number || cleanPhone);
+    const cleanNotes = shipping_notes !== undefined ? shipping_notes.trim() : (source.shipping_notes || '');
 
     await db.runAsync(
-      "UPDATE supplier_sources SET name = ?, url = ?, passcode = ?, markup_percent = ?, sync_type = ? WHERE id = ?",
-      [cleanName, cleanUrl, cleanPass, markup, type, id]
+      "UPDATE supplier_sources SET name = ?, url = ?, passcode = ?, markup_percent = ?, sync_type = ?, phone = ?, email = ?, whatsapp_number = ?, shipping_notes = ? WHERE id = ?",
+      [cleanName, cleanUrl, cleanPass, markup, type, cleanPhone, cleanEmail, cleanWhatsapp, cleanNotes, id]
     );
+
+    // Sync merchant contact info as well
+    await db.runAsync(
+      "UPDATE merchants SET phone = ?, email = ?, whatsapp_number = ? WHERE name = ?",
+      [cleanPhone, cleanEmail, cleanWhatsapp, cleanName]
+    ).catch(() => {});
 
     const updated = await db.getAsync("SELECT * FROM supplier_sources WHERE id = ?", [id]);
     res.json(updated);
