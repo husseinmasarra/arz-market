@@ -69,6 +69,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
   const [newSourceName, setNewSourceName] = useState('');
   const [newSourceUrl, setNewSourceUrl] = useState('');
   const [newSourcePasscode, setNewSourcePasscode] = useState('');
+  const [newSourceMarkup, setNewSourceMarkup] = useState(45);
   const [newSourceType, setNewSourceType] = useState('drphone_catalog');
   const [newSourceWhatsapp, setNewSourceWhatsapp] = useState('');
   const [newSourceEmail, setNewSourceEmail] = useState('');
