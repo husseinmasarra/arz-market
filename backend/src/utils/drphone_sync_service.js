@@ -222,101 +222,180 @@ function fetchDrPhoneCatalog(passcode = 'Drphone123', targetBaseUrl = BASE_URL) 
  * Synchronize all DR PHONE catalog data into Arz-Mart database
  */
 
-// Fetch catalog from a Shopify store via open JSON feed
-function fetchShopifyCatalog(targetBaseUrl) {
+function generateArabicProductTitle(titleEn) {
+  if (!titleEn) return '';
+  if (/[\u0600-\u06FF]/.test(titleEn)) return titleEn;
+  
+  const replacements = [
+    [/spot welding machine/gi, 'ماكينة لحام نقطي'],
+    [/welding machine/gi, 'ماكينة لحام'],
+    [/soldering station/gi, 'محطة لحام احترافية'],
+    [/solder station/gi, 'محطة لحام'],
+    [/solder iron/gi, 'كاوية لحام إلكترونيات'],
+    [/soldering iron/gi, 'كاوية لحام إلكترونيات'],
+    [/solder mat/gi, 'بساط عازل سيليكون للحام'],
+    [/digital microscope/gi, 'ميكروسكوب فحص ديجيتال رقمي'],
+    [/microscope/gi, 'ميكروسكوب فحص إلكتروني'],
+    [/digital multimeter/gi, 'ساعة فحص ملتيميتر رقمي'],
+    [/multimeter/gi, 'ساعة فحص وقياس ملتيميتر'],
+    [/solder paste/gi, 'معجون قصدير لحام'],
+    [/solder wire/gi, 'سلك قصدير لحام'],
+    [/solder wick/gi, 'شريط سحب قصدير'],
+    [/flux/gi, 'مساعد لحام فلكس'],
+    [/screwdriver set/gi, 'طقم مفكات صيانة دقيقة'],
+    [/precision screwdriver/gi, 'مفكات صيانة دقيقة'],
+    [/screwdriver/gi, 'مفك صيانة إلكترونيات'],
+    [/tweezer/gi, 'ملقط صيانة دقيق'],
+    [/lcd separation machine/gi, 'ماكينة فك وتجديد الشاشات LCD'],
+    [/separator/gi, 'جهاز تسخين وفصل شاشات'],
+    [/battery/gi, 'بطارية'],
+    [/power bank/gi, 'باور بانك'],
+    [/charger/gi, 'شاحن'],
+    [/cable/gi, 'كابل توصيل'],
+    [/heat tape/gi, 'شريط عازل حراري'],
+    [/glue/gi, 'لاصق غراء شاشات']
+  ];
+  
+  for (const [pattern, ar] of replacements) {
+    if (pattern.test(titleEn)) {
+      return `${ar} - ${titleEn}`;
+    }
+  }
+  return titleEn;
+}
+
+function categorizeShopifyProduct(title, body) {
+  const text = (title + ' ' + (body || '')).toLowerCase();
+  if (text.includes('microscope') || text.includes('multimeter') || text.includes('tester') || text.includes('detector') || text.includes('inspection')) {
+    return { en: 'Microscopes & Testing Tools', ar: 'ميكروسكوبات وأجهزة فحص رقمية' };
+  }
+  if (text.includes('solder') || text.includes('welding') || text.includes('iron') || text.includes('flux') || text.includes('paste') || text.includes('rosin') || text.includes('wick') || text.includes('heat gun') || text.includes('rework') || text.includes('tinning') || text.includes('soldering')) {
+    return { en: 'Soldering Tools & Stations', ar: 'أدوات وكاويات ومحطات لحام' };
+  }
+  if (text.includes('screen') || text.includes('lcd') || text.includes('separator') || text.includes('separation') || text.includes('oca') || text.includes('laminat') || text.includes('bubble')) {
+    return { en: 'Screen & LCD Repair Tools', ar: 'أجهزة ومعدات صيانة الشاشات' };
+  }
+  if (text.includes('screwdriver') || text.includes('tweezer') || text.includes('plier') || text.includes('blade') || text.includes('knife') || text.includes('pry') || text.includes('opening tool') || text.includes('suction') || text.includes('organiser') || text.includes('organizer') || text.includes('mat')) {
+    return { en: 'Precision Screwdrivers & Hand Tools', ar: 'مفكات وملاقط وأدوات فك يدوية' };
+  }
+  if (text.includes('battery') || text.includes('lithium') || text.includes('power bank') || text.includes('charger') || text.includes('charging') || text.includes('18650')) {
+    return { en: 'Batteries & Power Tools', ar: 'بطاريات وشواحن وأدوات طاقة' };
+  }
+  if (text.includes('glue') || text.includes('tape') || text.includes('adhesive') || text.includes('b7000') || text.includes('t7000') || text.includes('uv')) {
+    return { en: 'Adhesives & Heat Tapes', ar: 'مواد لاصقة وأشرطة عزل حراري' };
+  }
+  if (text.includes('cable') || text.includes('wire') || text.includes('adapter') || text.includes('plug') || text.includes('connector') || text.includes('usb')) {
+    return { en: 'Cables & Adapters', ar: 'كابلات وتوصيلات ومحولات' };
+  }
+  return { en: 'Electronics & Repair Tools', ar: 'أدوات صيانة وإلكترونيات منوعة' };
+}
+
+// Fetch catalog from a Shopify store via open JSON feed with full pagination
+async function fetchShopifyCatalog(targetBaseUrl) {
   const cleanBase = cleanUrl(targetBaseUrl);
   let storeOrigin = cleanBase;
   try {
     storeOrigin = new URL(cleanBase).origin;
   } catch (e) {}
 
-  return new Promise((resolve, reject) => {
-    const endpoints = [
-      `${storeOrigin}/products.json?limit=250`,
-      `${cleanBase}/products.json?limit=250`
-    ];
+  const allShopifyProducts = [];
+  const seenIds = new Set();
 
-    function tryEndpoint(idx) {
-      if (idx >= endpoints.length) {
-        return reject(new Error('Failed to fetch Shopify catalog: no valid endpoint found'));
-      }
-      const ep = endpoints[idx];
-      https.get(ep, {
+  for (let page = 1; page <= 20; page++) {
+    const ep = `${storeOrigin}/products.json?limit=250&page=${page}`;
+    try {
+      const res = await fetch(ep, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
           'Accept': 'application/json'
         }
-      }, res => {
-        if (res.statusCode !== 200) {
-          return tryEndpoint(idx + 1);
+      });
+
+      if (!res.ok) {
+        break;
+      }
+
+      const data = await res.json();
+      const prods = (data && data.products) || [];
+      if (prods.length === 0) {
+        break;
+      }
+
+      for (const p of prods) {
+        if (!seenIds.has(p.id)) {
+          seenIds.add(p.id);
+          allShopifyProducts.push(p);
         }
-        let data = '';
-        res.on('data', c => data += c);
-        res.on('end', () => {
-          try {
-            const json = JSON.parse(data);
-            const shopifyProducts = json.products || [];
-            if (shopifyProducts.length === 0 && idx < endpoints.length - 1) {
-              return tryEndpoint(idx + 1);
-            }
+      }
 
-            const catMap = {};
-            for (const p of shopifyProducts) {
-              let cat = (p.product_type || '').trim();
-              if (!cat && p.tags && p.tags.length > 0) {
-                cat = String(p.tags[0]).trim();
-              }
-              if (!cat) {
-                const titleLower = p.title.toLowerCase();
-                if (titleLower.includes('cable') || titleLower.includes('wire') || titleLower.includes('plug')) {
-                  cat = 'Cables & Plugs';
-                } else if (titleLower.includes('module') || titleLower.includes('converter') || titleLower.includes('sensor')) {
-                  cat = 'Modules & Converters';
-                } else if (titleLower.includes('battery') || titleLower.includes('power') || titleLower.includes('charger')) {
-                  cat = 'Batteries & Power';
-                } else {
-                  cat = 'Electronics & Accessories';
-                }
-              }
+      if (prods.length < 250) {
+        break; // Reached last page
+      }
+    } catch (e) {
+      break;
+    }
+  }
 
-              if (!catMap[cat]) catMap[cat] = [];
-              const price = p.variants && p.variants[0] ? Number(p.variants[0].price) : 5;
-              const img = p.images && p.images[0] ? p.images[0].src : (p.image ? p.image.src : '');
-              const stock = p.variants && p.variants[0] && p.variants[0].inventory_quantity !== null
-                ? Math.max(5, p.variants[0].inventory_quantity)
-                : 30;
+  if (allShopifyProducts.length === 0) {
+    throw new Error('Failed to fetch Shopify catalog: no products returned');
+  }
 
-              catMap[cat].push({
-                name: p.title,
-                name_ar: p.title,
-                description: (p.body_html || p.title).replace(/<[^>]+>/g, '').trim(),
-                description_ar: (p.body_html || p.title).replace(/<[^>]+>/g, '').trim(),
-                price: price,
-                image: img,
-                stock: stock,
-                options: (p.variants || []).map(v => ({ name: v.title, price: Number(v.price) }))
-              });
-            }
+  const catMap = {};
+  for (const p of allShopifyProducts) {
+    let catEn = (p.product_type || '').trim();
+    let catAr = '';
 
-            const catalog = Object.keys(catMap).map(catName => {
-              const { en, ar } = separateCategoryNames(catName, CATEGORY_TRANSLATIONS[catName]);
-              return {
-                name: en,
-                name_ar: ar,
-                items: catMap[catName]
-              };
-            });
-
-            resolve({ catalog, totalItems: shopifyProducts.length });
-          } catch (e) {
-            tryEndpoint(idx + 1);
-          }
-        });
-      }).on('error', () => tryEndpoint(idx + 1));
+    if (!catEn && p.tags && p.tags.length > 0) {
+      catEn = String(p.tags[0]).trim();
     }
 
-    tryEndpoint(0);
+    if (!catEn || catEn === 'Default' || catEn.toLowerCase() === 'all') {
+      const smart = categorizeShopifyProduct(p.title, p.body_html);
+      catEn = smart.en;
+      catAr = smart.ar;
+    } else {
+      catAr = CATEGORY_TRANSLATIONS[catEn] || catEn;
+    }
+
+    if (!catMap[catEn]) {
+      catMap[catEn] = {
+        name_en: catEn,
+        name_ar: catAr,
+        items: []
+      };
+    }
+
+    const price = p.variants && p.variants[0] ? Number(p.variants[0].price) : 5;
+    const img = p.images && p.images[0] ? p.images[0].src : (p.image ? p.image.src : '');
+    const stock = p.variants && p.variants[0] && p.variants[0].inventory_quantity !== null
+      ? Math.max(5, p.variants[0].inventory_quantity)
+      : 30;
+
+    const titleEn = p.title.trim();
+    const titleAr = generateArabicProductTitle(titleEn);
+
+    catMap[catEn].items.push({
+      name: titleEn,
+      name_ar: titleAr,
+      description: (p.body_html || titleEn).replace(/<[^>]+>/g, '').trim(),
+      description_ar: (p.body_html || titleAr).replace(/<[^>]+>/g, '').trim(),
+      price: price,
+      image: img,
+      stock: stock,
+      options: (p.variants || []).map(v => ({ name: v.title, price: Number(v.price) }))
+    });
+  }
+
+  const catalog = Object.keys(catMap).map(catName => {
+    const { en, ar } = separateCategoryNames(catMap[catName].name_en, catMap[catName].name_ar);
+    return {
+      name: en,
+      name_ar: ar,
+      items: catMap[catName].items
+    };
   });
+
+  return { catalog, totalItems: allShopifyProducts.length };
 }
 
 async function syncDrPhoneToArzMart(options = {}) {
@@ -439,8 +518,7 @@ async function syncDrPhoneToArzMart(options = {}) {
     for (const p of items) {
       totalProcessed++;
       const isScreenProtector = cat.name.trim().toLowerCase() === 'screen protector' || 
-                                cat.name.toLowerCase().includes('screen') || 
-                                cat.name.toLowerCase().includes('protector');
+                                cat.name.trim().toLowerCase() === 'screen protectors';
 
       let wholesalePrice = (!isNaN(p.price) && p.price !== null) ? Number(p.price) : 0;
       if (isNaN(wholesalePrice) || wholesalePrice < 0) wholesalePrice = 0;
@@ -492,11 +570,19 @@ async function syncDrPhoneToArzMart(options = {}) {
       }));
       const colorsJson = '[]';
 
-      // Check if product already exists by name_en or sku
-      const existing = await db.getAsync(
-        "SELECT id, price_usd, cost_price_usd, stock, image_url FROM products WHERE name_en = ? OR (description_en LIKE ? AND category_id = ?)",
-        [nameEn, `%${p.sku || nameEn}%`, catId]
-      );
+      // Check if product already exists for THIS merchant by exact name_en
+      let existing = null;
+      if (merchantId) {
+        existing = await db.getAsync(
+          "SELECT id, price_usd, cost_price_usd, stock, image_url FROM products WHERE merchant_id = ? AND name_en = ?",
+          [merchantId, nameEn]
+        );
+      } else {
+        existing = await db.getAsync(
+          "SELECT id, price_usd, cost_price_usd, stock, image_url FROM products WHERE name_en = ?",
+          [nameEn]
+        );
+      }
 
       if (existing) {
         // If existing has no image or a local /uploads image and new one is a valid CDN URL, use finalImageUrl
@@ -505,6 +591,10 @@ async function syncDrPhoneToArzMart(options = {}) {
 
         await db.runAsync(
           `UPDATE products SET 
+            name_ar = ?,
+            name_en = ?,
+            description_ar = ?,
+            description_en = ?,
             price_usd = ?, 
             cost_price_usd = ?, 
             old_price_usd = ?, 
@@ -514,7 +604,7 @@ async function syncDrPhoneToArzMart(options = {}) {
             sizes = ?,
             sync_batch_time = ?
           WHERE id = ?`,
-          [retailPrice, wholesalePrice, oldPrice, stock, targetImg, catId, sizesJson, now, existing.id]
+          [nameAr, nameEn, descAr, descEn, retailPrice, wholesalePrice, oldPrice, stock, targetImg, catId, sizesJson, now, existing.id]
         );
         updatedCount++;
         seenProductIds.add(existing.id);
