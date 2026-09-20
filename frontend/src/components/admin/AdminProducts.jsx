@@ -414,38 +414,39 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
             position: 'relative',
             overflow: 'hidden'
           }}>
-            {/* Header with Supplier Logo / Badge */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+            {/* Header with Title, Metrics, and Add Button */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px', marginBottom: '20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div style={{
-                  width: '46px',
-                  height: '46px',
+                  width: '48px',
+                  height: '48px',
                   borderRadius: '12px',
                   background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   color: 'white',
-                  boxShadow: '0 4px 14px rgba(37, 99, 235, 0.35)'
+                  boxShadow: '0 4px 14px rgba(37, 99, 235, 0.35)',
+                  flexShrink: 0
                 }}>
                   <Sparkles size={24} />
                 </div>
                 <div>
                   <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '800', color: 'var(--text-primary)' }}>
                     {lang === 'ar' 
-                      ? `لوحة جلب ومزامنة الموردين (${currentSource ? currentSource.name : 'مورد المنتجات'})` 
-                      : `Supplier Catalog Sync (${currentSource ? currentSource.name : 'Supplier'})`}
+                      ? 'جدول مواقع الموردين والمزامنة التلقائية' 
+                      : 'Supplier Websites Directory & Catalog Sync'}
                   </h3>
                   <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                     {lang === 'ar' 
-                      ? 'التحكم في استيراد المنتجات، تحديث الأسعار، وتنزيل الصور تلقائياً من عدة مواقع ومصادر'
-                      : 'Fetch & sync products, categories, and prices directly from multiple supplier websites'}
+                      ? 'قائمة بجميع مواقع الموردين المربوطة لمتابعة حالتها وتحديث منتجاتها وأسعارها بضغطة زر'
+                      : 'View and manage all connected supplier sites, monitor sync status, and update catalog in one click'}
                   </p>
                 </div>
               </div>
 
-              {/* Quick Metrics */}
-              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              {/* Action and Metrics */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                 <div style={{
                   backgroundColor: 'var(--bg-primary)',
                   border: '1px solid var(--border-color)',
@@ -454,14 +455,13 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                   textAlign: 'center'
                 }}>
                   <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>
-                    {lang === 'ar' ? 'منتجات هذا المورد' : 'Supplier Items'}
+                    {lang === 'ar' ? 'إجمالي المنتجات' : 'Total Items'}
                   </span>
                   <strong style={{ fontSize: '1.05rem', color: '#2563eb' }}>
-                    {currentSource && currentSource.products_count !== undefined 
-                      ? currentSource.products_count 
-                      : (drPhoneStatus ? drPhoneStatus.drphoneProductsCount : '...')}
+                    {supplierSources.reduce((acc, s) => acc + (parseInt(s.products_count) || 0), 0) || (drPhoneStatus ? drPhoneStatus.drphoneProductsCount : 0)}
                   </strong>
                 </div>
+
                 <div style={{
                   backgroundColor: 'var(--bg-primary)',
                   border: '1px solid var(--border-color)',
@@ -470,138 +470,12 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                   textAlign: 'center'
                 }}>
                   <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>
-                    {lang === 'ar' ? 'الهامش المطبق' : 'Active Markup'}
-                  </span>
-                  <strong style={{ fontSize: '1.05rem', color: '#16a34a' }}>
-                    +{syncMarkup}%
-                  </strong>
-                </div>
-                <div style={{
-                  backgroundColor: 'var(--bg-primary)',
-                  border: '1px solid var(--border-color)',
-                  padding: '6px 14px',
-                  borderRadius: '10px',
-                  textAlign: 'center'
-                }}>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>
-                    {lang === 'ar' ? 'المواقع المضافة' : 'Supplier Sites'}
+                    {lang === 'ar' ? 'المواقع المربوطة' : 'Connected Sites'}
                   </span>
                   <strong style={{ fontSize: '1.05rem', color: '#8b5cf6' }}>
                     {supplierSources.length}
                   </strong>
                 </div>
-              </div>
-            </div>
-
-            {/* Supplier Website Selector Bar */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: '12px',
-              marginBottom: '14px',
-              padding: '12px 14px',
-              backgroundColor: 'var(--bg-tertiary)',
-              borderRadius: '12px',
-              border: '1px solid var(--border-color)'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '280px' }}>
-                <Globe size={20} color="#2563eb" style={{ flexShrink: 0 }} />
-                <label style={{ fontWeight: '800', fontSize: '0.88rem', whiteSpace: 'nowrap', color: 'var(--text-primary)' }}>
-                  {lang === 'ar' ? 'اختر موقع المورد للجلب:' : 'Selected Supplier Website:'}
-                </label>
-                <select
-                  className="input-field"
-                  style={{ margin: 0, padding: '8px 12px', fontWeight: '700', flex: 1, backgroundColor: 'var(--bg-primary)' }}
-                  value={selectedSourceId}
-                  onChange={(e) => handleSelectSource(e.target.value)}
-                  disabled={isSyncing}
-                >
-                  {supplierSources.map(s => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} ({s.url.replace(/^https?:\/\//, '')}) {s.is_default ? (lang === 'ar' ? '★ (الرئيسي)' : '★ (Default)') : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-                {currentSource && (
-                  <>
-                    <a
-                      href={currentSource.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title={lang === 'ar' ? 'زيارة الموقع الإلكتروني للمورد' : 'Visit Supplier Site'}
-                      className="input-field"
-                      style={{
-                        width: 'auto',
-                        padding: '8px 12px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '5px',
-                        fontSize: '0.82rem',
-                        textDecoration: 'none',
-                        backgroundColor: 'var(--bg-primary)',
-                        color: 'var(--text-primary)'
-                      }}
-                    >
-                      <ExternalLink size={15} />
-                      <span>{lang === 'ar' ? 'زيارة' : 'Visit'}</span>
-                    </a>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingSource(currentSource);
-                        setNewSourceName(currentSource.name);
-                        setNewSourceUrl(currentSource.url);
-                        setNewSourcePasscode(currentSource.passcode || '');
-                        setNewSourceMarkup(currentSource.markup_percent !== undefined ? currentSource.markup_percent : 45);
-                        setNewSourceType(currentSource.sync_type || 'drphone_catalog');
-                        setShowSourceModal(true);
-                      }}
-                      className="input-field"
-                      style={{
-                        width: 'auto',
-                        padding: '8px 12px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '5px',
-                        fontSize: '0.82rem',
-                        cursor: 'pointer',
-                        backgroundColor: 'var(--bg-primary)',
-                        color: 'var(--accent-blue)'
-                      }}
-                    >
-                      <Edit3 size={15} />
-                      <span>{lang === 'ar' ? 'تعديل' : 'Edit'}</span>
-                    </button>
-
-                    {!currentSource.is_default && (
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteSource(currentSource)}
-                        className="input-field"
-                        style={{
-                          width: 'auto',
-                          padding: '8px 12px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '5px',
-                          fontSize: '0.82rem',
-                          cursor: 'pointer',
-                          backgroundColor: 'var(--bg-primary)',
-                          color: '#ef4444'
-                        }}
-                      >
-                        <Trash2 size={15} />
-                        <span>{lang === 'ar' ? 'حذف' : 'Delete'}</span>
-                      </button>
-                    )}
-                  </>
-                )}
 
                 <button
                   type="button"
@@ -615,108 +489,24 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                     setShowSourceModal(true);
                   }}
                   style={{
-                    padding: '8px 16px',
+                    padding: '10px 18px',
                     backgroundColor: '#10b981',
                     color: 'white',
                     border: 'none',
-                    borderRadius: '8px',
-                    fontWeight: '700',
-                    fontSize: '0.85rem',
+                    borderRadius: '10px',
+                    fontWeight: '800',
+                    fontSize: '0.9rem',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '6px',
+                    gap: '8px',
                     cursor: 'pointer',
                     whiteSpace: 'nowrap',
-                    boxShadow: '0 2px 8px rgba(16, 185, 129, 0.25)'
-                  }}
-                >
-                  <Plus size={16} />
-                  <span>{lang === 'ar' ? '+ إضافة موقع مورد جديد' : '+ Add New Supplier Site'}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Sync Controls Form */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-              gap: '14px',
-              alignItems: 'flex-end',
-              backgroundColor: 'var(--bg-primary)',
-              padding: '16px',
-              borderRadius: '12px',
-              border: '1px solid var(--border-color)'
-            }}>
-              <div>
-                <label className="input-label" style={{ fontWeight: '700', fontSize: '0.85rem' }}>
-                  {lang === 'ar' ? 'نسبة هامش الربح الإضافي (%)' : 'Markup Profit Margin (%)'}
-                </label>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    type="number"
-                    min="0"
-                    max="300"
-                    className="input-field"
-                    style={{ margin: 0, paddingInlineStart: '32px', fontWeight: '700' }}
-                    value={syncMarkup}
-                    onChange={(e) => setSyncMarkup(e.target.value)}
-                    disabled={isSyncing}
-                  />
-                  <span style={{
-                    position: 'absolute',
-                    top: '50%',
-                    insetInlineStart: '12px',
-                    transform: 'translateY(-50%)',
-                    color: 'var(--text-muted)',
-                    fontWeight: '700'
-                  }}>%</span>
-                </div>
-              </div>
-
-              <div>
-                <label className="input-label" style={{ fontWeight: '700', fontSize: '0.85rem' }}>
-                  {lang === 'ar' ? 'رمز الدخول أو المفتاح (Passcode / Token)' : 'Supplier Passcode / Token'}
-                </label>
-                <input
-                  type="password"
-                  className="input-field"
-                  placeholder={lang === 'ar' ? 'رمز الدخول (إن وجد)' : 'Passcode (if required)'}
-                  style={{ margin: 0, fontWeight: '600' }}
-                  value={syncPasscode}
-                  onChange={(e) => setSyncPasscode(e.target.value)}
-                  disabled={isSyncing}
-                />
-              </div>
-
-              <div>
-                <button
-                  type="button"
-                  onClick={handleTriggerSync}
-                  disabled={isSyncing}
-                  style={{
-                    width: '100%',
-                    height: '42px',
-                    backgroundColor: isSyncing ? '#94a3b8' : '#2563eb',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontWeight: '700',
-                    fontSize: '0.95rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    cursor: isSyncing ? 'not-allowed' : 'pointer',
-                    boxShadow: isSyncing ? 'none' : '0 4px 14px rgba(37, 99, 235, 0.35)',
+                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
                     transition: 'all 0.2s'
                   }}
                 >
-                  <RefreshCw size={18} className={isSyncing ? 'spin-anim' : ''} />
-                  <span>
-                    {isSyncing
-                      ? (lang === 'ar' ? 'جاري المزامنة وجلب الصور...' : 'Syncing products & images...')
-                      : (lang === 'ar' ? `مزامنة وتحديث الأسعار الآن (+${syncMarkup}%)` : `Sync Now (+${syncMarkup}%)`)}
-                  </span>
+                  <Plus size={18} />
+                  <span>{lang === 'ar' ? '+ إضافة موقع مورد جديد' : '+ Add New Supplier Site'}</span>
                 </button>
               </div>
             </div>
@@ -724,7 +514,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
             {/* Sync Success / Error Alert */}
             {syncResult && (
               <div style={{
-                marginTop: '14px',
+                marginBottom: '16px',
                 padding: '12px 16px',
                 borderRadius: '10px',
                 backgroundColor: 'rgba(22, 163, 74, 0.1)',
@@ -747,7 +537,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
 
             {syncError && (
               <div style={{
-                marginTop: '14px',
+                marginBottom: '16px',
                 padding: '12px 16px',
                 borderRadius: '10px',
                 backgroundColor: 'rgba(239, 68, 68, 0.1)',
@@ -763,126 +553,146 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
               </div>
             )}
 
-            {/* Connected Supplier Websites Table / Directory */}
-            <div style={{ marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-                <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Globe size={18} color="#2563eb" />
-                  <span>{lang === 'ar' ? 'لائحة مواقع الموردين المربوطة والمتاحة للتحديث:' : 'Connected Supplier Websites Directory:'}</span>
-                </h4>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontWeight: '700', backgroundColor: 'var(--bg-primary)', padding: '3px 10px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                  {lang === 'ar' ? `عدد المواقع: ${supplierSources.length}` : `Total Sites: ${supplierSources.length}`}
-                </span>
-              </div>
-
-              {supplierSources.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                  {lang === 'ar' ? 'جاري تحميل قائمة المواقع...' : 'Loading supplier sites...'}
-                </div>
-              ) : (
-                <div style={{ overflowX: 'auto', borderRadius: '10px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-primary)' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'start', fontSize: '0.85rem' }}>
-                    <thead>
-                      <tr style={{ backgroundColor: 'var(--bg-tertiary)', borderBottom: '1px solid var(--border-color)' }}>
-                        <th style={{ padding: '10px 14px', textAlign: 'start' }}>{lang === 'ar' ? 'الموقع والمورد' : 'Supplier / Site'}</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'start' }}>{lang === 'ar' ? 'الرابط الإلكتروني' : 'Website URL'}</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'center' }}>{lang === 'ar' ? 'نوع الموقع' : 'Type'}</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'center' }}>{lang === 'ar' ? 'هامش الربح' : 'Markup'}</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'center' }}>{lang === 'ar' ? 'المنتجات المستوردة' : 'Imported Items'}</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'start' }}>{lang === 'ar' ? 'آخر مزامنة' : 'Last Sync'}</th>
-                        <th style={{ padding: '10px 14px', textAlign: 'center' }}>{lang === 'ar' ? 'إجراء وتحديث' : 'Actions'}</th>
+            {/* Primary Supplier Websites Table */}
+            <div style={{ borderRadius: '12px', border: '1px solid var(--border-color)', overflow: 'hidden', backgroundColor: 'var(--bg-primary)', boxShadow: 'var(--shadow-sm)' }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'start', fontSize: '0.88rem' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: 'var(--bg-tertiary)', borderBottom: '2px solid var(--border-color)' }}>
+                      <th style={{ padding: '12px 16px', textAlign: 'start' }}>{lang === 'ar' ? 'الموقع والمورد' : 'Supplier / Site'}</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'start' }}>{lang === 'ar' ? 'الرابط الإلكتروني' : 'Website URL'}</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'center' }}>{lang === 'ar' ? 'نوع الربط' : 'Integration Type'}</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'center' }}>{lang === 'ar' ? 'هامش الربح' : 'Markup Margin'}</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'center' }}>{lang === 'ar' ? 'المنتجات المستوردة' : 'Imported Products'}</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'start' }}>{lang === 'ar' ? 'آخر مزامنة وتحديث' : 'Last Sync & Status'}</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'center' }}>{lang === 'ar' ? 'إجراء وتحديث فوري' : 'Sync & Actions'}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {supplierSources.length === 0 ? (
+                      <tr>
+                        <td colSpan="7" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
+                          <RefreshCw size={24} className="spin-anim" style={{ margin: '0 auto 10px', display: 'block' }} />
+                          <span>{lang === 'ar' ? 'جاري تحميل قائمة مواقع الموردين...' : 'Loading supplier sites directory...'}</span>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {supplierSources.map((source) => {
+                    ) : (
+                      supplierSources.map((source) => {
                         const isCurrentSelected = String(source.id) === String(selectedSourceId);
+                        const isThisSourceSyncing = isSyncing && isCurrentSelected;
+
                         return (
                           <tr 
                             key={source.id} 
                             style={{ 
                               borderBottom: '1px solid var(--border-color)',
-                              backgroundColor: isCurrentSelected ? 'rgba(37, 99, 235, 0.05)' : 'transparent',
+                              backgroundColor: isThisSourceSyncing ? 'rgba(37, 99, 235, 0.08)' : 'transparent',
                               transition: 'background 0.2s'
                             }}
                           >
-                            <td style={{ padding: '12px 14px', fontWeight: '700' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <span>{source.name}</span>
+                            {/* Supplier Name & Default Badge */}
+                            <td style={{ padding: '14px 16px', fontWeight: '800' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Globe size={18} color="#2563eb" style={{ flexShrink: 0 }} />
+                                <span style={{ fontSize: '0.95rem' }}>{source.name}</span>
                                 {source.is_default ? (
-                                  <span style={{ fontSize: '0.68rem', backgroundColor: '#dbeafe', color: '#1d4ed8', padding: '2px 6px', borderRadius: '4px', fontWeight: '800' }}>
-                                    {lang === 'ar' ? 'الرئيسي' : 'Default'}
+                                  <span style={{ fontSize: '0.7rem', backgroundColor: '#dbeafe', color: '#1d4ed8', padding: '2px 8px', borderRadius: '6px', fontWeight: '800' }}>
+                                    {lang === 'ar' ? '★ الرئيسي' : '★ Default'}
                                   </span>
                                 ) : null}
                               </div>
                             </td>
-                            <td style={{ padding: '12px 14px' }}>
+
+                            {/* Website URL */}
+                            <td style={{ padding: '14px 16px' }}>
                               <a 
                                 href={source.url} 
                                 target="_blank" 
                                 rel="noopener noreferrer" 
-                                style={{ color: '#2563eb', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: '600' }}
+                                title={lang === 'ar' ? 'فتح الموقع بتبويب جديد' : 'Open website in new tab'}
+                                style={{ color: '#2563eb', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: '700' }}
                               >
-                                <span style={{ maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', direction: 'ltr', display: 'inline-block' }}>
+                                <span style={{ maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', direction: 'ltr', display: 'inline-block' }}>
                                   {source.url.replace(/^https?:\/\//, '')}
                                 </span>
-                                <ExternalLink size={13} />
+                                <ExternalLink size={14} />
                               </a>
                             </td>
-                            <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+
+                            {/* Type */}
+                            <td style={{ padding: '14px 16px', textAlign: 'center' }}>
                               <span style={{ 
-                                fontSize: '0.72rem', 
-                                padding: '3px 8px', 
-                                borderRadius: '12px',
-                                fontWeight: '700',
+                                fontSize: '0.75rem', 
+                                padding: '4px 12px', 
+                                borderRadius: '14px',
+                                fontWeight: '800',
                                 backgroundColor: source.sync_type === 'shopify_json' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(59, 130, 246, 0.12)',
                                 color: source.sync_type === 'shopify_json' ? '#059669' : '#2563eb'
                               }}>
-                                {source.sync_type === 'shopify_json' ? 'Shopify' : (lang === 'ar' ? 'بوابة جملة' : 'Wholesale')}
+                                {source.sync_type === 'shopify_json' ? 'Shopify Store' : (lang === 'ar' ? 'بوابة جملة خاصة' : 'Wholesale Portal')}
                               </span>
                             </td>
-                            <td style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800', color: '#16a34a' }}>
+
+                            {/* Markup */}
+                            <td style={{ padding: '14px 16px', textAlign: 'center', fontWeight: '800', color: '#16a34a', fontSize: '1rem' }}>
                               +{source.markup_percent}%
                             </td>
-                            <td style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>
-                              <span style={{ backgroundColor: 'var(--bg-secondary)', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+
+                            {/* Products Count */}
+                            <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                              <span style={{ 
+                                backgroundColor: 'var(--bg-secondary)', 
+                                padding: '5px 14px', 
+                                borderRadius: '8px', 
+                                fontWeight: '800',
+                                fontSize: '0.95rem',
+                                border: '1px solid var(--border-color)',
+                                color: 'var(--text-primary)'
+                              }}>
                                 {source.products_count || 0}
                               </span>
                             </td>
-                            <td style={{ padding: '12px 14px', fontSize: '0.78rem', color: 'var(--text-light)' }}>
+
+                            {/* Last Sync Info */}
+                            <td style={{ padding: '14px 16px', fontSize: '0.82rem' }}>
                               {source.last_sync_time ? (
                                 <div>
                                   <div style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{source.last_sync_time}</div>
-                                  <div style={{ color: '#16a34a', marginTop: '2px', fontSize: '0.74rem' }}>{source.last_sync_status || 'نجحت المزامنة'}</div>
+                                  <div style={{ color: '#16a34a', marginTop: '2px', fontSize: '0.76rem' }}>{source.last_sync_status || (lang === 'ar' ? 'محدث' : 'Updated')}</div>
                                 </div>
                               ) : (
                                 <span style={{ color: 'var(--text-muted)' }}>{lang === 'ar' ? 'لم تتم المزامنة بعد' : 'Not synced yet'}</span>
                               )}
                             </td>
-                            <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                              <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', alignItems: 'center' }}>
+
+                            {/* Actions & Instant Sync Button */}
+                            <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                              <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
                                 <button
                                   type="button"
                                   onClick={() => handleTriggerSync(source)}
                                   disabled={isSyncing}
-                                  title={lang === 'ar' ? `تحديث ومزامنة منتجات ${source.name} الآن` : `Sync ${source.name} now`}
+                                  title={lang === 'ar' ? `تحديث ومزامنة منتجات ${source.name} الآن (+${source.markup_percent}%)` : `Sync ${source.name} now (+${source.markup_percent}%)`}
                                   style={{
-                                    padding: '5px 12px',
-                                    backgroundColor: '#2563eb',
+                                    padding: '8px 18px',
+                                    backgroundColor: isThisSourceSyncing ? '#94a3b8' : '#2563eb',
                                     color: 'white',
                                     border: 'none',
-                                    borderRadius: '6px',
-                                    fontSize: '0.78rem',
-                                    fontWeight: '700',
+                                    borderRadius: '8px',
+                                    fontSize: '0.85rem',
+                                    fontWeight: '800',
                                     cursor: isSyncing ? 'not-allowed' : 'pointer',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '4px',
-                                    boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)'
+                                    gap: '6px',
+                                    boxShadow: isThisSourceSyncing ? 'none' : '0 2px 8px rgba(37, 99, 235, 0.35)',
+                                    transition: 'all 0.2s'
                                   }}
                                 >
-                                  <RefreshCw size={13} className={isSyncing && isCurrentSelected ? 'spin-anim' : ''} />
-                                  <span>{lang === 'ar' ? 'تحديث الآن' : 'Sync Now'}</span>
+                                  <RefreshCw size={14} className={isThisSourceSyncing ? 'spin-anim' : ''} />
+                                  <span>{isThisSourceSyncing ? (lang === 'ar' ? 'جاري التحديث...' : 'Syncing...') : (lang === 'ar' ? 'تحديث الآن' : 'Sync Now')}</span>
                                 </button>
+
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -896,42 +706,43 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                                   }}
                                   title={lang === 'ar' ? 'تعديل بيانات الموقع' : 'Edit site'}
                                   style={{
-                                    padding: '5px 8px',
+                                    padding: '8px 12px',
                                     backgroundColor: 'var(--bg-secondary)',
                                     color: '#2563eb',
                                     border: '1px solid var(--border-color)',
-                                    borderRadius: '6px',
+                                    borderRadius: '8px',
                                     cursor: 'pointer'
                                   }}
                                 >
-                                  <Edit3 size={14} />
+                                  <Edit3 size={15} />
                                 </button>
+
                                 {!source.is_default && (
                                   <button
                                     type="button"
                                     onClick={() => handleDeleteSource(source)}
                                     title={lang === 'ar' ? 'حذف هذا الموقع' : 'Delete site'}
                                     style={{
-                                      padding: '5px 8px',
+                                      padding: '8px 12px',
                                       backgroundColor: 'var(--bg-secondary)',
                                       color: '#ef4444',
                                       border: '1px solid var(--border-color)',
-                                      borderRadius: '6px',
+                                      borderRadius: '8px',
                                       cursor: 'pointer'
                                     }}
                                   >
-                                    <Trash2 size={14} />
+                                    <Trash2 size={15} />
                                   </button>
                                 )}
                               </div>
                             </td>
                           </tr>
                         );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         );
