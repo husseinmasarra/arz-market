@@ -138,12 +138,16 @@ export default function App() {
   };
 
   useEffect(() => {
-    // Only fetch products when a category is chosen or user is filtering/searching
-    if (selectedCategory || searchVal || minPrice || maxPrice || minRating) {
-      fetchProducts();
-    } else {
-      setProducts([]);
-    }
+    // Smooth debounced fetch when user is typing in search bar
+    const delay = searchVal ? 220 : 0;
+    const timer = setTimeout(() => {
+      if (selectedCategory || searchVal || minPrice || maxPrice || minRating) {
+        fetchProducts();
+      } else {
+        setProducts([]);
+      }
+    }, delay);
+    return () => clearTimeout(timer);
   }, [selectedCategory, searchVal, minPrice, maxPrice, minRating]);
 
   // Analytics: Track visitor page views

@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useChat } from '../context/ChatContext';
-import { ShoppingCart, Moon, Sun, Globe, DollarSign, LogOut, User, Shield, MessageSquare, Fingerprint, Smartphone } from 'lucide-react';
+import { ShoppingCart, Moon, Sun, Globe, DollarSign, LogOut, User, Shield, MessageSquare, Fingerprint, Smartphone, Search, X } from 'lucide-react';
 
 export default function Header({ currentView, setCurrentView, searchVal, setSearchVal, onLogoClick }) {
   const { lang, setLang, theme, setTheme, currency, toggleCurrency, settings, t, apiHost } = useApp();
@@ -79,7 +79,7 @@ export default function Header({ currentView, setCurrentView, searchVal, setSear
 
         {/* Search Bar */}
         {currentView === 'store' && (
-          <div style={{ flex: '1', maxWidth: '400px', minWidth: '200px' }}>
+          <div style={{ flex: '1', maxWidth: '400px', minWidth: '200px', position: 'relative' }}>
             <input
               type="text"
               className="input-field"
@@ -88,10 +88,45 @@ export default function Header({ currentView, setCurrentView, searchVal, setSear
               onChange={(e) => setSearchVal(e.target.value)}
               style={{
                 borderRadius: '24px',
-                padding: '8px 18px',
-                borderColor: 'var(--border-color)'
+                paddingInlineStart: '38px',
+                paddingInlineEnd: searchVal ? '38px' : '16px',
+                borderColor: 'var(--border-color)',
+                backgroundColor: 'var(--bg-primary)'
               }}
             />
+            <Search 
+              size={16} 
+              style={{
+                position: 'absolute',
+                top: '50%',
+                insetInlineStart: '12px',
+                transform: 'translateY(-50%)',
+                color: 'var(--text-light)',
+                pointerEvents: 'none'
+              }}
+            />
+            {searchVal && (
+              <button
+                type="button"
+                onClick={() => setSearchVal('')}
+                style={{
+                  position: 'absolute',
+                  top: '50%',
+                  insetInlineEnd: '10px',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-light)',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
         )}
 

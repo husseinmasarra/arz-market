@@ -104,10 +104,46 @@ exports.getProducts = async (req, res) => {
     }
   }
 
-  if (search) {
-    query += ' AND (p.name_ar LIKE ? OR p.name_en LIKE ? OR p.description_ar LIKE ? OR p.description_en LIKE ?)';
-    const searchParam = `%${search}%`;
-    params.push(searchParam, searchParam, searchParam, searchParam);
+  if (search && search.trim()) {
+    const rawTerms = search.trim().split(/\s+/).filter(Boolean);
+    for (const rawTerm of rawTerms.slice(0, 6)) {
+      const termLower = rawTerm.toLowerCase();
+      // Normalize Arabic variants (alef, teh marbuta, alef maqsura, tashkeel)
+      const termAr = termLower
+        .replace(/[أإآ]/g, 'ا')
+        .replace(/ة/g, 'ه')
+        .replace(/ى/g, 'ي')
+        .replace(/[\u064B-\u065F\u0670]/g, '');
+
+      if (termAr !== termLower) {
+        query += ` AND (
+          LOWER(p.name_en) LIKE ? OR 
+          LOWER(p.name_ar) LIKE ? OR 
+          LOWER(p.description_en) LIKE ? OR 
+          LOWER(p.description_ar) LIKE ? OR 
+          LOWER(COALESCE(c.name_en, '')) LIKE ? OR 
+          LOWER(COALESCE(c.name_ar, '')) LIKE ? OR 
+          LOWER(COALESCE(m.name, '')) LIKE ? OR
+          LOWER(p.name_ar) LIKE ? OR 
+          LOWER(p.description_ar) LIKE ?
+        )`;
+        const p1 = `%${termLower}%`;
+        const p2 = `%${termAr}%`;
+        params.push(p1, p1, p1, p1, p1, p1, p1, p2, p2);
+      } else {
+        query += ` AND (
+          LOWER(p.name_en) LIKE ? OR 
+          LOWER(p.name_ar) LIKE ? OR 
+          LOWER(p.description_en) LIKE ? OR 
+          LOWER(p.description_ar) LIKE ? OR 
+          LOWER(COALESCE(c.name_en, '')) LIKE ? OR 
+          LOWER(COALESCE(c.name_ar, '')) LIKE ? OR 
+          LOWER(COALESCE(m.name, '')) LIKE ?
+        )`;
+        const p1 = `%${termLower}%`;
+        params.push(p1, p1, p1, p1, p1, p1, p1);
+      }
+    }
   }
 
   if (min_price) {
