@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart, getOptionPrice } from '../context/CartContext';
-import { Star, ShoppingCart, X, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { Star, ShoppingCart, X, ZoomIn, ZoomOut, RotateCcw, Move } from 'lucide-react';
 
 function parseProductOptions(sizes, basePrice) {
   if (!sizes) return [];
@@ -43,9 +43,86 @@ export default function ProductDetails({ product, onClose, onRefresh }) {
   const [userRating, setUserRating] = useState(5);
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
   
-  // Image Lightbox Zoom state
+  // Image Lightbox Zoom & Pan states
   const [isZoomOpen, setIsZoomOpen] = useState(false);
   const [zoomScale, setZoomScale] = useState(1);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef({ startX: 0, startY: 0, initialPanX: 0, initialPanY: 0 });
+
+  const resetZoom = () => {
+    setZoomScale(1);
+    setPanOffset({ x: 0, y: 0 });
+    setIsDragging(false);
+  };
+
+  const handleZoomChange = (newScale) => {
+    const clamped = Math.max(0.6, Math.min(newScale, 4.5));
+    setZoomScale(clamped);
+    if (clamped <= 1) {
+      setPanOffset({ x: 0, y: 0 });
+    }
+  };
+
+  const handleMouseDown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+    dragStartRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      initialPanX: panOffset.x,
+      initialPanY: panOffset.y
+    };
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDragging) return;
+    e.preventDefault();
+    const dx = e.clientX - dragStartRef.current.startX;
+    const dy = e.clientY - dragStartRef.current.startY;
+    setPanOffset({
+      x: dragStartRef.current.initialPanX + dx,
+      y: dragStartRef.current.initialPanY + dy
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleTouchStart = (e) => {
+    if (e.touches.length === 1) {
+      setIsDragging(true);
+      dragStartRef.current = {
+        startX: e.touches[0].clientX,
+        startY: e.touches[0].clientY,
+        initialPanX: panOffset.x,
+        initialPanY: panOffset.y
+      };
+    }
+  };
+
+  const handleTouchMove = (e) => {
+    if (!isDragging || e.touches.length !== 1) return;
+    const dx = e.touches[0].clientX - dragStartRef.current.startX;
+    const dy = e.touches[0].clientY - dragStartRef.current.startY;
+    setPanOffset({
+      x: dragStartRef.current.initialPanX + dx,
+      y: dragStartRef.current.initialPanY + dy
+    });
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+  };
+
+  const handleWheel = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const delta = e.deltaY < 0 ? 0.3 : -0.3;
+    handleZoomChange(zoomScale + delta);
+  };
 
   const productOptions = parseProductOptions(product?.sizes, product?.price_usd || 0);
   const hasOptions = productOptions.length > 0;
@@ -66,7 +143,7 @@ export default function ProductDetails({ product, onClose, onRefresh }) {
       if (e.key === 'Escape') {
         if (isZoomOpen) {
           setIsZoomOpen(false);
-          setZoomScale(1);
+          resetZoom();
         } else {
           onClose();
         }
@@ -549,24 +626,31 @@ export default function ProductDetails({ product, onClose, onRefresh }) {
 
       </div>
 
-      {/* Lightbox Image Fullscreen Zoom Modal */}
+      {/* Lightbox Image Fullscreen Zoom & Pan Modal */}
       {isZoomOpen && (
         <div
-          onClick={() => { setIsZoomOpen(false); setZoomScale(1); }}
+          onClick={() => { setIsZoomOpen(false); resetZoom(); }}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onWheel={handleWheel}
           style={{
             position: 'fixed',
             top: 0,
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.94)',
+            backgroundColor: 'rgba(0, 0, 0, 0.95)',
             zIndex: 3500,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             padding: '16px',
-            backdropFilter: 'blur(12px)',
-            animation: 'fadeIn 0.2s ease-out'
+            backdropFilter: 'blur(14px)',
+            animation: 'fadeIn 0.2s ease-out',
+            userSelect: 'none',
+            overflow: 'hidden'
           }}
         >
           {/* Top Controls Bar */}
@@ -578,18 +662,18 @@ export default function ProductDetails({ product, onClose, onRefresh }) {
               display: 'flex',
               alignItems: 'center',
               gap: '10px',
-              backgroundColor: 'rgba(30, 41, 59, 0.85)',
+              backgroundColor: 'rgba(30, 41, 59, 0.9)',
               backdropFilter: 'blur(16px)',
               padding: '8px 18px',
               borderRadius: '30px',
               border: '1px solid rgba(255, 255, 255, 0.15)',
-              boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.6)',
               zIndex: 3600
             }}
           >
             <button
               type="button"
-              onClick={() => setZoomScale(prev => Math.min(prev + 0.3, 3.5))}
+              onClick={() => handleZoomChange(zoomScale + 0.4)}
               style={{
                 background: 'none',
                 border: 'none',
@@ -599,8 +683,7 @@ export default function ProductDetails({ product, onClose, onRefresh }) {
                 borderRadius: '50%',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'background 0.2s'
+                justifyContent: 'center'
               }}
               title={lang === 'ar' ? 'تكبير (+)' : 'Zoom In (+)'}
             >
@@ -611,7 +694,7 @@ export default function ProductDetails({ product, onClose, onRefresh }) {
             </span>
             <button
               type="button"
-              onClick={() => setZoomScale(prev => Math.max(prev - 0.3, 0.6))}
+              onClick={() => handleZoomChange(zoomScale - 0.4)}
               style={{
                 background: 'none',
                 border: 'none',
@@ -621,8 +704,7 @@ export default function ProductDetails({ product, onClose, onRefresh }) {
                 borderRadius: '50%',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'background 0.2s'
+                justifyContent: 'center'
               }}
               title={lang === 'ar' ? 'تصغير (-)' : 'Zoom Out (-)'}
             >
@@ -630,7 +712,7 @@ export default function ProductDetails({ product, onClose, onRefresh }) {
             </button>
             <button
               type="button"
-              onClick={() => setZoomScale(1)}
+              onClick={resetZoom}
               style={{
                 background: 'none',
                 border: 'none',
@@ -640,17 +722,36 @@ export default function ProductDetails({ product, onClose, onRefresh }) {
                 borderRadius: '50%',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'background 0.2s'
+                justifyContent: 'center'
               }}
               title={lang === 'ar' ? 'إعادة ضبط الحجم' : 'Reset Zoom'}
             >
               <RotateCcw size={16} />
             </button>
+
+            {/* Drag mode indicator badge when zoomed */}
+            {zoomScale > 1 && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '0.72rem',
+                fontWeight: '600',
+                color: '#93c5fd',
+                backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                padding: '3px 8px',
+                borderRadius: '12px',
+                border: '1px solid rgba(59, 130, 246, 0.3)'
+              }}>
+                <Move size={12} />
+                <span>{lang === 'ar' ? 'اسحب للتحريك' : 'Drag to pan'}</span>
+              </div>
+            )}
+
             <div style={{ width: '1px', height: '18px', backgroundColor: 'rgba(255,255,255,0.25)', margin: '0 4px' }} />
             <button
               type="button"
-              onClick={() => { setIsZoomOpen(false); setZoomScale(1); }}
+              onClick={() => { setIsZoomOpen(false); resetZoom(); }}
               style={{
                 background: 'rgba(239, 68, 68, 0.85)',
                 border: 'none',
@@ -661,8 +762,7 @@ export default function ProductDetails({ product, onClose, onRefresh }) {
                 borderRadius: '50%',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'transform 0.2s'
+                justifyContent: 'center'
               }}
               title={lang === 'ar' ? 'إغلاق المعاينة (ESC)' : 'Close Preview (ESC)'}
             >
@@ -670,34 +770,44 @@ export default function ProductDetails({ product, onClose, onRefresh }) {
             </button>
           </div>
 
-          {/* Lightbox Image with smooth scaling */}
+          {/* Draggable & Pannable Image Canvas */}
           <div 
-            onClick={(e) => {
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={handleMouseDown}
+            onTouchStart={handleTouchStart}
+            onDoubleClick={(e) => {
               e.stopPropagation();
-              setZoomScale(prev => (prev === 1 ? 1.8 : 1));
+              if (zoomScale === 1) handleZoomChange(2.2);
+              else resetZoom();
             }}
             style={{
+              position: 'relative',
               maxWidth: '92vw',
               maxHeight: '84vh',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              overflow: 'hidden',
-              cursor: zoomScale === 1 ? 'zoom-in' : 'zoom-out',
-              transition: 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-              transform: `scale(${zoomScale})`
+              cursor: zoomScale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'zoom-in',
+              transform: `translate3d(${panOffset.x}px, ${panOffset.y}px, 0) scale(${zoomScale})`,
+              transition: isDragging ? 'none' : 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+              transformOrigin: 'center center',
+              userSelect: 'none',
+              touchAction: 'none'
             }}
           >
             <img
               src={imageUrl}
               alt={name}
+              draggable={false}
               style={{
                 maxWidth: '85vw',
-                maxHeight: '80vh',
+                maxHeight: '78vh',
                 objectFit: 'contain',
                 borderRadius: '12px',
                 boxShadow: '0 25px 60px rgba(0,0,0,0.85)',
-                backgroundColor: 'white'
+                backgroundColor: 'white',
+                pointerEvents: 'none',
+                userSelect: 'none'
               }}
             />
           </div>
@@ -706,16 +816,24 @@ export default function ProductDetails({ product, onClose, onRefresh }) {
           <div style={{
             position: 'absolute',
             bottom: '20px',
-            color: 'rgba(255, 255, 255, 0.75)',
+            color: 'rgba(255, 255, 255, 0.8)',
             fontSize: '0.78rem',
-            backgroundColor: 'rgba(0, 0, 0, 0.6)',
+            backgroundColor: 'rgba(0, 0, 0, 0.65)',
             backdropFilter: 'blur(8px)',
-            padding: '6px 16px',
+            padding: '6px 18px',
             borderRadius: '20px',
             pointerEvents: 'none',
-            border: '1px solid rgba(255, 255, 255, 0.1)'
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
           }}>
-            {lang === 'ar' ? 'انقر على الصورة للتكبير / التصغير أو اضغط ESC للخروج' : 'Click image to toggle zoom or press ESC to exit'}
+            <Move size={13} color="#93c5fd" />
+            <span>
+              {lang === 'ar' 
+                ? 'اسحب الصورة بالماوس أو اللمس لتحريكها وإظهار التفاصيل • دبل كليك للتكبير السريع' 
+                : 'Drag image with mouse or touch to pan details • Double-click to toggle zoom'}
+            </span>
           </div>
         </div>
       )}
