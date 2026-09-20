@@ -1,7 +1,23 @@
 const db = require('../config/db');
 const { fileToBase64 } = require('../utils/fileHelper');
 
+let settingsCache = null;
+let settingsCacheTime = 0;
+const SETTINGS_CACHE_TTL = 60 * 1000; // 60s
+
+function invalidateSettingsCache() {
+  settingsCache = null;
+  settingsCacheTime = 0;
+}
+exports.invalidateSettingsCache = invalidateSettingsCache;
+
 exports.getSettings = async (req, res) => {
+  const now = Date.now();
+  if (settingsCache && (now - settingsCacheTime < SETTINGS_CACHE_TTL)) {
+    res.setHeader('Cache-Control', 'public, max-age=60');
+    return res.json(settingsCache);
+  }
+
   try {
     const settings = await db.getAsync('SELECT * FROM settings ORDER BY id DESC LIMIT 1');
     if (!settings) {
@@ -50,7 +66,7 @@ exports.getSettings = async (req, res) => {
     const cumulativeVisitors = baseline + uniqueVisitors;
     const cumulativeViews = baseline + totalViews;
 
-    res.json({
+    const responsePayload = {
       ...settings,
       hero_banners: JSON.parse(settings.hero_banners || '[]'),
       visitor_count: cumulativeVisitors,
@@ -61,7 +77,12 @@ exports.getSettings = async (req, res) => {
       visitor_baseline_count: baseline,
       show_visitor_counter: settings.show_visitor_counter !== 0 ? 1 : 0,
       show_out_of_stock_on_home: settings.show_out_of_stock_on_home !== 0 ? 1 : 0
-    });
+    };
+
+    settingsCache = responsePayload;
+    settingsCacheTime = now;
+    res.setHeader('Cache-Control', 'public, max-age=60');
+    res.json(responsePayload);
   } catch (err) {
     console.error('Get settings error:', err);
     res.status(500).json({ error_ar: 'خطأ في جلب الإعدادات', error_en: 'Error fetching settings' });
@@ -120,6 +141,8 @@ exports.updateSettings = async (req, res) => {
         VALUES (?, ?, ?, ?, ?, ?, ?, '[]', ?, ?, ?, ?, ?, ?)
       `, [appName, logoUrl, exRate, freeThreshold, delFee, payEnabled, contactEmail, supplierUrl, supplierPass, supplierMarkup, baselineCount, showCounter, showOutOfStock]);
     }
+
+    invalidateSettingsCache();
 
     res.json({
       message_ar: 'تم تحديث الإعدادات بنجاح',
@@ -190,6 +213,8 @@ exports.updateBanners = async (req, res) => {
       'UPDATE settings SET hero_banners = ? WHERE id = ?',
       [JSON.stringify(bannerArray), settings.id]
     );
+
+    invalidateSettingsCache();
 
     res.json({
       message_ar: 'تم تحديث البانرات الإعلانية بنجاح',
