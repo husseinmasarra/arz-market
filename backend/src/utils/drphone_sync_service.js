@@ -420,6 +420,17 @@ async function syncDrPhoneToArzMart(options = {}) {
   let insertedCount = 0;
   let updatedCount = 0;
   let unchangedCount = 0;
+  const seenProductIds = new Set();
+  const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+  // Clear previous is_new_arrival flags for this merchant so only newly added in this run will be marked
+  if (merchantId) {
+    try {
+      await db.runAsync("UPDATE products SET is_new_arrival = 0 WHERE merchant_id = ?", [merchantId]);
+    } catch (e) {
+      console.warn('[Sync Service] Reset new arrivals warning:', e.message);
+    }
+  }
 
   for (const cat of rawCategories) {
     const catId = categoryMap.get(cat.name.trim().toLowerCase()) || null;
@@ -500,39 +511,72 @@ async function syncDrPhoneToArzMart(options = {}) {
             stock = ?,
             image_url = ?,
             category_id = ?,
-            sizes = ?
+            sizes = ?,
+            sync_batch_time = ?
           WHERE id = ?`,
-          [retailPrice, wholesalePrice, oldPrice, stock, targetImg, catId, sizesJson, existing.id]
+          [retailPrice, wholesalePrice, oldPrice, stock, targetImg, catId, sizesJson, now, existing.id]
         );
         updatedCount++;
+        seenProductIds.add(existing.id);
       } else {
-        // Product is new - insert into database
-        await db.runAsync(
+        // Product is new - insert into database with is_new_arrival = 1
+        const insertRes = await db.runAsync(
           `INSERT INTO products (
             name_ar, name_en, description_ar, description_en,
             price_usd, cost_price_usd, old_price_usd,
             category_id, merchant_id, image_url, stock,
-            rating_sum, rating_count, colors, sizes
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            rating_sum, rating_count, colors, sizes,
+            is_new_arrival, sync_batch_time
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
           [
             nameAr, nameEn, descAr, descEn,
             retailPrice, wholesalePrice, oldPrice,
             catId, merchantId, finalImageUrl, stock,
-            24, 5, colorsJson, sizesJson
+            24, 5, colorsJson, sizesJson,
+            now
           ]
         );
         insertedCount++;
+        if (insertRes && insertRes.lastID) {
+          seenProductIds.add(insertRes.lastID);
+        }
       }
     }
   }
 
-  const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
-  const statusMsg = `نجح الجلب: تم مزامنة ${totalProcessed} منتج و ${rawCategories.length} تصنيف`;
+  // Detect removed / out of stock items (products previously in database from this supplier but not returned in current feed)
+  let outOfStockCount = 0;
+  if (merchantId && seenProductIds.size > 0) {
+    try {
+      const existingProducts = await db.allAsync(
+        "SELECT id, stock FROM products WHERE merchant_id = ?",
+        [merchantId]
+      );
+      for (const ep of existingProducts) {
+        if (!seenProductIds.has(ep.id)) {
+          if (ep.stock > 0) {
+            await db.runAsync("UPDATE products SET stock = 0 WHERE id = ?", [ep.id]);
+            outOfStockCount++;
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[Sync Service] Out-of-stock detection error:', err);
+    }
+  }
+
+  const statusMsg = `جديد: +${insertedCount} | تحديث: ${updatedCount} | نفد: ${outOfStockCount}`;
   try {
     if (options.sourceId) {
       await db.runAsync(
-        "UPDATE supplier_sources SET last_sync_time = ?, last_sync_status = ? WHERE id = ?",
-        [now, statusMsg, options.sourceId]
+        `UPDATE supplier_sources SET 
+          last_sync_time = ?, 
+          last_sync_status = ?,
+          last_sync_inserted = ?,
+          last_sync_updated = ?,
+          last_sync_out_of_stock = ?
+        WHERE id = ?`,
+        [now, statusMsg, insertedCount, updatedCount, outOfStockCount, options.sourceId]
       );
     }
     if (settings) {
@@ -553,12 +597,13 @@ async function syncDrPhoneToArzMart(options = {}) {
     totalProcessed,
     insertedCount,
     updatedCount,
+    outOfStockCount,
     unchangedCount,
     totalCategories: rawCategories.length,
     message: statusMsg
   };
 
-  console.log(`[DR PHONE Sync Service] Complete! Processed: ${totalProcessed}, Inserted: ${insertedCount}, Updated: ${updatedCount}, Unchanged: ${unchangedCount}`);
+  console.log(`[DR PHONE Sync Service] Complete! Processed: ${totalProcessed}, Inserted: ${insertedCount}, Updated: ${updatedCount}, OutOfStock: ${outOfStockCount}`);
   return result;
 }
 

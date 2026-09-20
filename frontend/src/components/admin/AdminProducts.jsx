@@ -14,6 +14,8 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
   // Filter & Search states for Products List
   const [filterSupplier, setFilterSupplier] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
+  const [filterOnlyNew, setFilterOnlyNew] = useState(false);
+  const [filterOnlyOutOfStock, setFilterOnlyOutOfStock] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('newest'); // default: newest first so newly fetched products appear at the top
   const [currentPage, setCurrentPage] = useState(1);
@@ -21,6 +23,30 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
 
   const handleFilterBySource = (sourceName) => {
     setFilterSupplier(prev => prev === sourceName ? '' : sourceName);
+    setFilterOnlyNew(false);
+    setFilterOnlyOutOfStock(false);
+    setCurrentPage(1);
+    setTimeout(() => {
+      const el = document.getElementById('admin-products-table');
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  };
+
+  const handleViewNewArrivals = (sourceName) => {
+    setFilterSupplier(sourceName || '');
+    setFilterOnlyNew(true);
+    setFilterOnlyOutOfStock(false);
+    setCurrentPage(1);
+    setTimeout(() => {
+      const el = document.getElementById('admin-products-table');
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  };
+
+  const handleViewOutOfStock = (sourceName) => {
+    setFilterSupplier(sourceName || '');
+    setFilterOnlyOutOfStock(true);
+    setFilterOnlyNew(false);
     setCurrentPage(1);
     setTimeout(() => {
       const el = document.getElementById('admin-products-table');
@@ -417,7 +443,8 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
 
   // Filter and sort products
   const filteredProducts = products.filter(p => {
-    if (filterOutOfStock && p.stock !== 0) return false;
+    if ((filterOutOfStock || filterOnlyOutOfStock) && p.stock > 0) return false;
+    if (filterOnlyNew && p.is_new_arrival !== 1) return false;
     if (filterSupplier && p.merchant_name !== filterSupplier) return false;
     if (filterCategory && String(p.category_id) !== String(filterCategory)) return false;
     if (searchQuery.trim()) {
@@ -578,24 +605,59 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
             {/* Sync Success / Error Alert */}
             {syncResult && (
               <div style={{
-                marginBottom: '16px',
-                padding: '12px 16px',
-                borderRadius: '10px',
-                backgroundColor: 'rgba(22, 163, 74, 0.1)',
+                marginBottom: '18px',
+                padding: '16px 20px',
+                borderRadius: '12px',
+                backgroundColor: 'rgba(22, 163, 74, 0.12)',
                 border: '1px solid #16a34a',
                 color: '#15803d',
                 display: 'flex',
+                justifyContent: 'space-between',
                 alignItems: 'center',
-                gap: '10px',
-                fontSize: '0.9rem'
+                flexWrap: 'wrap',
+                gap: '14px',
+                fontSize: '0.92rem'
               }}>
-                <CheckCircle2 size={20} />
-                <div>
-                  <strong>{lang === 'ar' ? 'اكتملت المزامنة بنجاح!' : 'Sync completed successfully!'}</strong>{' '}
-                  {lang === 'ar'
-                    ? `تمت معالجة ${syncResult.totalProcessed} منتج (تحديث: ${syncResult.updatedCount}، جديد: ${syncResult.insertedCount}) بنسبة زيادة ${syncResult.markupPercent}% من موقع ${syncResult.targetUrl}.`
-                    : `Processed ${syncResult.totalProcessed} items (${syncResult.updatedCount} updated, ${syncResult.insertedCount} inserted) with +${syncResult.markupPercent}% markup from ${syncResult.targetUrl}.`}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <CheckCircle2 size={24} style={{ flexShrink: 0 }} />
+                  <div>
+                    <strong style={{ fontSize: '1rem', display: 'block', marginBottom: '2px' }}>
+                      {lang === 'ar' ? 'اكتملت المزامنة بنجاح!' : 'Sync completed successfully!'}
+                    </strong>
+                    <div>
+                      {lang === 'ar'
+                        ? `نتائج السحب: أُضيف (${syncResult.insertedCount || 0}) صنف جديد، وحُدّث (${syncResult.updatedCount || 0}) صنف، ونفد (${syncResult.outOfStockCount || 0}) صنف تم إزالته من موقع المورد.`
+                        : `Sync results: (${syncResult.insertedCount || 0}) new items added, (${syncResult.updatedCount || 0}) updated, (${syncResult.outOfStockCount || 0}) marked out of stock.`}
+                    </div>
+                  </div>
                 </div>
+
+                {Number(syncResult.insertedCount) > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const matched = supplierSources.find(s => s.url === syncResult.targetUrl || syncResult.targetUrl?.includes(s.url));
+                      handleViewNewArrivals(matched ? matched.name : '');
+                    }}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: '#16a34a',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 2px 8px rgba(22, 163, 74, 0.35)',
+                      fontSize: '0.85rem'
+                    }}
+                  >
+                    <Eye size={15} />
+                    <span>{lang === 'ar' ? `عرض الـ ${syncResult.insertedCount} منتج الجديدة الآن` : `View ${syncResult.insertedCount} New Products`}</span>
+                  </button>
+                )}
               </div>
             )}
 
@@ -628,7 +690,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                       <th style={{ padding: '12px 16px', textAlign: 'center' }}>{lang === 'ar' ? 'نوع الربط' : 'Integration Type'}</th>
                       <th style={{ padding: '12px 16px', textAlign: 'center' }}>{lang === 'ar' ? 'هامش الربح' : 'Markup Margin'}</th>
                       <th style={{ padding: '12px 16px', textAlign: 'center' }}>{lang === 'ar' ? 'المنتجات المستوردة' : 'Imported Products'}</th>
-                      <th style={{ padding: '12px 16px', textAlign: 'start' }}>{lang === 'ar' ? 'آخر مزامنة وتحديث' : 'Last Sync & Status'}</th>
+                      <th style={{ padding: '12px 16px', textAlign: 'start' }}>{lang === 'ar' ? 'نتائج السحب وآخر تحديث' : 'Sync Breakdown & Status'}</th>
                       <th style={{ padding: '12px 16px', textAlign: 'center' }}>{lang === 'ar' ? 'إجراء وتحديث فوري' : 'Sync & Actions'}</th>
                     </tr>
                   </thead>
@@ -730,12 +792,91 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                               </button>
                             </td>
 
-                            {/* Last Sync Info */}
+                            {/* Sync Breakdown & Status */}
                             <td style={{ padding: '14px 16px', fontSize: '0.82rem' }}>
                               {source.last_sync_time ? (
-                                <div>
-                                  <div style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{source.last_sync_time}</div>
-                                  <div style={{ color: '#16a34a', marginTop: '2px', fontSize: '0.76rem' }}>{source.last_sync_status || (lang === 'ar' ? 'محدث' : 'Updated')}</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                  <div style={{ fontWeight: '700', color: 'var(--text-primary)', fontSize: '0.8rem' }}>
+                                    🕒 {source.last_sync_time}
+                                  </div>
+
+                                  {/* Sync Breakdown Badges */}
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    {/* New items count */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                      <span style={{ 
+                                        backgroundColor: '#dcfce7', 
+                                        color: '#15803d', 
+                                        padding: '2px 8px', 
+                                        borderRadius: '6px', 
+                                        fontWeight: '800',
+                                        fontSize: '0.78rem'
+                                      }}>
+                                        +{source.last_sync_inserted || source.new_arrivals_count || 0} {lang === 'ar' ? 'جديد تم سحبه' : 'new imported'}
+                                      </span>
+
+                                      {(Number(source.last_sync_inserted) > 0 || Number(source.new_arrivals_count) > 0) && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleViewNewArrivals(source.name)}
+                                          title={lang === 'ar' ? 'عرض المنتجات الجديدة المسحوبة من هذا الموقع فقط' : 'View new products from this site only'}
+                                          style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            color: '#15803d',
+                                            textDecoration: 'underline',
+                                            cursor: 'pointer',
+                                            fontWeight: '800',
+                                            fontSize: '0.75rem',
+                                            padding: '0 2px'
+                                          }}
+                                        >
+                                          ({lang === 'ar' ? 'عرض الجديدة فقط' : 'View New Only'})
+                                        </button>
+                                      )}
+                                    </div>
+
+                                    {/* Updated items count */}
+                                    {Number(source.last_sync_updated) > 0 && (
+                                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.74rem' }}>
+                                        🔄 {source.last_sync_updated} {lang === 'ar' ? 'صنف تم تحديث سعره' : 'items price updated'}
+                                      </div>
+                                    )}
+
+                                    {/* Out of stock count */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                      <span style={{ 
+                                        backgroundColor: (Number(source.last_sync_out_of_stock) > 0 || Number(source.out_of_stock_count) > 0) ? '#fee2e2' : 'var(--bg-secondary)', 
+                                        color: (Number(source.last_sync_out_of_stock) > 0 || Number(source.out_of_stock_count) > 0) ? '#b91c1c' : 'var(--text-muted)', 
+                                        padding: '2px 8px', 
+                                        borderRadius: '6px', 
+                                        fontWeight: '700',
+                                        fontSize: '0.75rem'
+                                      }}>
+                                        ⚠️ {source.last_sync_out_of_stock || source.out_of_stock_count || 0} {lang === 'ar' ? 'أُزيل / نفد من المخزون' : 'out of stock / removed'}
+                                      </span>
+
+                                      {(Number(source.last_sync_out_of_stock) > 0 || Number(source.out_of_stock_count) > 0) && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleViewOutOfStock(source.name)}
+                                          title={lang === 'ar' ? 'عرض المنتجات المنتهية من هذا المورد' : 'View out-of-stock products from this supplier'}
+                                          style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            color: '#b91c1c',
+                                            textDecoration: 'underline',
+                                            cursor: 'pointer',
+                                            fontWeight: '800',
+                                            fontSize: '0.75rem',
+                                            padding: '0 2px'
+                                          }}
+                                        >
+                                          ({lang === 'ar' ? 'عرض المنتهية' : 'View Out of Stock'})
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
                               ) : (
                                 <span style={{ color: 'var(--text-muted)' }}>{lang === 'ar' ? 'لم تتم المزامنة بعد' : 'Not synced yet'}</span>
@@ -1252,11 +1393,11 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
           )}
         </div>
 
-        {/* Active Supplier Filter Banner */}
-        {filterSupplier && (
+        {/* Active Filter Banner */}
+        {(filterSupplier || filterOnlyNew || filterOnlyOutOfStock) && (
           <div style={{
-            backgroundColor: 'rgba(37, 99, 235, 0.08)',
-            border: '1px solid #3b82f6',
+            backgroundColor: filterOnlyOutOfStock ? 'rgba(239, 68, 68, 0.08)' : filterOnlyNew ? 'rgba(22, 163, 74, 0.08)' : 'rgba(37, 99, 235, 0.08)',
+            border: `1px solid ${filterOnlyOutOfStock ? '#ef4444' : filterOnlyNew ? '#16a34a' : '#3b82f6'}`,
             borderRadius: '10px',
             padding: '12px 18px',
             marginBottom: '18px',
@@ -1267,15 +1408,17 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
             gap: '12px'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Globe size={20} color="#2563eb" />
+              <Sparkles size={20} color={filterOnlyOutOfStock ? '#dc2626' : filterOnlyNew ? '#16a34a' : '#2563eb'} />
               <div>
-                <span style={{ fontWeight: '800', color: '#1d4ed8', fontSize: '0.95rem' }}>
-                  {lang === 'ar' 
-                    ? `تصفية نشطة: عرض منتجات المورد [ ${filterSupplier} ]`
-                    : `Active Filter: Showing products from [ ${filterSupplier} ]`}
+                <span style={{ fontWeight: '800', color: filterOnlyOutOfStock ? '#b91c1c' : filterOnlyNew ? '#15803d' : '#1d4ed8', fontSize: '0.95rem' }}>
+                  {filterOnlyNew
+                    ? (lang === 'ar' ? `✨ تصفية نشطة: عرض الأصناف الجديدة المسحوبة بعد التحديث ${filterSupplier ? `لموقع [ ${filterSupplier} ]` : ''}` : `✨ Active Filter: Showing New Products pulled after sync ${filterSupplier ? `from [ ${filterSupplier} ]` : ''}`)
+                    : filterOnlyOutOfStock
+                    ? (lang === 'ar' ? `⚠️ تصفية نشطة: عرض المنتجات المنتهية من المخزون (Out of Stock / أُزيلت من المورد) ${filterSupplier ? `لـ [ ${filterSupplier} ]` : ''}` : `⚠️ Active Filter: Showing Out of Stock / Removed items ${filterSupplier ? `from [ ${filterSupplier} ]` : ''}`)
+                    : (lang === 'ar' ? `🌐 تصفية نشطة: عرض منتجات المورد [ ${filterSupplier} ]` : `🌐 Active Filter: Showing products from [ ${filterSupplier} ]`)}
                 </span>
                 <span style={{ 
-                  backgroundColor: '#2563eb', 
+                  backgroundColor: filterOnlyOutOfStock ? '#dc2626' : filterOnlyNew ? '#16a34a' : '#2563eb', 
                   color: 'white', 
                   padding: '2px 10px', 
                   borderRadius: '12px', 
@@ -1291,9 +1434,9 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
 
             <button
               type="button"
-              onClick={() => { setFilterSupplier(''); setCurrentPage(1); }}
+              onClick={() => { setFilterSupplier(''); setFilterOnlyNew(false); setFilterOnlyOutOfStock(false); setCurrentPage(1); }}
               style={{
-                backgroundColor: '#2563eb',
+                backgroundColor: filterOnlyOutOfStock ? '#dc2626' : filterOnlyNew ? '#16a34a' : '#2563eb',
                 color: 'white',
                 border: 'none',
                 padding: '6px 14px',
@@ -1303,8 +1446,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
-                boxShadow: '0 2px 6px rgba(37, 99, 235, 0.3)'
+                gap: '6px'
               }}
             >
               <X size={14} />
@@ -1322,7 +1464,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
           backgroundColor: 'var(--bg-secondary)',
           borderRadius: '12px',
           border: '1px solid var(--border-color)',
-          marginBottom: '20px'
+          marginBottom: '16px'
         }}>
           {/* Search Box */}
           <div style={{ position: 'relative' }}>
@@ -1397,6 +1539,63 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
           </div>
         </div>
 
+        {/* Quick Filter Badges */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px' }}>
+          <button
+            type="button"
+            onClick={() => {
+              setFilterOnlyNew(prev => !prev);
+              setFilterOnlyOutOfStock(false);
+              setCurrentPage(1);
+            }}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '20px',
+              border: filterOnlyNew ? '2px solid #16a34a' : '1px solid var(--border-color)',
+              backgroundColor: filterOnlyNew ? '#dcfce7' : 'var(--bg-secondary)',
+              color: filterOnlyNew ? '#15803d' : 'var(--text-primary)',
+              fontWeight: '800',
+              fontSize: '0.82rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.2s'
+            }}
+          >
+            <Sparkles size={14} color={filterOnlyNew ? '#15803d' : 'var(--text-light)'} />
+            <span>{lang === 'ar' ? '✨ الأصناف الجديدة المسحوبة' : '✨ New Imported Arrivals'}</span>
+            <span style={{ opacity: 0.8 }}>({products.filter(p => p.is_new_arrival === 1).length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setFilterOnlyOutOfStock(prev => !prev);
+              setFilterOnlyNew(false);
+              setCurrentPage(1);
+            }}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '20px',
+              border: filterOnlyOutOfStock ? '2px solid #ef4444' : '1px solid var(--border-color)',
+              backgroundColor: filterOnlyOutOfStock ? '#fee2e2' : 'var(--bg-secondary)',
+              color: filterOnlyOutOfStock ? '#b91c1c' : 'var(--text-primary)',
+              fontWeight: '800',
+              fontSize: '0.82rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.2s'
+            }}
+          >
+            <span>⚠️</span>
+            <span>{lang === 'ar' ? 'المنتجات المنتهية من المخزون (Out of Stock)' : 'Out of Stock Items'}</span>
+            <span style={{ opacity: 0.8 }}>({products.filter(p => p.stock <= 0).length})</span>
+          </button>
+        </div>
+
         {/* Products Table */}
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'start' }}>
@@ -1447,7 +1646,41 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                         />
                       </td>
                       <td style={{ padding: '10px', fontWeight: '600' }}>
-                        <div>{lang === 'ar' ? p.name_ar : p.name_en}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          <span>{lang === 'ar' ? p.name_ar : p.name_en}</span>
+                          {p.is_new_arrival === 1 && (
+                            <span style={{
+                              fontSize: '0.68rem',
+                              fontWeight: '800',
+                              backgroundColor: '#ecfdf5',
+                              color: '#059669',
+                              border: '1px solid #a7f3d0',
+                              padding: '1px 6px',
+                              borderRadius: '4px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px'
+                            }}>
+                              ✨ {lang === 'ar' ? 'جديد' : 'New'}
+                            </span>
+                          )}
+                          {p.stock <= 0 && (
+                            <span style={{
+                              fontSize: '0.68rem',
+                              fontWeight: '800',
+                              backgroundColor: '#fef2f2',
+                              color: '#dc2626',
+                              border: '1px solid #fecaca',
+                              padding: '1px 6px',
+                              borderRadius: '4px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px'
+                            }}>
+                              ⚠️ {lang === 'ar' ? 'نفد' : 'Out'}
+                            </span>
+                          )}
+                        </div>
                         {p.merchant_name && (
                           <div style={{ 
                             display: 'inline-block',
@@ -1482,7 +1715,11 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                         {formatPrice(p.cost_price_usd || 0)}
                       </td>
                       <td style={{ padding: '10px', color: p.stock > 0 ? '#10b981' : '#ef4444', fontWeight: '700' }}>
-                        {p.stock}
+                        {p.stock <= 0 ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#ef4444' }}>
+                            0 <span style={{ fontSize: '0.72rem', fontWeight: '600' }}>({lang === 'ar' ? 'نفد' : 'Out'})</span>
+                          </span>
+                        ) : p.stock}
                       </td>
                       <td style={{ padding: '10px', textAlign: 'center' }}>
                         <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>

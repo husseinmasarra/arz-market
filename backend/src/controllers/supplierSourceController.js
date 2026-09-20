@@ -9,7 +9,17 @@ exports.getSources = async (req, res) => {
           (SELECT COUNT(*) FROM products p 
            WHERE p.merchant_id = (SELECT id FROM merchants m WHERE m.name = s.name LIMIT 1)
           ), 0
-        ) as products_count
+        ) as products_count,
+        COALESCE(
+          (SELECT COUNT(*) FROM products p 
+           WHERE p.merchant_id = (SELECT id FROM merchants m WHERE m.name = s.name LIMIT 1) AND p.is_new_arrival = 1
+          ), 0
+        ) as new_arrivals_count,
+        COALESCE(
+          (SELECT COUNT(*) FROM products p 
+           WHERE p.merchant_id = (SELECT id FROM merchants m WHERE m.name = s.name LIMIT 1) AND p.stock = 0
+          ), 0
+        ) as out_of_stock_count
       FROM supplier_sources s
       ORDER BY s.is_default DESC, s.id ASC
     `);

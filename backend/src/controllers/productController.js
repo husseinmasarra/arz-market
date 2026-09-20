@@ -27,8 +27,18 @@ function formatSizesForClient(sizesJson) {
 }
 
 exports.getProducts = async (req, res) => {
-  const { category_id, search, min_price, max_price, min_rating, all, include_inactive } = req.query;
+  const { category_id, search, min_price, max_price, min_rating, all, include_inactive, new_arrivals, out_of_stock, merchant_name } = req.query;
   const showAll = all === 'true' || include_inactive === 'true';
+
+  let hideOutOfStockOnStore = false;
+  if (!showAll) {
+    try {
+      const sRow = await db.getAsync('SELECT show_out_of_stock_on_home FROM settings LIMIT 1');
+      if (sRow && sRow.show_out_of_stock_on_home === 0) {
+        hideOutOfStockOnStore = true;
+      }
+    } catch (e) {}
+  }
 
   let query = showAll ? `
     SELECT p.*, c.name_ar as category_name_ar, c.name_en as category_name_en, m.name as merchant_name 
@@ -42,8 +52,22 @@ exports.getProducts = async (req, res) => {
     INNER JOIN categories c ON p.category_id = c.id
     LEFT JOIN merchants m ON p.merchant_id = m.id
     WHERE (c.active = 1 OR c.active IS NULL)
+    ${hideOutOfStockOnStore ? 'AND p.stock > 0' : ''}
   `;
   const params = [];
+
+  if (new_arrivals === 'true') {
+    query += ' AND p.is_new_arrival = 1';
+  }
+
+  if (out_of_stock === 'true') {
+    query += ' AND p.stock <= 0';
+  }
+
+  if (merchant_name) {
+    query += ' AND m.name = ?';
+    params.push(merchant_name);
+  }
 
   if (category_id) {
     try {

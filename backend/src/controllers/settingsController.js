@@ -59,7 +59,8 @@ exports.getSettings = async (req, res) => {
       total_views: cumulativeViews,
       views_today: viewsToday,
       visitor_baseline_count: baseline,
-      show_visitor_counter: settings.show_visitor_counter !== 0 ? 1 : 0
+      show_visitor_counter: settings.show_visitor_counter !== 0 ? 1 : 0,
+      show_out_of_stock_on_home: settings.show_out_of_stock_on_home !== 0 ? 1 : 0
     });
   } catch (err) {
     console.error('Get settings error:', err);
@@ -79,7 +80,8 @@ exports.updateSettings = async (req, res) => {
     supplier_catalog_passcode,
     supplier_markup_percent,
     visitor_baseline_count,
-    show_visitor_counter
+    show_visitor_counter,
+    show_out_of_stock_on_home
   } = req.body;
 
   try {
@@ -102,20 +104,21 @@ exports.updateSettings = async (req, res) => {
     const supplierMarkup = supplier_markup_percent !== undefined ? parseFloat(supplier_markup_percent) : (settings?.supplier_markup_percent || 45);
     const baselineCount = visitor_baseline_count !== undefined ? parseInt(visitor_baseline_count, 10) : (settings?.visitor_baseline_count || 0);
     const showCounter = show_visitor_counter !== undefined ? parseInt(show_visitor_counter, 10) : (settings?.show_visitor_counter !== undefined ? settings.show_visitor_counter : 1);
+    const showOutOfStock = show_out_of_stock_on_home !== undefined ? parseInt(show_out_of_stock_on_home, 10) : (settings?.show_out_of_stock_on_home !== undefined ? settings.show_out_of_stock_on_home : 1);
 
     if (settings) {
       await db.runAsync(`
         UPDATE settings 
         SET app_name = ?, logo_url = ?, exchange_rate = ?, free_delivery_threshold = ?, delivery_fee = ?, online_payment_enabled = ?, contact_email = ?,
             supplier_catalog_url = ?, supplier_catalog_passcode = ?, supplier_markup_percent = ?,
-            visitor_baseline_count = ?, show_visitor_counter = ?
+            visitor_baseline_count = ?, show_visitor_counter = ?, show_out_of_stock_on_home = ?
         WHERE id = ?
-      `, [appName, logoUrl, exRate, freeThreshold, delFee, payEnabled, contactEmail, supplierUrl, supplierPass, supplierMarkup, baselineCount, showCounter, id]);
+      `, [appName, logoUrl, exRate, freeThreshold, delFee, payEnabled, contactEmail, supplierUrl, supplierPass, supplierMarkup, baselineCount, showCounter, showOutOfStock, id]);
     } else {
       await db.runAsync(`
-        INSERT INTO settings (app_name, logo_url, exchange_rate, free_delivery_threshold, delivery_fee, online_payment_enabled, contact_email, hero_banners, supplier_catalog_url, supplier_catalog_passcode, supplier_markup_percent, visitor_baseline_count, show_visitor_counter)
-        VALUES (?, ?, ?, ?, ?, ?, ?, '[]', ?, ?, ?, ?, ?)
-      `, [appName, logoUrl, exRate, freeThreshold, delFee, payEnabled, contactEmail, supplierUrl, supplierPass, supplierMarkup, baselineCount, showCounter]);
+        INSERT INTO settings (app_name, logo_url, exchange_rate, free_delivery_threshold, delivery_fee, online_payment_enabled, contact_email, hero_banners, supplier_catalog_url, supplier_catalog_passcode, supplier_markup_percent, visitor_baseline_count, show_visitor_counter, show_out_of_stock_on_home)
+        VALUES (?, ?, ?, ?, ?, ?, ?, '[]', ?, ?, ?, ?, ?, ?)
+      `, [appName, logoUrl, exRate, freeThreshold, delFee, payEnabled, contactEmail, supplierUrl, supplierPass, supplierMarkup, baselineCount, showCounter, showOutOfStock]);
     }
 
     res.json({

@@ -17,6 +17,7 @@ export default function AdminSettings() {
   const [logoFile, setLogoFile] = useState(null);
   const [visitorBaselineCount, setVisitorBaselineCount] = useState(0);
   const [showVisitorCounter, setShowVisitorCounter] = useState(1);
+  const [showOutOfStockOnHome, setShowOutOfStockOnHome] = useState(1);
 
   // Supplier Catalog Sync states
   const [supplierUrl, setSupplierUrl] = useState('https://drphonewholesale.online');
@@ -59,6 +60,7 @@ export default function AdminSettings() {
       setSupplierMarkup(settings.supplier_markup_percent !== undefined ? settings.supplier_markup_percent : 45);
       setVisitorBaselineCount(settings.visitor_baseline_count || 0);
       setShowVisitorCounter(settings.show_visitor_counter !== undefined ? settings.show_visitor_counter : 1);
+      setShowOutOfStockOnHome(settings.show_out_of_stock_on_home !== undefined ? settings.show_out_of_stock_on_home : 1);
       
       // Ensure all loaded banners have unique IDs for stable editing key
       const bannersWithIds = (settings.hero_banners || []).map((b, idx) => ({
@@ -171,6 +173,7 @@ export default function AdminSettings() {
     formData.append('supplier_markup_percent', supplierMarkup);
     formData.append('visitor_baseline_count', visitorBaselineCount);
     formData.append('show_visitor_counter', showVisitorCounter);
+    formData.append('show_out_of_stock_on_home', showOutOfStockOnHome);
     if (logoFile) {
       formData.append('logo', logoFile);
     }
@@ -497,6 +500,16 @@ export default function AdminSettings() {
               <option value={1}>نعم - إظهار عداد الزوار التراكمي في أسفل المتجر</option>
               <option value={0}>إخفاء العداد من أسفل المتجر</option>
             </select>
+          </div>
+          <div>
+            <label className="input-label">عرض المنتجات المنتهية في المتجر (Out of Stock)</label>
+            <select className="input-field" value={showOutOfStockOnHome} onChange={(e) => setShowOutOfStockOnHome(parseInt(e.target.value))}>
+              <option value={1}>نعم - إظهار المنتجات المنتهية مع علامة (نفد من المخزون)</option>
+              <option value={0}>إخفاء المنتجات المنتهية تلقائياً من المتجر وواجهة العملاء</option>
+            </select>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-light)', display: 'block', marginTop: '3px' }}>
+              عند الإخفاء، أي منتج رصيده 0 أو تم حذفه من كتالوج المورد يُحجب فوراً عن الزوار
+            </span>
           </div>
 
           <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '10px', marginTop: '10px' }}>
