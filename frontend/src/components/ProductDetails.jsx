@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart, getOptionPrice } from '../context/CartContext';
-import { Star, ShoppingCart, X } from 'lucide-react';
+import { Star, ShoppingCart, X, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 
 function parseProductOptions(sizes, basePrice) {
   if (!sizes) return [];
@@ -43,6 +43,10 @@ export default function ProductDetails({ product, onClose, onRefresh }) {
   const [userRating, setUserRating] = useState(5);
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
   
+  // Image Lightbox Zoom state
+  const [isZoomOpen, setIsZoomOpen] = useState(false);
+  const [zoomScale, setZoomScale] = useState(1);
+
   const productOptions = parseProductOptions(product?.sizes, product?.price_usd || 0);
   const hasOptions = productOptions.length > 0;
 
@@ -55,15 +59,22 @@ export default function ProductDetails({ product, onClose, onRefresh }) {
 
   if (!product) return null;
 
-  // ESC key closes this modal
+  // ESC key closes zoom modal first if active, otherwise closes product details
   // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        if (isZoomOpen) {
+          setIsZoomOpen(false);
+          setZoomScale(1);
+        } else {
+          onClose();
+        }
+      }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, [onClose, isZoomOpen]);
 
   const name = lang === 'ar' ? product.name_ar : product.name_en;
   const desc = lang === 'ar' ? product.description_ar : product.description_en;
@@ -157,26 +168,57 @@ export default function ProductDetails({ product, onClose, onRefresh }) {
           gap: '24px',
           marginTop: '16px'
         }}>
-          {/* Product Image */}
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '12px',
-            padding: '16px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            border: '1px solid var(--border-color)',
-            minHeight: '260px'
-          }}>
+          {/* Product Image with Zoom preview */}
+          <div 
+            onClick={() => setIsZoomOpen(true)}
+            style={{
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              padding: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: '1px solid var(--border-color)',
+              minHeight: '260px',
+              position: 'relative',
+              cursor: 'zoom-in',
+              overflow: 'hidden'
+            }}
+            title={lang === 'ar' ? 'انقر لتكبير ومعاينة الصورة' : 'Click to enlarge image'}
+          >
             <img 
               src={imageUrl} 
               alt={name} 
               style={{
                 maxWidth: '100%',
                 maxHeight: '300px',
-                objectFit: 'contain'
+                objectFit: 'contain',
+                transition: 'transform 0.3s ease'
               }}
+              onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
             />
+            {/* Zoom Badge Indicator */}
+            <div style={{
+              position: 'absolute',
+              bottom: '12px',
+              insetInlineEnd: '12px',
+              backgroundColor: 'rgba(15, 23, 42, 0.75)',
+              backdropFilter: 'blur(8px)',
+              color: 'white',
+              fontSize: '0.72rem',
+              fontWeight: '700',
+              padding: '4px 10px',
+              borderRadius: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              pointerEvents: 'none',
+              border: '1px solid rgba(255, 255, 255, 0.2)'
+            }}>
+              <ZoomIn size={13} />
+              <span>{lang === 'ar' ? 'تكبير' : 'Zoom'}</span>
+            </div>
           </div>
 
           {/* Details Content */}
@@ -506,6 +548,177 @@ export default function ProductDetails({ product, onClose, onRefresh }) {
         </div>
 
       </div>
+
+      {/* Lightbox Image Fullscreen Zoom Modal */}
+      {isZoomOpen && (
+        <div
+          onClick={() => { setIsZoomOpen(false); setZoomScale(1); }}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.94)',
+            zIndex: 3500,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+            backdropFilter: 'blur(12px)',
+            animation: 'fadeIn 0.2s ease-out'
+          }}
+        >
+          {/* Top Controls Bar */}
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'absolute',
+              top: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              backgroundColor: 'rgba(30, 41, 59, 0.85)',
+              backdropFilter: 'blur(16px)',
+              padding: '8px 18px',
+              borderRadius: '30px',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+              zIndex: 3600
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setZoomScale(prev => Math.min(prev + 0.3, 3.5))}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'white',
+                cursor: 'pointer',
+                padding: '6px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'background 0.2s'
+              }}
+              title={lang === 'ar' ? 'تكبير (+)' : 'Zoom In (+)'}
+            >
+              <ZoomIn size={18} />
+            </button>
+            <span style={{ color: 'white', fontSize: '0.82rem', fontWeight: '700', minWidth: '45px', textAlign: 'center' }}>
+              {Math.round(zoomScale * 100)}%
+            </span>
+            <button
+              type="button"
+              onClick={() => setZoomScale(prev => Math.max(prev - 0.3, 0.6))}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'white',
+                cursor: 'pointer',
+                padding: '6px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'background 0.2s'
+              }}
+              title={lang === 'ar' ? 'تصغير (-)' : 'Zoom Out (-)'}
+            >
+              <ZoomOut size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setZoomScale(1)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'white',
+                cursor: 'pointer',
+                padding: '6px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'background 0.2s'
+              }}
+              title={lang === 'ar' ? 'إعادة ضبط الحجم' : 'Reset Zoom'}
+            >
+              <RotateCcw size={16} />
+            </button>
+            <div style={{ width: '1px', height: '18px', backgroundColor: 'rgba(255,255,255,0.25)', margin: '0 4px' }} />
+            <button
+              type="button"
+              onClick={() => { setIsZoomOpen(false); setZoomScale(1); }}
+              style={{
+                background: 'rgba(239, 68, 68, 0.85)',
+                border: 'none',
+                color: 'white',
+                cursor: 'pointer',
+                width: '28px',
+                height: '28px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'transform 0.2s'
+              }}
+              title={lang === 'ar' ? 'إغلاق المعاينة (ESC)' : 'Close Preview (ESC)'}
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          {/* Lightbox Image with smooth scaling */}
+          <div 
+            onClick={(e) => {
+              e.stopPropagation();
+              setZoomScale(prev => (prev === 1 ? 1.8 : 1));
+            }}
+            style={{
+              maxWidth: '92vw',
+              maxHeight: '84vh',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              overflow: 'hidden',
+              cursor: zoomScale === 1 ? 'zoom-in' : 'zoom-out',
+              transition: 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+              transform: `scale(${zoomScale})`
+            }}
+          >
+            <img
+              src={imageUrl}
+              alt={name}
+              style={{
+                maxWidth: '85vw',
+                maxHeight: '80vh',
+                objectFit: 'contain',
+                borderRadius: '12px',
+                boxShadow: '0 25px 60px rgba(0,0,0,0.85)',
+                backgroundColor: 'white'
+              }}
+            />
+          </div>
+
+          {/* Bottom helper text */}
+          <div style={{
+            position: 'absolute',
+            bottom: '20px',
+            color: 'rgba(255, 255, 255, 0.75)',
+            fontSize: '0.78rem',
+            backgroundColor: 'rgba(0, 0, 0, 0.6)',
+            backdropFilter: 'blur(8px)',
+            padding: '6px 16px',
+            borderRadius: '20px',
+            pointerEvents: 'none',
+            border: '1px solid rgba(255, 255, 255, 0.1)'
+          }}>
+            {lang === 'ar' ? 'انقر على الصورة للتكبير / التصغير أو اضغط ESC للخروج' : 'Click image to toggle zoom or press ESC to exit'}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
