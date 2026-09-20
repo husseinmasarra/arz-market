@@ -31,6 +31,8 @@ router.put('/categories/:id', authenticateToken, requirePermission('categories')
 router.delete('/categories/:id', authenticateToken, requirePermission('categories'), categoryController.deleteCategory);
 
 // --- Product Routes ---
+router.get('/products/best-sellers', productController.getBestSellers);
+router.get('/products/new-arrivals-home', productController.getNewArrivalsHome);
 router.get('/products', productController.getProducts);
 router.get('/products/:id', productController.getProductById);
 router.post('/products', authenticateToken, requirePermission('products'), upload.single('product_image'), productController.createProduct);

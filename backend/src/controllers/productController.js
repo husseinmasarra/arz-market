@@ -150,6 +150,87 @@ exports.getProducts = async (req, res) => {
   }
 };
 
+// Best Sellers: products ranked by total quantity sold
+exports.getBestSellers = async (req, res) => {
+  const limit = parseInt(req.query.limit) || 8;
+  const cacheKey = `best_sellers_${limit}`;
+  const now = Date.now();
+  const cached = productsCache.get(cacheKey);
+  if (cached && (now - cached.time < PRODUCT_CACHE_TTL)) {
+    res.setHeader('Cache-Control', 'public, max-age=30');
+    return res.json(cached.data);
+  }
+  try {
+    const rows = await db.allAsync(`
+      SELECT p.*, c.name_ar as category_name_ar, c.name_en as category_name_en,
+             m.name as merchant_name,
+             COALESCE(SUM(oi.quantity), 0) as total_sold
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      LEFT JOIN merchants m ON p.merchant_id = m.id
+      LEFT JOIN order_items oi ON oi.product_id = p.id
+      WHERE (c.active = 1 OR c.active IS NULL) AND p.stock > 0
+      GROUP BY p.id
+      ORDER BY total_sold DESC, p.id DESC
+      LIMIT ?
+    `, [limit]);
+
+    const data = rows.map(p => {
+      const rating = p.rating_count > 0 ? (p.rating_sum / p.rating_count) : 0;
+      let parsedColors = [];
+      try { parsedColors = JSON.parse(p.colors || '[]'); } catch (e) {}
+      const parsedSizes = formatSizesForClient(p.sizes);
+      return { ...p, rating, colors: parsedColors, sizes: parsedSizes };
+    });
+
+    productsCache.set(cacheKey, { time: now, data });
+    res.setHeader('Cache-Control', 'public, max-age=30');
+    res.json(data);
+  } catch (err) {
+    console.error('Best sellers error:', err);
+    res.status(500).json({ error: 'Error fetching best sellers' });
+  }
+};
+
+// New Arrivals Home: products added in last 14 days
+exports.getNewArrivalsHome = async (req, res) => {
+  const limit = parseInt(req.query.limit) || 8;
+  const cacheKey = `new_arrivals_home_${limit}`;
+  const now = Date.now();
+  const cached = productsCache.get(cacheKey);
+  if (cached && (now - cached.time < PRODUCT_CACHE_TTL)) {
+    res.setHeader('Cache-Control', 'public, max-age=30');
+    return res.json(cached.data);
+  }
+  try {
+    const rows = await db.allAsync(`
+      SELECT p.*, c.name_ar as category_name_ar, c.name_en as category_name_en,
+             m.name as merchant_name
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      LEFT JOIN merchants m ON p.merchant_id = m.id
+      WHERE (c.active = 1 OR c.active IS NULL) AND p.stock > 0
+      ORDER BY p.id DESC
+      LIMIT ?
+    `, [limit]);
+
+    const data = rows.map(p => {
+      const rating = p.rating_count > 0 ? (p.rating_sum / p.rating_count) : 0;
+      let parsedColors = [];
+      try { parsedColors = JSON.parse(p.colors || '[]'); } catch (e) {}
+      const parsedSizes = formatSizesForClient(p.sizes);
+      return { ...p, rating, colors: parsedColors, sizes: parsedSizes };
+    });
+
+    productsCache.set(cacheKey, { time: now, data });
+    res.setHeader('Cache-Control', 'public, max-age=30');
+    res.json(data);
+  } catch (err) {
+    console.error('New arrivals home error:', err);
+    res.status(500).json({ error: 'Error fetching new arrivals' });
+  }
+};
+
 exports.getProductById = async (req, res) => {
   const { id } = req.params;
 

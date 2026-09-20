@@ -11,6 +11,8 @@ import Cart from './components/Cart';
 import Checkout from './components/Checkout';
 import Chat from './components/Chat';
 import PwaInstallBanner from './components/PwaInstallBanner';
+import BestSellersSection from './components/BestSellersSection';
+import NewArrivalsSection from './components/NewArrivalsSection';
 
 // Admin panel imports
 import AdminDashboard from './components/admin/AdminDashboard';
@@ -1040,6 +1042,13 @@ export default function App() {
             {selectedCategory === '' && !searchVal ? (
               /* --- 1. GRAND CATEGORY CARDS ONLY VIEW (DEFAULT ENTRY POINT) --- */
               <div className="animate-fade" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+                {/* 🔥 Best Sellers Strip */}
+                <BestSellersSection onProductClick={(p) => setSelectedProduct(p)} />
+
+                {/* ✨ New Arrivals Strip */}
+                <NewArrivalsSection onProductClick={(p) => setSelectedProduct(p)} />
+
                 <h2 style={{ fontSize: '1.6rem', fontWeight: '800', borderBottom: '2px solid var(--border-color)', paddingBottom: '10px', marginBottom: '16px' }}>
                   {lang === 'ar' ? 'تصفح أقسام المتجر' : 'Browse Store Categories'}
                 </h2>
