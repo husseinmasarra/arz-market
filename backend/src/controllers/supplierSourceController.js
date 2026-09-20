@@ -139,6 +139,13 @@ exports.syncSource = async (req, res) => {
       syncType: source.sync_type
     });
 
+    try {
+      const { invalidateCategoriesCache } = require('./categoryController');
+      const { invalidateProductsCache } = require('./productController');
+      invalidateCategoriesCache();
+      invalidateProductsCache();
+    } catch (e) {}
+
     res.json(result);
   } catch (err) {
     console.error('syncSource error:', err);

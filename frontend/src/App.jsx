@@ -82,9 +82,11 @@ export default function App() {
 
   // User orders history state
   const [userOrders, setUserOrders] = useState([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
 
   const fetchProducts = async () => {
     try {
+      setLoadingProducts(true);
       let url = `${apiBase}/products?`;
       if (selectedCategory) url += `category_id=${selectedCategory}&`;
       if (searchVal) url += `search=${encodeURIComponent(searchVal)}&`;
@@ -99,6 +101,8 @@ export default function App() {
       }
     } catch (err) {
       console.error('Fetch products client error:', err);
+    } finally {
+      setLoadingProducts(false);
     }
   };
 
@@ -130,7 +134,12 @@ export default function App() {
   };
 
   useEffect(() => {
-    fetchProducts();
+    // Only fetch products when a category is chosen or user is filtering/searching
+    if (selectedCategory || searchVal || minPrice || maxPrice || minRating) {
+      fetchProducts();
+    } else {
+      setProducts([]);
+    }
   }, [selectedCategory, searchVal, minPrice, maxPrice, minRating]);
 
   // Analytics: Track visitor page views
@@ -1187,33 +1196,59 @@ export default function App() {
                 </div>
 
                 {/* Products Grid */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-                  gap: '24px'
-                }}>
-                  {products.map((p) => (
-                    <ProductCard 
-                      key={p.id} 
-                      product={p} 
-                      onDetailsClick={setSelectedProduct} 
-                    />
-                  ))}
-                </div>
-
-                {products.length === 0 && (
+                {loadingProducts ? (
                   <div style={{
                     textAlign: 'center',
                     padding: '80px 0',
                     color: 'var(--text-light)',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '12px',
+                    gap: '16px',
                     alignItems: 'center'
                   }}>
-                    <FileText size={48} strokeWidth={1} />
-                    <p style={{ fontWeight: '600' }}>{t('no_products')}</p>
+                    <div style={{
+                      width: '40px',
+                      height: '40px',
+                      border: '3px solid var(--border-color)',
+                      borderTopColor: 'var(--accent-red-gold)',
+                      borderRadius: '50%',
+                      animation: 'spin 0.8s linear infinite'
+                    }} />
+                    <p style={{ fontWeight: '600', fontSize: '0.95rem' }}>
+                      {lang === 'ar' ? 'جاري جلب المنتجات...' : 'Loading products...'}
+                    </p>
                   </div>
+                ) : (
+                  <>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+                      gap: '24px'
+                    }}>
+                      {products.map((p) => (
+                        <ProductCard 
+                          key={p.id} 
+                          product={p} 
+                          onDetailsClick={setSelectedProduct} 
+                        />
+                      ))}
+                    </div>
+
+                    {products.length === 0 && (
+                      <div style={{
+                        textAlign: 'center',
+                        padding: '80px 0',
+                        color: 'var(--text-light)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px',
+                        alignItems: 'center'
+                      }}>
+                        <FileText size={48} strokeWidth={1} />
+                        <p style={{ fontWeight: '600' }}>{t('no_products')}</p>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}

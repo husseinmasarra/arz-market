@@ -1,6 +1,15 @@
 const db = require('../config/db');
 const { fileToBase64 } = require('../utils/fileHelper');
 
+// In-memory cache for product listings (TTL = 30 seconds)
+const productsCache = new Map();
+const PRODUCT_CACHE_TTL = 30 * 1000;
+
+function invalidateProductsCache() {
+  productsCache.clear();
+}
+exports.invalidateProductsCache = invalidateProductsCache;
+
 function formatSizesForClient(sizesJson) {
   if (!sizesJson) return [];
   let list = [];
@@ -27,6 +36,14 @@ function formatSizesForClient(sizesJson) {
 }
 
 exports.getProducts = async (req, res) => {
+  const cacheKey = JSON.stringify(req.query);
+  const now = Date.now();
+  const cached = productsCache.get(cacheKey);
+  if (cached && (now - cached.time < PRODUCT_CACHE_TTL)) {
+    res.setHeader('Cache-Control', 'public, max-age=30');
+    return res.json(cached.data);
+  }
+
   const { category_id, search, min_price, max_price, min_rating, all, include_inactive, new_arrivals, out_of_stock, merchant_name } = req.query;
   const showAll = all === 'true' || include_inactive === 'true';
 
@@ -119,6 +136,13 @@ exports.getProducts = async (req, res) => {
       filteredProducts = filteredProducts.filter(p => p.rating >= minRate);
     }
 
+    if (productsCache.size > 200) {
+      const oldestKeys = Array.from(productsCache.keys()).slice(0, 50);
+      oldestKeys.forEach(k => productsCache.delete(k));
+    }
+    productsCache.set(cacheKey, { time: now, data: filteredProducts });
+
+    res.setHeader('Cache-Control', 'public, max-age=30');
     res.json(filteredProducts);
   } catch (err) {
     console.error('Get products error:', err);
@@ -146,6 +170,7 @@ exports.getProductById = async (req, res) => {
     let parsedColors = [];
     try { parsedColors = JSON.parse(product.colors || '[]'); } catch (e) { parsedColors = []; }
     const parsedSizes = formatSizesForClient(product.sizes);
+    res.setHeader('Cache-Control', 'public, max-age=30');
     res.json({ ...product, rating, colors: parsedColors, sizes: parsedSizes });
   } catch (err) {
     console.error('Get product by ID error:', err);
@@ -174,6 +199,8 @@ exports.createProduct = async (req, res) => {
       INSERT INTO products (name_ar, name_en, description_ar, description_en, price_usd, cost_price_usd, old_price_usd, category_id, merchant_id, image_url, stock, colors, sizes)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [name_ar, name_en, description_ar, description_en, parseFloat(price_usd), costPrice, oldPrice, cid, mid, imageUrl, productStock, colorsStr, sizesStr]);
+
+    invalidateProductsCache();
 
     res.status(201).json({
       message_ar: 'تم إضافة المنتج بنجاح',
@@ -230,6 +257,8 @@ exports.updateProduct = async (req, res) => {
       WHERE id = ?
     `, [name_ar, name_en, description_ar, description_en, parseFloat(price_usd), costPrice, oldPrice, cid, mid, imageUrl, productStock, colorsStr, sizesStr, id]);
 
+    invalidateProductsCache();
+
     res.json({
       message_ar: 'تم تحديث المنتج بنجاح',
       message_en: 'Product updated successfully',
@@ -266,6 +295,7 @@ exports.deleteProduct = async (req, res) => {
     }
 
     await db.runAsync('DELETE FROM products WHERE id = ?', [id]);
+    invalidateProductsCache();
     res.json({ message_ar: 'تم حذف المنتج بنجاح', message_en: 'Product deleted successfully' });
   } catch (err) {
     console.error('Delete product error:', err);
@@ -293,6 +323,7 @@ exports.rateProduct = async (req, res) => {
       WHERE id = ?
     `, [parseFloat(rating), id]);
 
+    invalidateProductsCache();
     res.json({ message_ar: 'شكراً لتقييمك!', message_en: 'Thank you for your rating!' });
   } catch (err) {
     console.error('Rate product error:', err);

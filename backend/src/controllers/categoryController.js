@@ -1,7 +1,23 @@
 const db = require('../config/db');
 const { fileToBase64 } = require('../utils/fileHelper');
 
+let categoriesCache = null;
+let categoriesCacheTime = 0;
+const CATEGORY_CACHE_TTL = 60 * 1000; // 60s
+
+function invalidateCategoriesCache() {
+  categoriesCache = null;
+  categoriesCacheTime = 0;
+}
+exports.invalidateCategoriesCache = invalidateCategoriesCache;
+
 exports.getCategories = async (req, res) => {
+  const now = Date.now();
+  if (categoriesCache && (now - categoriesCacheTime < CATEGORY_CACHE_TTL)) {
+    res.setHeader('Cache-Control', 'public, max-age=60');
+    return res.json(categoriesCache);
+  }
+
   try {
     const categories = await db.allAsync(`
       SELECT c.*, p.name_ar as parent_name_ar, p.name_en as parent_name_en 
@@ -9,6 +25,9 @@ exports.getCategories = async (req, res) => {
       LEFT JOIN categories p ON c.parent_id = p.id
       ORDER BY COALESCE(c.sort_order, 0) ASC, c.id DESC
     `);
+    categoriesCache = categories;
+    categoriesCacheTime = now;
+    res.setHeader('Cache-Control', 'public, max-age=60');
     res.json(categories);
   } catch (err) {
     console.error('Get categories error:', err);
@@ -34,6 +53,7 @@ exports.createCategory = async (req, res) => {
       'INSERT INTO categories (name_ar, name_en, parent_id, image_url, active, sort_order, code) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [name_ar, name_en, pid, imageUrl, cActive, cSortOrder, cCode]
     );
+    invalidateCategoriesCache();
     res.status(201).json({
       message_ar: 'تم إضافة التصنيف بنجاح',
       message_en: 'Category added successfully',
@@ -91,6 +111,7 @@ exports.updateCategory = async (req, res) => {
       [updatedNameAr, updatedNameEn, pid, imageUrl, updatedActive, updatedSortOrder, updatedCode, id]
     );
 
+    invalidateCategoriesCache();
     res.json({
       message_ar: 'تم تحديث التصنيف بنجاح',
       message_en: 'Category updated successfully',
@@ -123,6 +144,7 @@ exports.reorderCategories = async (req, res) => {
         await db.runAsync('UPDATE categories SET sort_order = ? WHERE id = ?', [item.sort_order, item.id]);
       }
     }
+    invalidateCategoriesCache();
     res.json({ message_ar: 'تم حفظ الترتيب بنجاح', message_en: 'Order updated successfully' });
   } catch (err) {
     console.error('Reorder categories error:', err);
@@ -143,6 +165,7 @@ exports.deleteCategory = async (req, res) => {
     await db.runAsync('DELETE FROM categories WHERE id = ?', [id]);
     // Set parent_id to null for sub-categories
     await db.runAsync('UPDATE categories SET parent_id = NULL WHERE parent_id = ?', [id]);
+    invalidateCategoriesCache();
 
     res.json({ message_ar: 'تم حذف التصنيف بنجاح', message_en: 'Category deleted successfully' });
   } catch (err) {

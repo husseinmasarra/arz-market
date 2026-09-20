@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const compression = require('compression');
 const path = require('path');
 const http = require('http');
 const WebSocket = require('ws');
@@ -9,6 +10,7 @@ require('./config/db'); // Initialize DB and Seed Admin/Settings
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+app.use(compression());
 app.use(cors({ origin: '*' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
