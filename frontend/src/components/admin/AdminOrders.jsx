@@ -95,8 +95,7 @@ export default function AdminOrders() {
     const totalSupplierCost = supplierItems.reduce((acc, i) => acc + (Number(i.cost_price_usd || 0) * i.quantity), 0);
 
     const message = 
-`*طلب دروب شيبينغ جديد من أرز مارت (Arz-Mart)* 📦
-----------------------------------
+`*طلب دروب شيبينغ جديد من أرز مارت (Arz-Mart)* ----------------------------------
 *رقم الطلب:* #${order.tracking_number || order.id}
 *التاريخ:* ${new Date(order.created_at).toLocaleDateString(lang === 'ar' ? 'ar-EG' : 'en-US')}
 
@@ -105,11 +104,11 @@ ${itemsText}
 
 ${totalSupplierCost > 0 ? `*مجموع تكلفة الجملة:* $${totalSupplierCost.toFixed(2)} USD\n` : ''}----------------------------------
 *بيانات الشحن والتسليم للعميل:*
-👤 *الاسم:* ${order.user_name || 'عميل'}
-📞 *الهاتف:* ${order.phone}
-📍 *العنوان:* ${order.address}
-💵 *طريقة الدفع:* ${order.payment_method === 'COD' ? 'الدفع عند الاستلام (COD)' : 'مدفوع مسبقاً (Online)'}
-💰 *المبلغ المطلوب تحصيله من الزبون:* ${order.payment_method === 'COD' ? `$${Number(order.total_usd).toFixed(2)} (${formatPrice(order.total_lbp).replace('$', '')} L.L.)` : 'تم الدفع أونلاين ($0)'}
+*الاسم:* ${order.user_name || 'عميل'}
+*الهاتف:* ${order.phone}
+*العنوان:* ${order.address}
+*طريقة الدفع:* ${order.payment_method === 'COD' ? 'الدفع عند الاستلام (COD)' : 'مدفوع مسبقاً (Online)'}
+*المبلغ المطلوب تحصيله من الزبون:* ${order.payment_method === 'COD' ? `$${Number(order.total_usd).toFixed(2)} (${formatPrice(order.total_lbp).replace('$', '')} L.L.)` : 'تم الدفع أونلاين ($0)'}
 ----------------------------------
 شكراً لتعاونكم! الرجاء تأكيد الاستلام والبدء بالتجهيز.`;
 
@@ -298,19 +297,19 @@ ${totalSupplierCost > 0 ? `*مجموع تكلفة الجملة:* $${totalSupplie
                     </span>
                     {o.supplier_fulfillment_status === 'forwarded_to_supplier' ? (
                       <span style={{ fontSize: '0.66rem', backgroundColor: '#e0f2fe', color: '#0369a1', padding: '2px 6px', borderRadius: '12px', fontWeight: '800' }}>
-                        📤 {lang === 'ar' ? 'أُرسل للمورد' : 'Sent to Supplier'}
+                        {lang === 'ar' ? 'أُرسل للمورد' : 'Sent to Supplier'}
                       </span>
                     ) : o.supplier_fulfillment_status === 'shipped_by_supplier' ? (
                       <span style={{ fontSize: '0.66rem', backgroundColor: '#dcfce7', color: '#15803d', padding: '2px 6px', borderRadius: '12px', fontWeight: '800' }}>
-                        🚚 {lang === 'ar' ? 'شحنه المورد' : 'Shipped'}
+                        {lang === 'ar' ? 'شحنه المورد' : 'Shipped'}
                       </span>
                     ) : o.supplier_fulfillment_status === 'delivered_settled' ? (
                       <span style={{ fontSize: '0.66rem', backgroundColor: '#f0fdf4', color: '#166534', padding: '2px 6px', borderRadius: '12px', fontWeight: '800' }}>
-                        ✅ {lang === 'ar' ? 'مكتمل ومُحصّل' : 'Settled'}
+                        {lang === 'ar' ? 'مكتمل ومُحصّل' : 'Settled'}
                       </span>
                     ) : (
                       <span style={{ fontSize: '0.66rem', backgroundColor: '#fef3c7', color: '#b45309', padding: '2px 6px', borderRadius: '12px', fontWeight: '700' }}>
-                        📦 {lang === 'ar' ? 'بانتظار المورد' : 'Dropship'}
+                        {lang === 'ar' ? 'بانتظار المورد' : 'Dropship'}
                       </span>
                     )}
                   </div>
@@ -421,7 +420,7 @@ ${totalSupplierCost > 0 ? `*مجموع تكلفة الجملة:* $${totalSupplie
                     {/* Header with Profit Summary */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '1.4rem' }}>📦</span>
+                        <span style={{ fontSize: '1.4rem' }}></span>
                         <div>
                           <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-primary)' }}>
                             {lang === 'ar' ? 'منظومة الدروب شيبينغ وإرسال الطلبات للموردين' : 'Dropshipping & Supplier Fulfillment'}
@@ -443,7 +442,7 @@ ${totalSupplierCost > 0 ? `*مجموع تكلفة الجملة:* $${totalSupplie
                           <strong style={{ fontSize: '0.9rem', color: 'var(--accent-blue)' }}>${overallOrderRetail.toFixed(2)}</strong>
                         </div>
                         <div style={{ padding: '6px 12px', borderRadius: '8px', backgroundColor: 'rgba(16, 185, 129, 0.12)', border: '1px solid #10b981', textAlign: 'center' }}>
-                          <span style={{ display: 'block', fontSize: '0.7rem', color: '#047857', fontWeight: '700' }}>{lang === 'ar' ? 'صافي ربحك 💰' : 'Net Profit 💰'}</span>
+                          <span style={{ display: 'block', fontSize: '0.7rem', color: '#047857', fontWeight: '700' }}>{lang === 'ar' ? 'صافي ربحك ' : 'Net Profit '}</span>
                           <strong style={{ fontSize: '1rem', color: '#059669', fontWeight: '900' }}>+${overallOrderProfit.toFixed(2)}</strong>
                         </div>
                       </div>
@@ -461,9 +460,9 @@ ${totalSupplierCost > 0 ? `*مجموع تكلفة الجملة:* $${totalSupplie
                         onChange={(e) => handleUpdateSupplierStatus(selectedOrder.id, e.target.value)}
                       >
                         <option value="pending_supplier">⏳ {lang === 'ar' ? 'بانتظار الإرسال للمورد (Pending Supplier)' : 'Pending Supplier'}</option>
-                        <option value="forwarded_to_supplier">📤 {lang === 'ar' ? 'تم إرسال الطلب للمورد (Forwarded to Supplier)' : 'Forwarded to Supplier'}</option>
-                        <option value="shipped_by_supplier">🚚 {lang === 'ar' ? 'تم الشحن من المورد (Shipped by Supplier)' : 'Shipped by Supplier'}</option>
-                        <option value="delivered_settled">✅ {lang === 'ar' ? 'تم التسليم والتحصيل (Settled & Complete)' : 'Settled & Complete'}</option>
+                        <option value="forwarded_to_supplier">{lang === 'ar' ? 'تم إرسال الطلب للمورد (Forwarded to Supplier)' : 'Forwarded to Supplier'}</option>
+                        <option value="shipped_by_supplier">{lang === 'ar' ? 'تم الشحن من المورد (Shipped by Supplier)' : 'Shipped by Supplier'}</option>
+                        <option value="delivered_settled">{lang === 'ar' ? 'تم التسليم والتحصيل (Settled & Complete)' : 'Settled & Complete'}</option>
                       </select>
                     </div>
 
@@ -496,7 +495,7 @@ ${totalSupplierCost > 0 ? `*مجموع تكلفة الجملة:* $${totalSupplie
                                 </div>
                                 {(group.whatsapp || group.phone) && (
                                   <div style={{ fontSize: '0.78rem', color: '#16a34a', marginTop: '2px', fontWeight: '700', direction: 'ltr' }}>
-                                    💬 {group.whatsapp || group.phone}
+                                    {group.whatsapp || group.phone}
                                   </div>
                                 )}
                               </div>
@@ -526,7 +525,7 @@ ${totalSupplierCost > 0 ? `*مجموع تكلفة الجملة:* $${totalSupplie
                                   onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                                 >
                                   <MessageCircle size={16} />
-                                  <span>{lang === 'ar' ? 'إرسال للمورد عبر واتساب 💬' : 'Send to Supplier via WhatsApp'}</span>
+                                  <span>{lang === 'ar' ? 'إرسال للمورد عبر واتساب ' : 'Send to Supplier via WhatsApp'}</span>
                                 </button>
 
                                 <button

@@ -39,7 +39,7 @@ class ErrorBoundary extends React.Component {
             boxShadow: '0 10px 25px rgba(0,0,0,0.08)',
             textAlign: 'center'
           }}>
-            <div style={{ fontSize: '40px', marginBottom: '12px' }}>⚠️</div>
+            <div style={{ fontSize: '40px', marginBottom: '12px' }}></div>
             <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: '#1e293b', marginBottom: '8px' }}>
               حدث خطأ غير متوقع في العرض
             </h3>

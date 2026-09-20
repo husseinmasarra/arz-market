@@ -135,7 +135,7 @@ export default function AdminReports() {
             {summary.unique_visitors || 0}
           </h3>
           <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: '600' }}>
-            ✓ إجمالي تراكمي دائم (لا يتصفر أبداً)
+             إجمالي تراكمي دائم (لا يتصفر أبداً)
           </span>
         </div>
 
@@ -307,7 +307,7 @@ export default function AdminReports() {
         <div className="dashboard-card" style={{ padding: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '1.3rem' }}>📦</span>
+              <span style={{ fontSize: '1.3rem' }}></span>
               <h4 style={{ fontSize: '1.05rem', fontWeight: '800', margin: 0, color: 'var(--text-primary)' }}>
                 {lang === 'ar' ? 'تقرير مبيعات وأرباح الدروب شيبينغ حسب المورد' : 'Dropshipping Suppliers Performance & Payouts'}
               </h4>
@@ -325,7 +325,7 @@ export default function AdminReports() {
                   <th style={{ padding: '10px 12px', textAlign: 'center' }}>{lang === 'ar' ? 'المنتجات المبيعة' : 'Units Sold'}</th>
                   <th style={{ padding: '10px 12px', textAlign: 'end' }}>{lang === 'ar' ? 'إجمالي المبيعات (Revenue)' : 'Total Revenue'}</th>
                   <th style={{ padding: '10px 12px', textAlign: 'end' }}>{lang === 'ar' ? 'مستحقات المورد (Cost)' : 'Supplier Cost'}</th>
-                  <th style={{ padding: '10px 12px', textAlign: 'end' }}>{lang === 'ar' ? 'صافي أرباحك 💰' : 'Your Net Profit 💰'}</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'end' }}>{lang === 'ar' ? 'صافي أرباحك ' : 'Your Net Profit '}</th>
                   <th style={{ padding: '10px 12px', textAlign: 'center' }}>{lang === 'ar' ? 'نسبة الهامش' : 'Margin %'}</th>
                 </tr>
               </thead>

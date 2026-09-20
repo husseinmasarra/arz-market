@@ -239,7 +239,7 @@ export default function Checkout({ onClose }) {
             <h4 style={{ fontSize: '0.85rem', fontWeight: '700', marginBottom: '12px' }}>{t('track_order')}</h4>
             <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative' }}>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', zIndex: 2 }}>
-                <div style={{ width: '20px', height: '20px', borderRadius: '50%', backgroundColor: 'var(--accent-blue)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem' }}>✓</div>
+                <div style={{ width: '20px', height: '20px', borderRadius: '50%', backgroundColor: 'var(--accent-blue)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem' }}></div>
                 <span style={{ fontSize: '0.75rem', fontWeight: '600' }}>{t('pending')}</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', zIndex: 2 }}>
@@ -270,8 +270,8 @@ export default function Checkout({ onClose }) {
             marginTop: '6px'
           }}>
             {lang === 'ar'
-              ? '✓ تم حفظ طلبيتك في حسابك بنجاح! يمكنك مراجعتها وتتبع تفاصيلها في أي وقت من «طلباتي السابقة».'
-              : '✓ Your order was successfully saved to your account! You can review and track it anytime under "Order History".'}
+              ? ' تم حفظ طلبيتك في حسابك بنجاح! يمكنك مراجعتها وتتبع تفاصيلها في أي وقت من «طلباتي السابقة».'
+              : ' Your order was successfully saved to your account! You can review and track it anytime under "Order History".'}
           </div>
 
           <button
@@ -752,7 +752,7 @@ export default function Checkout({ onClose }) {
                 </button>
               </div>
               {couponError && <span style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: '600' }}>{couponError}</span>}
-              {appliedCode && <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: '600' }}>✓ % {discountPercent} خصم مفعّل ({appliedCode})</span>}
+              {appliedCode && <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: '600' }}> % {discountPercent} خصم مفعّل ({appliedCode})</span>}
             </div>
 
             {/* Summary calculations */}

@@ -42,7 +42,7 @@ export default function BestSellersSection({ onProductClick }) {
           </div>
           <div>
             <h2 style={{ fontSize: "1.3rem", fontWeight: "800", margin: 0, color: "var(--text-primary)" }}>
-              {lang === "ar" ? "🔥 الأكثر مبيعاً" : "🔥 Best Sellers"}
+              {lang === "ar" ? "الأكثر مبيعاً" : "Best Sellers"}
             </h2>
             <p style={{ fontSize: "0.75rem", color: "var(--text-light)", margin: 0 }}>
               {lang === "ar" ? "المنتجات الأكثر طلباً من زبائننا" : "Most ordered products by our customers"}
@@ -65,7 +65,7 @@ export default function BestSellersSection({ onProductClick }) {
           return (
             <div key={p.id} onClick={() => onProductClick && onProductClick(p)} style={{ minWidth: "160px", maxWidth: "160px", backgroundColor: "var(--bg-secondary)", borderRadius: "14px", border: "1px solid var(--border-color)", overflow: "hidden", cursor: "pointer", transition: "transform 0.2s ease", flexShrink: 0, position: "relative" }} onMouseEnter={e => e.currentTarget.style.transform = "translateY(-4px)"} onMouseLeave={e => e.currentTarget.style.transform = "translateY(0)"}>
               <div style={{ position: "absolute", top: "8px", left: "8px", zIndex: 2, width: "24px", height: "24px", borderRadius: "50%", backgroundColor: idx === 0 ? "#f59e0b" : idx === 1 ? "#9ca3af" : idx === 2 ? "#b45309" : "rgba(239,68,68,0.85)", color: "white", fontSize: "0.7rem", fontWeight: "800", display: "flex", alignItems: "center", justifyContent: "center" }}>{idx + 1}</div>
-              {idx < 3 && <div style={{ position: "absolute", top: "8px", right: "8px", zIndex: 2, backgroundColor: "rgba(239,68,68,0.9)", color: "white", fontSize: "0.62rem", fontWeight: "800", padding: "2px 6px", borderRadius: "8px" }}>🔥 HOT</div>}
+              {idx < 3 && <div style={{ position: "absolute", top: "8px", right: "8px", zIndex: 2, backgroundColor: "rgba(239,68,68,0.9)", color: "white", fontSize: "0.62rem", fontWeight: "800", padding: "2px 6px", borderRadius: "8px" }}>HOT</div>}
               <div style={{ width: "100%", height: "130px", overflow: "hidden", backgroundColor: "var(--bg-primary)" }}>
                 <img src={imageUrl} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               </div>

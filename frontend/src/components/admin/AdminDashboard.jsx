@@ -500,7 +500,7 @@ export default function AdminDashboard({ setCurrentView }) {
                       {stats.unique_visitors || 0}
                     </h3>
                     <span style={{ fontSize: '0.7rem', color: '#10b981', fontWeight: '700' }}>
-                      ✓ تراكمي دائم (لا يتصفر)
+                       تراكمي دائم (لا يتصفر)
                     </span>
                   </div>
                   <div style={{ backgroundColor: 'rgba(139,92,246,0.1)', padding: '10px', borderRadius: '50%' }}>
@@ -636,7 +636,7 @@ export default function AdminDashboard({ setCurrentView }) {
                       gap: '4px'
                     }}
                   >
-                    {lang === 'ar' ? 'فتح في صفحة منفصلة ↗️' : 'Open in separate tab ↗️'}
+                    {lang === 'ar' ? 'فتح في صفحة منفصلة ' : 'Open in separate tab '}
                   </button>
                 </div>
                 <div style={{ flex: '1', overflowY: 'auto', padding: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>

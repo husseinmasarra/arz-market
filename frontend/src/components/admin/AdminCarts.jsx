@@ -81,13 +81,13 @@ export default function AdminCarts() {
       .join('\n');
     const moreNotice = (cart.items || []).length > 3 ? `\n• وغيرها من المنتجات...` : '';
 
-    const message = `مرحباً أستاذ/ة ${customerName} 🌸
-معك متجر أرز مارت Arz-Mart 🇱🇧
+    const message = `مرحباً أستاذ/ة ${customerName}
+معك متجر أرز مارت Arz-Mart
 
 نود تذكيرك بلطف بأن لديك ${cart.items_count} منتج بانتظارك في سلة التسوق بقيمة $${Number(cart.total_usd).toFixed(2)}:
 ${itemNames}${moreNotice}
 
-هل تواجه أي استفسار أو صعوبة في إتمام طلبك؟ يسعدنا جداً مساعدتك وتأكيد طلبيتك الآن! 🛒✨
+هل تواجه أي استفسار أو صعوبة في إتمام طلبك؟ يسعدنا جداً مساعدتك وتأكيد طلبيتك الآن!
 رابط المتجر: https://arzmart.com`;
 
     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;

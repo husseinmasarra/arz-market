@@ -1016,9 +1016,9 @@ export default function App() {
                     className="input-field"
                   >
                     <option value="">كل التقييمات</option>
-                    <option value="4">4 ★ {t('rating_stars')}</option>
-                    <option value="3">3 ★ {t('rating_stars')}</option>
-                    <option value="2">2 ★ {t('rating_stars')}</option>
+                    <option value="4">4 {t('rating_stars')}</option>
+                    <option value="3">3 {t('rating_stars')}</option>
+                    <option value="2">2 {t('rating_stars')}</option>
                   </select>
                 </div>
 
@@ -1050,10 +1050,10 @@ export default function App() {
               /* --- 1. GRAND CATEGORY CARDS ONLY VIEW (DEFAULT ENTRY POINT) --- */
               <div className="animate-fade" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
-                {/* 🔥 Best Sellers Strip */}
+                {/* Best Sellers Strip */}
                 <BestSellersSection onProductClick={(p) => setSelectedProduct(p)} />
 
-                {/* ✨ New Arrivals Strip */}
+                {/* New Arrivals Strip */}
                 <NewArrivalsSection onProductClick={(p) => setSelectedProduct(p)} />
 
                 <h2 style={{ fontSize: '1.6rem', fontWeight: '800', borderBottom: '2px solid var(--border-color)', paddingBottom: '10px', marginBottom: '16px' }}>
@@ -1250,7 +1250,7 @@ export default function App() {
                               outline: selectedCategory === String(parentId) ? 'none' : '1px solid var(--border-color)'
                             }}
                           >
-                            {lang === 'ar' ? '✨ كل الأقسام' : '✨ All Sub-categories'}
+                            {lang === 'ar' ? 'كل الأقسام' : 'All Sub-categories'}
                           </button>
 
                           {/* Individual Subcategory Pills */}

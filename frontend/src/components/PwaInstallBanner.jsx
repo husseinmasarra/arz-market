@@ -147,7 +147,7 @@ export default function PwaInstallBanner() {
         }}>
           <Share2 size={18} style={{ color: 'var(--accent-blue)', flexShrink: 0 }} />
           <span>
-            {t('pwa_install_ios_hint') || (isRtl ? 'اضغط على زر المشاركة 📥 ثم اختر "إضافة إلى الشاشة الرئيسية"' : 'Tap the Share button 📥 then select "Add to Home Screen"')}
+            {t('pwa_install_ios_hint') || (isRtl ? 'اضغط على زر المشاركة ثم اختر "إضافة إلى الشاشة الرئيسية"' : 'Tap the Share button then select "Add to Home Screen"')}
           </span>
         </div>
       ) : (

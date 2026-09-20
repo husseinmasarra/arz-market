@@ -743,13 +743,13 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                                 <span style={{ fontSize: '0.95rem' }}>{source.name}</span>
                                 {source.is_default ? (
                                   <span style={{ fontSize: '0.7rem', backgroundColor: '#dbeafe', color: '#1d4ed8', padding: '2px 8px', borderRadius: '6px', fontWeight: '800' }}>
-                                    {lang === 'ar' ? '★ الرئيسي' : '★ Default'}
+                                    {lang === 'ar' ? 'الرئيسي' : 'Default'}
                                   </span>
                                 ) : null}
                               </div>
                               {source.whatsapp_number && (
                                 <div style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: '700', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px', direction: 'ltr' }}>
-                                  <span>💬 {source.whatsapp_number}</span>
+                                  <span>{source.whatsapp_number}</span>
                                 </div>
                               )}
                             </td>
@@ -822,7 +822,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                               {source.last_sync_time ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                   <div style={{ fontWeight: '700', color: 'var(--text-primary)', fontSize: '0.8rem' }}>
-                                    🕒 {source.last_sync_time}
+                                    {source.last_sync_time}
                                   </div>
 
                                   {/* Sync Breakdown Badges */}
@@ -864,7 +864,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                                     {/* Updated items count */}
                                     {Number(source.last_sync_updated) > 0 && (
                                       <div style={{ color: 'var(--text-secondary)', fontSize: '0.74rem' }}>
-                                        🔄 {source.last_sync_updated} {lang === 'ar' ? 'صنف تم تحديث سعره' : 'items price updated'}
+                                        {source.last_sync_updated} {lang === 'ar' ? 'صنف تم تحديث سعره' : 'items price updated'}
                                       </div>
                                     )}
 
@@ -878,7 +878,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                                         fontWeight: '700',
                                         fontSize: '0.75rem'
                                       }}>
-                                        ⚠️ {source.last_sync_out_of_stock || source.out_of_stock_count || 0} {lang === 'ar' ? 'أُزيل / نفد من المخزون' : 'out of stock / removed'}
+                                        {source.last_sync_out_of_stock || source.out_of_stock_count || 0} {lang === 'ar' ? 'أُزيل / نفد من المخزون' : 'out of stock / removed'}
                                       </span>
 
                                       {(Number(source.last_sync_out_of_stock) > 0 || Number(source.out_of_stock_count) > 0) && (
@@ -1120,7 +1120,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                 gap: '10px'
               }}>
                 <span style={{ fontSize: '0.85rem', fontWeight: '800', color: '#2563eb' }}>
-                  📦 {lang === 'ar' ? 'بيانات التواصل للدروب شيبينغ (إرسال الطلبات للمورد)' : 'Dropshipping Dispatch Info'}
+                  {lang === 'ar' ? 'بيانات التواصل للدروب شيبينغ (إرسال الطلبات للمورد)' : 'Dropshipping Dispatch Info'}
                 </span>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
@@ -1404,7 +1404,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
           gap: '12px'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span>⚠️</span>
+            <span></span>
             <span>{lang === 'ar' ? 'عرض السلع المنتهية من المخزون فقط' : 'Showing out of stock items only'}</span>
           </div>
           {onClearFilter && (
@@ -1495,10 +1495,10 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
               <div>
                 <span style={{ fontWeight: '800', color: filterOnlyOutOfStock ? '#b91c1c' : filterOnlyNew ? '#15803d' : '#1d4ed8', fontSize: '0.95rem' }}>
                   {filterOnlyNew
-                    ? (lang === 'ar' ? `✨ تصفية نشطة: عرض الأصناف الجديدة المسحوبة بعد التحديث ${filterSupplier ? `لموقع [ ${filterSupplier} ]` : ''}` : `✨ Active Filter: Showing New Products pulled after sync ${filterSupplier ? `from [ ${filterSupplier} ]` : ''}`)
+                    ? (lang === 'ar' ? `تصفية نشطة: عرض الأصناف الجديدة المسحوبة بعد التحديث ${filterSupplier ? `لموقع [ ${filterSupplier} ]` : ''}` : `Active Filter: Showing New Products pulled after sync ${filterSupplier ? `from [ ${filterSupplier} ]` : ''}`)
                     : filterOnlyOutOfStock
-                    ? (lang === 'ar' ? `⚠️ تصفية نشطة: عرض المنتجات المنتهية من المخزون (Out of Stock / أُزيلت من المورد) ${filterSupplier ? `لـ [ ${filterSupplier} ]` : ''}` : `⚠️ Active Filter: Showing Out of Stock / Removed items ${filterSupplier ? `from [ ${filterSupplier} ]` : ''}`)
-                    : (lang === 'ar' ? `🌐 تصفية نشطة: عرض منتجات المورد [ ${filterSupplier} ]` : `🌐 Active Filter: Showing products from [ ${filterSupplier} ]`)}
+                    ? (lang === 'ar' ? `تصفية نشطة: عرض المنتجات المنتهية من المخزون (Out of Stock / أُزيلت من المورد) ${filterSupplier ? `لـ [ ${filterSupplier} ]` : ''}` : `Active Filter: Showing Out of Stock / Removed items ${filterSupplier ? `from [ ${filterSupplier} ]` : ''}`)
+                    : (lang === 'ar' ? `تصفية نشطة: عرض منتجات المورد [ ${filterSupplier} ]` : `Active Filter: Showing products from [ ${filterSupplier} ]`)}
                 </span>
                 <span style={{ 
                   backgroundColor: filterOnlyOutOfStock ? '#dc2626' : filterOnlyNew ? '#16a34a' : '#2563eb', 
@@ -1575,7 +1575,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
               className="input-field"
               style={{ margin: 0, fontSize: '0.88rem', fontWeight: filterSupplier ? '700' : 'normal' }}
             >
-              <option value="">{lang === 'ar' ? '🌐 جميع الموردين والمصادر' : '🌐 All Suppliers / Sites'}</option>
+              <option value="">{lang === 'ar' ? 'جميع الموردين والمصادر' : 'All Suppliers / Sites'}</option>
               {availableSuppliers.map((sup) => {
                 const count = products.filter(p => p.merchant_name === sup).length;
                 return (
@@ -1595,7 +1595,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
               className="input-field"
               style={{ margin: 0, fontSize: '0.88rem' }}
             >
-              <option value="">{lang === 'ar' ? '📁 جميع التصنيفات' : '📁 All Categories'}</option>
+              <option value="">{lang === 'ar' ? 'جميع التصنيفات' : 'All Categories'}</option>
               {categories.map((cat) => (
                 <option key={cat.id} value={cat.id}>
                   {lang === 'ar' ? (cat.name_ar || cat.name_en) : (cat.name_en || cat.name_ar)}
@@ -1612,7 +1612,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
               className="input-field"
               style={{ margin: 0, fontSize: '0.88rem' }}
             >
-              <option value="newest">{lang === 'ar' ? '⭐ الأحدث مضافاً (المستوردة حديثاً)' : '⭐ Newest / Recently Added'}</option>
+              <option value="newest">{lang === 'ar' ? 'الأحدث مضافاً (المستوردة حديثاً)' : 'Newest / Recently Added'}</option>
               <option value="oldest">{lang === 'ar' ? 'الأقدم مضافاً' : 'Oldest First'}</option>
               <option value="price_asc">{lang === 'ar' ? 'السعر: من الأقل للأعلى' : 'Price: Low to High'}</option>
               <option value="price_desc">{lang === 'ar' ? 'السعر: من الأعلى للأقل' : 'Price: High to Low'}</option>
@@ -1647,7 +1647,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
             }}
           >
             <Sparkles size={14} color={filterOnlyNew ? '#15803d' : 'var(--text-light)'} />
-            <span>{lang === 'ar' ? '✨ الأصناف الجديدة المسحوبة' : '✨ New Imported Arrivals'}</span>
+            <span>{lang === 'ar' ? 'الأصناف الجديدة المسحوبة' : 'New Imported Arrivals'}</span>
             <span style={{ opacity: 0.8 }}>({products.filter(p => p.is_new_arrival === 1).length})</span>
           </button>
 
@@ -1673,7 +1673,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
               transition: 'all 0.2s'
             }}
           >
-            <span>⚠️</span>
+            <span></span>
             <span>{lang === 'ar' ? 'المنتجات المنتهية من المخزون (Out of Stock)' : 'Out of Stock Items'}</span>
             <span style={{ opacity: 0.8 }}>({products.filter(p => p.stock <= 0).length})</span>
           </button>
@@ -1700,7 +1700,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
               {paginatedProducts.length === 0 ? (
                 <tr>
                   <td colSpan="10" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                    <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>📦</div>
+                    <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}></div>
                     <div style={{ fontWeight: '700' }}>
                       {lang === 'ar' ? 'لا توجد منتجات مطابقة لخيارات التصفية الحالية' : 'No products found matching filters'}
                     </div>
@@ -1744,7 +1744,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                               alignItems: 'center',
                               gap: '3px'
                             }}>
-                              ✨ {lang === 'ar' ? 'جديد' : 'New'}
+                              {lang === 'ar' ? 'جديد' : 'New'}
                             </span>
                           )}
                           {p.stock <= 0 && (
@@ -1760,7 +1760,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                               alignItems: 'center',
                               gap: '3px'
                             }}>
-                              ⚠️ {lang === 'ar' ? 'نفد' : 'Out'}
+                              {lang === 'ar' ? 'نفد' : 'Out'}
                             </span>
                           )}
                         </div>

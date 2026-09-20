@@ -92,7 +92,7 @@ const translations = {
     pwa_install_title: 'تثبيت تطبيق أرز مارت',
     pwa_install_desc: 'تسوّق أسرع وتابع طلباتك بكل سهولة من شاشتك الرئيسية!',
     pwa_install_btn: 'تثبيت التطبيق الآن',
-    pwa_install_ios_hint: 'اضغط على زر المشاركة 📥 ثم اختر "إضافة إلى الشاشة الرئيسية"'
+    pwa_install_ios_hint: 'اضغط على زر المشاركة ثم اختر "إضافة إلى الشاشة الرئيسية"'
   },
   en: {
     appName: 'Arz-Mart',
@@ -183,7 +183,7 @@ const translations = {
     pwa_install_title: 'Install Arz-Mart Store',
     pwa_install_desc: 'Shop faster and track your orders easily from your home screen!',
     pwa_install_btn: 'Install App Now',
-    pwa_install_ios_hint: 'Tap the Share button 📥 then select "Add to Home Screen"'
+    pwa_install_ios_hint: 'Tap the Share button then select "Add to Home Screen"'
   }
 };
 

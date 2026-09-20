@@ -480,7 +480,7 @@ export default function ProductDetails({ product, onClose, onRefresh }) {
                     style={{ width: '80px', padding: '4px 8px' }}
                   >
                     {[5, 4, 3, 2, 1].map(n => (
-                      <option key={n} value={n}>{n} ★</option>
+                      <option key={n} value={n}>{n} </option>
                     ))}
                   </select>
                   <button

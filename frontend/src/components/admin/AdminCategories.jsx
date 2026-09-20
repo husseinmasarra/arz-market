@@ -190,7 +190,7 @@ export default function AdminCategories() {
           <td style={{ padding: '8px', fontSize: '0.8rem' }}>
             {c.parent_id
               ? <span style={{ color: 'var(--text-light)' }}>{lang === 'ar' ? c.parent_name_ar : c.parent_name_en}</span>
-              : <span style={{ color: '#10b981', fontWeight: '600', fontSize: '0.75rem' }}>✓ رئيسي</span>}
+              : <span style={{ color: '#10b981', fontWeight: '600', fontSize: '0.75rem' }}> رئيسي</span>}
           </td>
           <td style={{ padding: '8px', textAlign: 'center', color: 'var(--text-light)', fontSize: '0.8rem' }}>
             {c.sort_order ?? '-'}
@@ -213,7 +213,7 @@ export default function AdminCategories() {
       {/* Form */}
       <div className="dashboard-card" style={{ padding: '20px' }}>
         <h4 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '16px' }}>
-          {isEditing ? (lang === 'ar' ? '✏️ تعديل التصنيف' : '✏️ Edit Category') : (lang === 'ar' ? '➕ إضافة تصنيف جديد' : '➕ Add New Category')}
+          {isEditing ? (lang === 'ar' ? 'تعديل التصنيف' : 'Edit Category') : (lang === 'ar' ? 'إضافة تصنيف جديد' : 'Add New Category')}
         </h4>
         <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
           <div>
@@ -254,7 +254,7 @@ export default function AdminCategories() {
       {orderChanged && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(37,99,235,0.1)', border: '1px solid rgba(37,99,235,0.3)', borderRadius: '10px', padding: '12px 20px', flexWrap: 'wrap', gap: '10px' }}>
           <span style={{ fontWeight: '700', color: 'var(--accent-blue)', fontSize: '0.95rem' }}>
-            🔄 {lang === 'ar' ? 'تم تغيير الترتيب — اضغط حفظ لتطبيقه' : 'Order changed — click Save to apply'}
+            {lang === 'ar' ? 'تم تغيير الترتيب — اضغط حفظ لتطبيقه' : 'Order changed — click Save to apply'}
           </span>
           <button onClick={handleSaveOrder} disabled={savingOrder} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 20px', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: savingOrder ? 'not-allowed' : 'pointer' }}>
             <Save size={16} />
@@ -269,7 +269,7 @@ export default function AdminCategories() {
           <h4 style={{ fontSize: '1.1rem', fontWeight: '800' }}>
             {lang === 'ar' ? `قائمة التصنيفات (${categories.length} تصنيف)` : `Categories (${categories.length} total)`}
           </h4>
-          <span style={{ fontSize: '0.78rem', color: 'var(--text-light)' }}>🖱️ اسحب وأفلت الصفوف لتغيير الترتيب</span>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-light)' }}>اسحب وأفلت الصفوف لتغيير الترتيب</span>
         </div>
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'start' }}>
           <thead>

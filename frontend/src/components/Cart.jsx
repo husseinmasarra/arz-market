@@ -242,7 +242,7 @@ export default function Cart({ onCheckoutClick }) {
                 fontWeight: '600',
                 textAlign: 'center'
               }}>
-                🎉 تم تفعيل التوصيل المجاني! (Free Delivery Unlocked!)
+                تم تفعيل التوصيل المجاني! (Free Delivery Unlocked!)
               </div>
             )}
 
