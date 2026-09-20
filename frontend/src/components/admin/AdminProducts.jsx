@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
-import { Trash2, Edit3, Image, RefreshCw, Sparkles, CheckCircle2, AlertCircle, Plus, Globe, ExternalLink, X } from 'lucide-react';
+import { Trash2, Edit3, Image, RefreshCw, Sparkles, CheckCircle2, AlertCircle, Plus, Globe, ExternalLink, X, Search, Filter, Eye, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
 
 export default function AdminProducts({ filterOutOfStock = false, onClearFilter = null }) {
   const { lang, formatPrice, apiBase, apiHost } = useApp();
@@ -10,6 +10,23 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [merchants, setMerchants] = useState([]);
+
+  // Filter & Search states for Products List
+  const [filterSupplier, setFilterSupplier] = useState('');
+  const [filterCategory, setFilterCategory] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('newest'); // default: newest first so newly fetched products appear at the top
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 40;
+
+  const handleFilterBySource = (sourceName) => {
+    setFilterSupplier(prev => prev === sourceName ? '' : sourceName);
+    setCurrentPage(1);
+    setTimeout(() => {
+      const el = document.getElementById('admin-products-table');
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  };
 
   // DR PHONE Wholesale Supplier Sync states
   const [syncMarkup, setSyncMarkup] = useState(45);
@@ -398,6 +415,53 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
     setSizesList([{ name: '', price: '', type: 'absolute' }]);
   };
 
+  // Filter and sort products
+  const filteredProducts = products.filter(p => {
+    if (filterOutOfStock && p.stock !== 0) return false;
+    if (filterSupplier && p.merchant_name !== filterSupplier) return false;
+    if (filterCategory && String(p.category_id) !== String(filterCategory)) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      const nameAr = (p.name_ar || '').toLowerCase();
+      const nameEn = (p.name_en || '').toLowerCase();
+      const descAr = (p.description_ar || '').toLowerCase();
+      const descEn = (p.description_en || '').toLowerCase();
+      const catAr = (p.category_name_ar || '').toLowerCase();
+      const catEn = (p.category_name_en || '').toLowerCase();
+      const merchant = (p.merchant_name || '').toLowerCase();
+      if (!nameAr.includes(q) && !nameEn.includes(q) && !descAr.includes(q) && !descEn.includes(q) && !catAr.includes(q) && !catEn.includes(q) && !merchant.includes(q)) {
+        return false;
+      }
+    }
+    return true;
+  }).sort((a, b) => {
+    if (sortBy === 'newest') {
+      return (b.id || 0) - (a.id || 0);
+    } else if (sortBy === 'oldest') {
+      return (a.id || 0) - (b.id || 0);
+    } else if (sortBy === 'price_asc') {
+      return (Number(a.price_usd) || 0) - (Number(b.price_usd) || 0);
+    } else if (sortBy === 'price_desc') {
+      return (Number(b.price_usd) || 0) - (Number(a.price_usd) || 0);
+    } else if (sortBy === 'stock') {
+      return (Number(b.stock) || 0) - (Number(a.stock) || 0);
+    } else if (sortBy === 'name') {
+      const nameA = (lang === 'ar' ? a.name_ar : a.name_en) || '';
+      const nameB = (lang === 'ar' ? b.name_ar : b.name_en) || '';
+      return nameA.localeCompare(nameB);
+    }
+    return 0;
+  });
+
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage) || 1;
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const paginatedProducts = filteredProducts.slice((safeCurrentPage - 1) * itemsPerPage, safeCurrentPage * itemsPerPage);
+
+  // Collect unique suppliers present in products
+  const availableSuppliers = Array.from(
+    new Set(products.map(p => p.merchant_name).filter(Boolean))
+  );
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       
@@ -638,19 +702,32 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                               +{source.markup_percent}%
                             </td>
 
-                            {/* Products Count */}
+                            {/* Products Count & View Button */}
                             <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                              <span style={{ 
-                                backgroundColor: 'var(--bg-secondary)', 
-                                padding: '5px 14px', 
-                                borderRadius: '8px', 
-                                fontWeight: '800',
-                                fontSize: '0.95rem',
-                                border: '1px solid var(--border-color)',
-                                color: 'var(--text-primary)'
-                              }}>
-                                {source.products_count || 0}
-                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleFilterBySource(source.name)}
+                                title={lang === 'ar' ? `عرض الـ ${source.products_count || 0} منتج الخاصة بـ ${source.name}` : `View ${source.products_count || 0} products from ${source.name}`}
+                                style={{ 
+                                  backgroundColor: filterSupplier === source.name ? '#2563eb' : 'var(--bg-secondary)', 
+                                  color: filterSupplier === source.name ? 'white' : 'var(--text-primary)',
+                                  padding: '6px 14px', 
+                                  borderRadius: '8px', 
+                                  fontWeight: '800',
+                                  fontSize: '0.88rem',
+                                  border: filterSupplier === source.name ? '2px solid #1d4ed8' : '1px solid var(--border-color)',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  transition: 'all 0.2s',
+                                  boxShadow: filterSupplier === source.name ? '0 2px 8px rgba(37, 99, 235, 0.35)' : 'none'
+                                }}
+                              >
+                                <Eye size={14} />
+                                <span>{source.products_count || 0}</span>
+                                <span style={{ fontSize: '0.74rem', opacity: 0.85 }}>({lang === 'ar' ? 'عرض' : 'View'})</span>
+                              </button>
                             </td>
 
                             {/* Last Sync Info */}
@@ -1129,75 +1206,378 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
         </div>
       )}
 
-      {/* Products Table */}
-      <div className="dashboard-card" style={{ overflowX: 'auto', padding: '20px' }}>
-        <h4 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '16px' }}>قائمة المنتجات الحالية</h4>
+      {/* Products Table with Enhanced Search, Supplier Filter & Sorting */}
+      <div id="admin-products-table" className="dashboard-card" style={{ padding: '24px' }}>
+        
+        {/* Header and Summary */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px', marginBottom: '20px' }}>
+          <div>
+            <h4 style={{ fontSize: '1.25rem', fontWeight: '800', margin: 0 }}>
+              {lang === 'ar' ? 'قائمة وإدارة المنتجات' : 'Products Directory'}
+            </h4>
+            <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text-light)' }}>
+              {lang === 'ar' 
+                ? `عرض ${paginatedProducts.length} من إجمالي ${filteredProducts.length} منتج مطروح في المتجر`
+                : `Showing ${paginatedProducts.length} of ${filteredProducts.length} total products`}
+            </p>
+          </div>
 
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'start' }}>
-          <thead>
-            <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-light)', fontSize: '0.85rem' }}>
-              <th style={{ padding: '10px', textAlign: 'start' }}>الصورة</th>
-              <th style={{ padding: '10px', textAlign: 'start' }}>الاسم</th>
-              <th style={{ padding: '10px', textAlign: 'start' }}>التصنيف</th>
-              <th style={{ padding: '10px', textAlign: 'start' }}>المورد</th>
-              <th style={{ padding: '10px', textAlign: 'start' }}>الألوان</th>
-              <th style={{ padding: '10px', textAlign: 'start' }}>القياسات</th>
-              <th style={{ padding: '10px', textAlign: 'start' }}>سعر البيع</th>
-              <th style={{ padding: '10px', textAlign: 'start' }}>سعر التكلفة</th>
-              <th style={{ padding: '10px', textAlign: 'start' }}>المخزون</th>
-              <th style={{ padding: '10px', textAlign: 'center' }}>العمليات</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(filterOutOfStock ? products.filter(p => p.stock === 0) : products).map((p) => {
-              const imageUrl = p.image_url 
-                ? (p.image_url.startsWith('http') || p.image_url.startsWith('data:') ? p.image_url : `${apiHost}${p.image_url}`)
-                : 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=50&q=80';
-              
-              return (
-                <tr key={p.id} style={{ borderBottom: '1px solid var(--border-color)', fontSize: '0.9rem' }}>
-                  <td style={{ padding: '10px' }}>
-                    <img src={imageUrl} alt="" style={{ width: '40px', height: '40px', objectFit: 'contain', backgroundColor: 'white', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
-                  </td>
-                  <td style={{ padding: '10px', fontWeight: '600' }}>
-                    {lang === 'ar' ? p.name_ar : p.name_en}
-                  </td>
-                  <td style={{ padding: '10px', color: 'var(--text-light)' }}>
-                    {lang === 'ar' ? p.category_name_ar : p.category_name_en}
-                  </td>
-                  <td style={{ padding: '10px', color: 'var(--text-light)' }}>
-                    {p.merchant_name || '-'}
-                  </td>
-                  <td style={{ padding: '10px', color: 'var(--text-light)', fontSize: '0.8rem' }}>
-                    {p.colors && p.colors.length > 0 ? p.colors.join(', ') : '-'}
-                  </td>
-                  <td style={{ padding: '10px', color: 'var(--text-light)', fontSize: '0.8rem' }}>
-                    {p.sizes && p.sizes.length > 0 ? p.sizes.join(', ') : '-'}
-                  </td>
-                  <td style={{ padding: '10px', fontWeight: '700', color: 'var(--accent-blue)' }}>
-                    {formatPrice(p.price_usd)}
-                  </td>
-                  <td style={{ padding: '10px', fontWeight: '600', color: 'var(--text-secondary)' }}>
-                    {formatPrice(p.cost_price_usd || 0)}
-                  </td>
-                  <td style={{ padding: '10px', color: p.stock > 0 ? '#10b981' : '#ef4444', fontWeight: '700' }}>
-                    {p.stock}
-                  </td>
-                  <td style={{ padding: '10px', textAlign: 'center' }}>
-                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                      <button onClick={() => handleEdit(p)} style={{ border: 'none', backgroundColor: 'transparent', color: 'var(--accent-blue)', cursor: 'pointer' }}>
-                        <Edit3 size={16} />
-                      </button>
-                      <button onClick={() => handleDelete(p.id)} style={{ border: 'none', backgroundColor: 'transparent', color: '#ef4444', cursor: 'pointer' }}>
-                        <Trash2 size={16} />
-                      </button>
+          {(filterSupplier || filterCategory || searchQuery.trim() || filterOutOfStock) && (
+            <button
+              type="button"
+              onClick={() => {
+                setFilterSupplier('');
+                setFilterCategory('');
+                setSearchQuery('');
+                setCurrentPage(1);
+                if (onClearFilter) onClearFilter();
+              }}
+              style={{
+                backgroundColor: 'var(--bg-tertiary)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--border-color)',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                fontSize: '0.82rem',
+                fontWeight: '700',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <X size={14} />
+              <span>{lang === 'ar' ? 'إعادة ضبط كل الفلاتر' : 'Reset All Filters'}</span>
+            </button>
+          )}
+        </div>
+
+        {/* Active Supplier Filter Banner */}
+        {filterSupplier && (
+          <div style={{
+            backgroundColor: 'rgba(37, 99, 235, 0.08)',
+            border: '1px solid #3b82f6',
+            borderRadius: '10px',
+            padding: '12px 18px',
+            marginBottom: '18px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '12px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Globe size={20} color="#2563eb" />
+              <div>
+                <span style={{ fontWeight: '800', color: '#1d4ed8', fontSize: '0.95rem' }}>
+                  {lang === 'ar' 
+                    ? `تصفية نشطة: عرض منتجات المورد [ ${filterSupplier} ]`
+                    : `Active Filter: Showing products from [ ${filterSupplier} ]`}
+                </span>
+                <span style={{ 
+                  backgroundColor: '#2563eb', 
+                  color: 'white', 
+                  padding: '2px 10px', 
+                  borderRadius: '12px', 
+                  fontSize: '0.78rem', 
+                  fontWeight: '800',
+                  marginRight: '8px',
+                  marginLeft: '8px'
+                }}>
+                  {filteredProducts.length} {lang === 'ar' ? 'منتج' : 'items'}
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => { setFilterSupplier(''); setCurrentPage(1); }}
+              style={{
+                backgroundColor: '#2563eb',
+                color: 'white',
+                border: 'none',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                fontWeight: '700',
+                fontSize: '0.82rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 6px rgba(37, 99, 235, 0.3)'
+              }}
+            >
+              <X size={14} />
+              <span>{lang === 'ar' ? 'عرض جميع المنتجات' : 'Show All Products'}</span>
+            </button>
+          </div>
+        )}
+
+        {/* Filter & Search Toolbar */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: '12px',
+          padding: '16px',
+          backgroundColor: 'var(--bg-secondary)',
+          borderRadius: '12px',
+          border: '1px solid var(--border-color)',
+          marginBottom: '20px'
+        }}>
+          {/* Search Box */}
+          <div style={{ position: 'relative' }}>
+            <Search size={16} color="var(--text-light)" style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', right: lang === 'ar' ? '12px' : 'auto', left: lang === 'ar' ? 'auto' : '12px' }} />
+            <input
+              type="text"
+              placeholder={lang === 'ar' ? 'ابحث باسم المنتج أو الوصف...' : 'Search by name or description...'}
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+              className="input-field"
+              style={{
+                margin: 0,
+                paddingRight: lang === 'ar' ? '36px' : '12px',
+                paddingLeft: lang === 'ar' ? '12px' : '36px',
+                fontSize: '0.88rem'
+              }}
+            />
+          </div>
+
+          {/* Supplier Filter Dropdown */}
+          <div>
+            <select
+              value={filterSupplier}
+              onChange={(e) => { setFilterSupplier(e.target.value); setCurrentPage(1); }}
+              className="input-field"
+              style={{ margin: 0, fontSize: '0.88rem', fontWeight: filterSupplier ? '700' : 'normal' }}
+            >
+              <option value="">{lang === 'ar' ? '🌐 جميع الموردين والمصادر' : '🌐 All Suppliers / Sites'}</option>
+              {availableSuppliers.map((sup) => {
+                const count = products.filter(p => p.merchant_name === sup).length;
+                return (
+                  <option key={sup} value={sup}>
+                    {sup} ({count} {lang === 'ar' ? 'منتج' : 'items'})
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          {/* Category Filter Dropdown */}
+          <div>
+            <select
+              value={filterCategory}
+              onChange={(e) => { setFilterCategory(e.target.value); setCurrentPage(1); }}
+              className="input-field"
+              style={{ margin: 0, fontSize: '0.88rem' }}
+            >
+              <option value="">{lang === 'ar' ? '📁 جميع التصنيفات' : '📁 All Categories'}</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {lang === 'ar' ? (cat.name_ar || cat.name_en) : (cat.name_en || cat.name_ar)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Sort By Dropdown */}
+          <div>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="input-field"
+              style={{ margin: 0, fontSize: '0.88rem' }}
+            >
+              <option value="newest">{lang === 'ar' ? '⭐ الأحدث مضافاً (المستوردة حديثاً)' : '⭐ Newest / Recently Added'}</option>
+              <option value="oldest">{lang === 'ar' ? 'الأقدم مضافاً' : 'Oldest First'}</option>
+              <option value="price_asc">{lang === 'ar' ? 'السعر: من الأقل للأعلى' : 'Price: Low to High'}</option>
+              <option value="price_desc">{lang === 'ar' ? 'السعر: من الأعلى للأقل' : 'Price: High to Low'}</option>
+              <option value="stock">{lang === 'ar' ? 'المخزون: الأكثر توفراً' : 'Stock: High to Low'}</option>
+              <option value="name">{lang === 'ar' ? 'الاسم أبجدياً (أ - ي)' : 'Name (A - Z)'}</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Products Table */}
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'start' }}>
+            <thead>
+              <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-light)', fontSize: '0.85rem' }}>
+                <th style={{ padding: '10px', textAlign: 'start' }}>{lang === 'ar' ? 'الصورة' : 'Image'}</th>
+                <th style={{ padding: '10px', textAlign: 'start' }}>{lang === 'ar' ? 'الاسم' : 'Name'}</th>
+                <th style={{ padding: '10px', textAlign: 'start' }}>{lang === 'ar' ? 'التصنيف' : 'Category'}</th>
+                <th style={{ padding: '10px', textAlign: 'start' }}>{lang === 'ar' ? 'المورد / الموقع' : 'Supplier / Source'}</th>
+                <th style={{ padding: '10px', textAlign: 'start' }}>{lang === 'ar' ? 'الألوان' : 'Colors'}</th>
+                <th style={{ padding: '10px', textAlign: 'start' }}>{lang === 'ar' ? 'القياسات' : 'Sizes'}</th>
+                <th style={{ padding: '10px', textAlign: 'start' }}>{lang === 'ar' ? 'سعر البيع' : 'Sale Price'}</th>
+                <th style={{ padding: '10px', textAlign: 'start' }}>{lang === 'ar' ? 'سعر التكلفة' : 'Cost Price'}</th>
+                <th style={{ padding: '10px', textAlign: 'start' }}>{lang === 'ar' ? 'المخزون' : 'Stock'}</th>
+                <th style={{ padding: '10px', textAlign: 'center' }}>{lang === 'ar' ? 'العمليات' : 'Actions'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedProducts.length === 0 ? (
+                <tr>
+                  <td colSpan="10" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                    <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>📦</div>
+                    <div style={{ fontWeight: '700' }}>
+                      {lang === 'ar' ? 'لا توجد منتجات مطابقة لخيارات التصفية الحالية' : 'No products found matching filters'}
                     </div>
                   </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              ) : (
+                paginatedProducts.map((p) => {
+                  const imageUrl = p.image_url 
+                    ? (p.image_url.startsWith('http') || p.image_url.startsWith('data:') ? p.image_url : `${apiHost}${p.image_url}`)
+                    : 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=50&q=80';
+                  
+                  return (
+                    <tr key={p.id} style={{ borderBottom: '1px solid var(--border-color)', fontSize: '0.9rem' }}>
+                      <td style={{ padding: '10px' }}>
+                        <img 
+                          src={imageUrl} 
+                          alt="" 
+                          style={{ 
+                            width: '44px', 
+                            height: '44px', 
+                            objectFit: 'contain', 
+                            backgroundColor: 'white', 
+                            borderRadius: '6px', 
+                            border: '1px solid var(--border-color)' 
+                          }} 
+                        />
+                      </td>
+                      <td style={{ padding: '10px', fontWeight: '600' }}>
+                        <div>{lang === 'ar' ? p.name_ar : p.name_en}</div>
+                        {p.merchant_name && (
+                          <div style={{ 
+                            display: 'inline-block',
+                            marginTop: '4px',
+                            fontSize: '0.72rem', 
+                            fontWeight: '700',
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            backgroundColor: p.merchant_name.toLowerCase().includes('cube') ? '#ecfdf5' : '#eff6ff',
+                            color: p.merchant_name.toLowerCase().includes('cube') ? '#047857' : '#1d4ed8'
+                          }}>
+                            {p.merchant_name}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ padding: '10px', color: 'var(--text-light)' }}>
+                        {lang === 'ar' ? p.category_name_ar : p.category_name_en}
+                      </td>
+                      <td style={{ padding: '10px', color: 'var(--text-light)' }}>
+                        {p.merchant_name || '-'}
+                      </td>
+                      <td style={{ padding: '10px', color: 'var(--text-light)', fontSize: '0.8rem' }}>
+                        {p.colors && p.colors.length > 0 ? p.colors.join(', ') : '-'}
+                      </td>
+                      <td style={{ padding: '10px', color: 'var(--text-light)', fontSize: '0.8rem' }}>
+                        {p.sizes && p.sizes.length > 0 ? p.sizes.join(', ') : '-'}
+                      </td>
+                      <td style={{ padding: '10px', fontWeight: '700', color: 'var(--accent-blue)' }}>
+                        {formatPrice(p.price_usd)}
+                      </td>
+                      <td style={{ padding: '10px', fontWeight: '600', color: 'var(--text-secondary)' }}>
+                        {formatPrice(p.cost_price_usd || 0)}
+                      </td>
+                      <td style={{ padding: '10px', color: p.stock > 0 ? '#10b981' : '#ef4444', fontWeight: '700' }}>
+                        {p.stock}
+                      </td>
+                      <td style={{ padding: '10px', textAlign: 'center' }}>
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                          <button onClick={() => handleEdit(p)} title={lang === 'ar' ? 'تعديل المنتج' : 'Edit Product'} style={{ border: 'none', backgroundColor: 'transparent', color: 'var(--accent-blue)', cursor: 'pointer' }}>
+                            <Edit3 size={16} />
+                          </button>
+                          <button onClick={() => handleDelete(p.id)} title={lang === 'ar' ? 'حذف المنتج' : 'Delete Product'} style={{ border: 'none', backgroundColor: 'transparent', color: '#ef4444', cursor: 'pointer' }}>
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            flexWrap: 'wrap',
+            gap: '12px',
+            marginTop: '20px',
+            paddingTop: '16px',
+            borderTop: '1px solid var(--border-color)'
+          }}>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>
+              {lang === 'ar' 
+                ? `صفحة ${safeCurrentPage} من إجمالي ${totalPages} صفحات (${filteredProducts.length} منتج)`
+                : `Page ${safeCurrentPage} of ${totalPages} (${filteredProducts.length} items)`}
+            </div>
+
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <button
+                type="button"
+                disabled={safeCurrentPage === 1}
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                style={{
+                  padding: '6px 12px',
+                  backgroundColor: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  cursor: safeCurrentPage === 1 ? 'not-allowed' : 'pointer',
+                  opacity: safeCurrentPage === 1 ? 0.5 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontSize: '0.85rem',
+                  fontWeight: '700'
+                }}
+              >
+                <ChevronRight size={16} />
+                <span>{lang === 'ar' ? 'السابق' : 'Previous'}</span>
+              </button>
+
+              <span style={{ 
+                padding: '6px 14px', 
+                backgroundColor: 'var(--accent-blue)', 
+                color: 'white', 
+                borderRadius: '6px', 
+                fontWeight: '800',
+                fontSize: '0.85rem'
+              }}>
+                {safeCurrentPage}
+              </span>
+
+              <button
+                type="button"
+                disabled={safeCurrentPage >= totalPages}
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                style={{
+                  padding: '6px 12px',
+                  backgroundColor: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  cursor: safeCurrentPage >= totalPages ? 'not-allowed' : 'pointer',
+                  opacity: safeCurrentPage >= totalPages ? 0.5 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontSize: '0.85rem',
+                  fontWeight: '700'
+                }}
+              >
+                <span>{lang === 'ar' ? 'التالي' : 'Next'}</span>
+                <ChevronLeft size={16} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
     </div>
