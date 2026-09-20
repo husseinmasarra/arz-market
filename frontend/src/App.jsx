@@ -59,6 +59,8 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     return params.get('category_id') || params.get('category') || '';
   });
+  // Hierarchical category: when user clicks a parent, we show its children
+  const [selectedParentCategory, setSelectedParentCategory] = useState(null);
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
   const [minRating, setMinRating] = useState('');
@@ -988,14 +990,19 @@ export default function App() {
                   <label className="input-label">{t('categories')}</label>
                   <select 
                     value={selectedCategory} 
-                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    onChange={(e) => handleSelectCategory(e.target.value)}
                     className="input-field"
                   >
                     <option value="">{t('all_categories')}</option>
-                    {categories.map(c => (
-                      <option key={c.id} value={c.id}>
-                        {getCategoryName(c, lang)}
-                      </option>
+                    {categories.filter(c => !c.parent_id).map(parent => (
+                      <optgroup key={parent.id} label={getCategoryName(parent, lang)}>
+                        <option value={parent.id}>{getCategoryName(parent, lang)} ({lang === 'ar' ? 'الكل' : 'All'})</option>
+                        {categories.filter(c => c.parent_id === parent.id).map(sub => (
+                          <option key={sub.id} value={sub.id}>
+                            &nbsp;&nbsp;↳ {getCategoryName(sub, lang)}
+                          </option>
+                        ))}
+                      </optgroup>
                     ))}
                   </select>
                 </div>
@@ -1050,20 +1057,20 @@ export default function App() {
                 <NewArrivalsSection onProductClick={(p) => setSelectedProduct(p)} />
 
                 <h2 style={{ fontSize: '1.6rem', fontWeight: '800', borderBottom: '2px solid var(--border-color)', paddingBottom: '10px', marginBottom: '16px' }}>
-                  {lang === 'ar' ? 'تصفح أقسام المتجر' : 'Browse Store Categories'}
+                  {lang === 'ar' ? 'تصفح أقسام المتجر الرئيسية' : 'Browse Main Categories'}
                 </h2>
                 
                 <div style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
                   gap: '24px'
                 }}>
-                  {categories.map((cat) => {
+                  {categories.filter(c => !c.parent_id).map((cat) => {
                     const catName = getCategoryName(cat, lang);
+                    const subcategories = categories.filter(c => c.parent_id === cat.id);
+                    const subCount = subcategories.length;
                     
-                    // Assign realistic category background image
-                    let bgImg = 'https://images.unsplash.com/photo-1550009158-9ebf69173e03?auto=format&fit=crop&w=500&q=80'; // Tech & accessories default
-
+                    let bgImg = 'https://images.unsplash.com/photo-1550009158-9ebf69173e03?auto=format&fit=crop&w=500&q=80';
                     const imageUrl = cat.image_url 
                       ? (cat.image_url.startsWith('http') || cat.image_url.startsWith('data:') ? cat.image_url : `${apiHost}${cat.image_url}`)
                       : bgImg;
@@ -1074,10 +1081,10 @@ export default function App() {
                         onClick={() => handleSelectCategory(cat.id)}
                         className="dashboard-card animate-fade"
                         style={{
-                          height: '280px', // Grander height
+                          height: '280px',
                           position: 'relative',
                           overflow: 'hidden',
-                          borderRadius: '20px', // Extra rounded corners
+                          borderRadius: '20px',
                           cursor: 'pointer',
                           padding: '0',
                           border: '1px solid var(--border-color)',
@@ -1097,12 +1104,32 @@ export default function App() {
                         <div style={{
                           width: '100%',
                           height: '100%',
-                          backgroundImage: `linear-gradient(to top, rgba(10, 14, 23, 0.95) 0%, rgba(10, 14, 23, 0.3) 60%, rgba(10, 14, 23, 0) 100%), url(${imageUrl})`,
+                          backgroundImage: `linear-gradient(to top, rgba(10, 14, 23, 0.95) 0%, rgba(10, 14, 23, 0.35) 60%, rgba(10, 14, 23, 0.05) 100%), url(${imageUrl})`,
                           backgroundSize: 'cover',
                           backgroundPosition: 'center',
                           transition: 'transform 0.5s ease'
                         }} 
                         />
+
+                        {/* Sub-category count badge */}
+                        {subCount > 0 && (
+                          <div style={{
+                            position: 'absolute',
+                            top: '16px',
+                            insetInlineEnd: '16px',
+                            backgroundColor: 'rgba(0, 0, 0, 0.65)',
+                            backdropFilter: 'blur(8px)',
+                            color: '#fbbf24',
+                            fontSize: '0.75rem',
+                            fontWeight: '700',
+                            padding: '4px 10px',
+                            borderRadius: '20px',
+                            border: '1px solid rgba(251, 191, 36, 0.3)',
+                            zIndex: 4
+                          }}>
+                            {subCount} {lang === 'ar' ? 'أقسام فرعية' : 'Sub-categories'}
+                          </div>
+                        )}
 
                         {/* Title text overlay */}
                         <div style={{
@@ -1110,7 +1137,7 @@ export default function App() {
                           bottom: '0',
                           left: '0',
                           right: '0',
-                          padding: '24px', // Taller padding for luxury look
+                          padding: '24px',
                           color: 'white',
                           display: 'flex',
                           flexDirection: 'column',
@@ -1127,7 +1154,7 @@ export default function App() {
                             textTransform: 'uppercase',
                             letterSpacing: '0.5px'
                           }}>
-                            {lang === 'ar' ? 'تصفح المنتجات ←' : 'Browse products →'}
+                            {lang === 'ar' ? 'تصفح القسم والمنتجات ←' : 'Browse category →'}
                           </span>
                         </div>
                       </div>
@@ -1139,70 +1166,123 @@ export default function App() {
               /* --- 2. PRODUCT GRID & NAVIGATION VIEW --- */
               <div className="animate-fade" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 
-                {/* Back button and Category Details Header */}
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  flexWrap: 'wrap',
-                  gap: '12px',
-                  borderBottom: '2px solid var(--border-color)',
-                  paddingBottom: '12px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <button
-                      onClick={clearFilters}
-                      className="input-field"
-                      style={{
-                        width: 'auto',
-                        padding: '6px 14px',
-                        backgroundColor: 'var(--bg-tertiary)',
-                        color: 'var(--text-primary)',
-                        border: '1px solid var(--border-color)',
-                        cursor: 'pointer',
-                        fontWeight: '700',
-                        fontSize: '0.85rem'
-                      }}
-                    >
-                      {lang === 'ar' ? '← العودة للأقسام' : '← Back to Categories'}
-                    </button>
-                    
-                    <h2 style={{ fontSize: '1.3rem', fontWeight: '800' }}>
-                      {selectedCategory !== '' ? (
-                        categories.find(c => c.id === parseInt(selectedCategory)) ? (
-                          getCategoryName(categories.find(c => c.id === parseInt(selectedCategory)), lang)
-                        ) : ''
-                      ) : (
-                        lang === 'ar' ? 'نتائج البحث' : 'Search Results'
-                      )}
-                    </h2>
-                  </div>
+                {(() => {
+                  const currentCat = categories.find(c => c.id === parseInt(selectedCategory));
+                  const parentId = currentCat ? (currentCat.parent_id || currentCat.id) : null;
+                  const parentCat = parentId ? categories.find(c => c.id === parentId) : null;
+                  const availableSubCats = parentId ? categories.filter(c => c.parent_id === parentId) : [];
 
-                  {/* Sub-categories tabs if active has children */}
-                  {selectedCategory !== '' && categories.filter(c => c.parent_id === parseInt(selectedCategory)).length > 0 && (
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      {categories.filter(c => c.parent_id === parseInt(selectedCategory)).map((sub) => (
-                        <button
-                          key={sub.id}
-                          onClick={() => handleSelectCategory(sub.id)}
-                          className="input-field"
-                          style={{
-                            width: 'auto',
-                            padding: '4px 12px',
-                            fontSize: '0.75rem',
-                            backgroundColor: 'var(--accent-blue)',
-                            color: 'white',
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontWeight: '600'
-                          }}
-                        >
-                          {getCategoryName(sub, lang)}
-                        </button>
-                      ))}
+                  return (
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '16px',
+                      borderBottom: '2px solid var(--border-color)',
+                      paddingBottom: '16px'
+                    }}>
+                      {/* Top bar: Back button + Title */}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '12px'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <button
+                            onClick={clearFilters}
+                            className="input-field"
+                            style={{
+                              width: 'auto',
+                              padding: '8px 18px',
+                              backgroundColor: 'var(--bg-tertiary)',
+                              color: 'var(--text-primary)',
+                              border: '1px solid var(--border-color)',
+                              borderRadius: '20px',
+                              cursor: 'pointer',
+                              fontWeight: '700',
+                              fontSize: '0.85rem'
+                            }}
+                          >
+                            {lang === 'ar' ? '← العودة للأقسام الرئيسية' : '← Back to Main Categories'}
+                          </button>
+                          
+                          <h2 style={{ fontSize: '1.4rem', fontWeight: '800' }}>
+                            {parentCat ? (
+                              <span>
+                                {getCategoryName(parentCat, lang)}
+                                {currentCat && currentCat.parent_id ? (
+                                  <span style={{ fontSize: '1.05rem', color: 'var(--accent-blue)', marginInlineStart: '8px', fontWeight: '600' }}>
+                                    / {getCategoryName(currentCat, lang)}
+                                  </span>
+                                ) : ''}
+                              </span>
+                            ) : (
+                              currentCat ? getCategoryName(currentCat, lang) : (lang === 'ar' ? 'نتائج البحث' : 'Search Results')
+                            )}
+                          </h2>
+                        </div>
+                      </div>
+
+                      {/* Sub-categories Pills Strip */}
+                      {availableSubCats.length > 0 && (
+                        <div style={{
+                          display: 'flex',
+                          gap: '8px',
+                          overflowX: 'auto',
+                          paddingBottom: '6px',
+                          scrollbarWidth: 'none'
+                        }}>
+                          {/* All in Parent Pill */}
+                          <button
+                            onClick={() => handleSelectCategory(parentId)}
+                            style={{
+                              whiteSpace: 'nowrap',
+                              padding: '8px 16px',
+                              fontSize: '0.82rem',
+                              borderRadius: '20px',
+                              border: 'none',
+                              cursor: 'pointer',
+                              fontWeight: '700',
+                              backgroundColor: selectedCategory === String(parentId) ? 'var(--accent-red-gold)' : 'var(--bg-secondary)',
+                              color: selectedCategory === String(parentId) ? 'white' : 'var(--text-primary)',
+                              boxShadow: selectedCategory === String(parentId) ? 'var(--shadow-sm)' : 'none',
+                              outline: selectedCategory === String(parentId) ? 'none' : '1px solid var(--border-color)'
+                            }}
+                          >
+                            {lang === 'ar' ? '✨ كل الأقسام' : '✨ All Sub-categories'}
+                          </button>
+
+                          {/* Individual Subcategory Pills */}
+                          {availableSubCats.map((sub) => {
+                            const isSubActive = selectedCategory === String(sub.id);
+                            return (
+                              <button
+                                key={sub.id}
+                                onClick={() => handleSelectCategory(sub.id)}
+                                style={{
+                                  whiteSpace: 'nowrap',
+                                  padding: '8px 16px',
+                                  fontSize: '0.82rem',
+                                  borderRadius: '20px',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  fontWeight: isSubActive ? '700' : '500',
+                                  backgroundColor: isSubActive ? 'var(--accent-blue)' : 'var(--bg-secondary)',
+                                  color: isSubActive ? 'white' : 'var(--text-secondary)',
+                                  boxShadow: isSubActive ? 'var(--shadow-sm)' : 'none',
+                                  outline: isSubActive ? 'none' : '1px solid var(--border-color)'
+                                }}
+                              >
+                                {getCategoryName(sub, lang)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
+                  );
+                })()}
 
                 {/* Products Grid */}
                 {loadingProducts ? (
