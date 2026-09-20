@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import { useCart, getOptionPrice } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { X, CheckCircle, ShieldCheck, LogIn, UserPlus } from 'lucide-react';
+import SocialAuthButtons from './SocialAuthButtons';
 
 export default function Checkout({ onClose }) {
   const { lang, formatPrice, settings, t, apiBase } = useApp();
@@ -578,6 +579,12 @@ export default function Checkout({ onClose }) {
                   </button>
                 </div>
               )}
+
+              {/* Social Login Buttons (Google & Apple) */}
+              <SocialAuthButtons 
+                onSuccess={() => setAuthError('')}
+                onError={(err) => setAuthError(err)}
+              />
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

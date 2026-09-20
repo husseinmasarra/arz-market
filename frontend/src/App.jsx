@@ -13,6 +13,7 @@ import Chat from './components/Chat';
 import PwaInstallBanner from './components/PwaInstallBanner';
 import BestSellersSection from './components/BestSellersSection';
 import NewArrivalsSection from './components/NewArrivalsSection';
+import SocialAuthButtons from './components/SocialAuthButtons';
 
 // Admin panel imports
 import AdminDashboard from './components/admin/AdminDashboard';
@@ -818,6 +819,15 @@ export default function App() {
                 </button>
               )}
             </form>
+
+            {/* Google and Apple ID Sign In */}
+            <SocialAuthButtons 
+              onSuccess={() => {
+                setAuthError('');
+                setCurrentView('store');
+              }}
+              onError={(msg) => setAuthError(msg)}
+            />
 
             <button
               onClick={() => {

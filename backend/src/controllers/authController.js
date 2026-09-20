@@ -211,3 +211,188 @@ exports.updateUserRoleAndPermissions = async (req, res) => {
     res.status(500).json({ error_ar: 'خطأ أثناء تحديث الصلاحيات', error_en: 'Error updating user permissions' });
   }
 };
+
+exports.googleAuth = async (req, res) => {
+  try {
+    const { credential, email: directEmail, name: directName, google_id: directGoogleId } = req.body;
+    let email = directEmail;
+    let full_name = directName;
+    let google_id = directGoogleId;
+
+    if (credential && typeof credential === 'string') {
+      try {
+        const parts = credential.split('.');
+        if (parts.length === 3) {
+          const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
+          if (payload.email) email = payload.email;
+          if (payload.name) full_name = payload.name;
+          if (payload.sub) google_id = payload.sub;
+        }
+      } catch (e) {
+        console.warn('Error parsing Google JWT credential:', e.message);
+      }
+    }
+
+    if (!email) {
+      return res.status(400).json({
+        error_ar: 'تعذر الحصول على البريد الإلكتروني من حساب Google',
+        error_en: 'Could not retrieve email from Google account'
+      });
+    }
+
+    email = email.trim().toLowerCase();
+    full_name = (full_name || email.split('@')[0]).trim();
+
+    // Check if user exists by email
+    let user = await db.getAsync('SELECT * FROM users WHERE LOWER(email) = LOWER(?)', [email]);
+    if (!user) {
+      const usernamePrefix = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_');
+      let baseUsername = usernamePrefix || `google_user_${Date.now()}`;
+      let usernameCandidate = baseUsername;
+      
+      const existingUser = await db.getAsync('SELECT id FROM users WHERE username = ?', [usernameCandidate]);
+      if (existingUser) {
+        usernameCandidate = `${baseUsername}_${Math.floor(1000 + Math.random() * 9000)}`;
+      }
+
+      const randomPassword = bcrypt.hashSync(Math.random().toString(36) + Date.now().toString(), 10);
+      const insertResult = await db.runAsync(
+        "INSERT INTO users (username, password, role, permissions, phone, email, full_name) VALUES (?, ?, 'user', '[]', '', ?, ?)",
+        [usernameCandidate, randomPassword, email, full_name]
+      );
+
+      user = {
+        id: insertResult.lastID,
+        username: usernameCandidate,
+        role: 'user',
+        permissions: '[]',
+        phone: '',
+        email,
+        full_name
+      };
+    }
+
+    // Sign Arz-Mart JWT token
+    const token = jwt.sign(
+      { id: user.id, username: user.username, role: user.role, permissions: user.permissions },
+      JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    res.json({
+      message_ar: `مرحباً بك، ${user.full_name || user.username}!`,
+      message_en: `Welcome, ${user.full_name || user.username}!`,
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        full_name: user.full_name,
+        phone: user.phone,
+        email: user.email,
+        role: user.role,
+        permissions: typeof user.permissions === 'string' ? JSON.parse(user.permissions || '[]') : (user.permissions || [])
+      }
+    });
+  } catch (err) {
+    console.error('Google auth error:', err);
+    res.status(500).json({ error_ar: 'خطأ أثناء تسجيل الدخول عبر Google', error_en: 'Server error during Google authentication' });
+  }
+};
+
+exports.appleAuth = async (req, res) => {
+  try {
+    const { identityToken, authorization, user: appleUserObj, email: directEmail, name: directName } = req.body;
+    let email = directEmail;
+    let full_name = directName;
+    let apple_id = null;
+
+    const tokenString = identityToken || (authorization && authorization.id_token);
+    if (tokenString && typeof tokenString === 'string') {
+      try {
+        const parts = tokenString.split('.');
+        if (parts.length === 3) {
+          const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
+          if (payload.email) email = payload.email;
+          if (payload.sub) apple_id = payload.sub;
+        }
+      } catch (e) {
+        console.warn('Error parsing Apple JWT token:', e.message);
+      }
+    }
+
+    if (appleUserObj) {
+      if (appleUserObj.email && !email) email = appleUserObj.email;
+      if (appleUserObj.name) {
+        const firstName = appleUserObj.name.firstName || '';
+        const lastName = appleUserObj.name.lastName || '';
+        if (firstName || lastName) full_name = `${firstName} ${lastName}`.trim();
+      }
+    }
+
+    if (!email && apple_id) {
+      email = `apple_${apple_id.substring(0, 10)}@privaterelay.appleid.com`;
+    }
+
+    if (!email) {
+      return res.status(400).json({
+        error_ar: 'تعذر الحصول على معلومات الحساب من Apple ID',
+        error_en: 'Could not retrieve account info from Apple ID'
+      });
+    }
+
+    email = email.trim().toLowerCase();
+    full_name = (full_name || email.split('@')[0]).trim();
+
+    let user = await db.getAsync('SELECT * FROM users WHERE LOWER(email) = LOWER(?)', [email]);
+    if (!user) {
+      const usernamePrefix = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_');
+      let baseUsername = usernamePrefix || `apple_user_${Date.now()}`;
+      let usernameCandidate = baseUsername;
+      
+      const existingUser = await db.getAsync('SELECT id FROM users WHERE username = ?', [usernameCandidate]);
+      if (existingUser) {
+        usernameCandidate = `${baseUsername}_${Math.floor(1000 + Math.random() * 9000)}`;
+      }
+
+      const randomPassword = bcrypt.hashSync(Math.random().toString(36) + Date.now().toString(), 10);
+      const insertResult = await db.runAsync(
+        "INSERT INTO users (username, password, role, permissions, phone, email, full_name) VALUES (?, ?, 'user', '[]', '', ?, ?)",
+        [usernameCandidate, randomPassword, email, full_name]
+      );
+
+      user = {
+        id: insertResult.lastID,
+        username: usernameCandidate,
+        role: 'user',
+        permissions: '[]',
+        phone: '',
+        email,
+        full_name
+      };
+    }
+
+    const token = jwt.sign(
+      { id: user.id, username: user.username, role: user.role, permissions: user.permissions },
+      JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    res.json({
+      message_ar: `مرحباً بك، ${user.full_name || user.username}!`,
+      message_en: `Welcome, ${user.full_name || user.username}!`,
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        full_name: user.full_name,
+        phone: user.phone,
+        email: user.email,
+        role: user.role,
+        permissions: typeof user.permissions === 'string' ? JSON.parse(user.permissions || '[]') : (user.permissions || [])
+      }
+    });
+  } catch (err) {
+    console.error('Apple auth error:', err);
+    res.status(500).json({ error_ar: 'خطأ أثناء تسجيل الدخول عبر Apple ID', error_en: 'Server error during Apple authentication' });
+  }
+};

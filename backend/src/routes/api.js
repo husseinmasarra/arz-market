@@ -17,6 +17,8 @@ const cartController = require('../controllers/cartController');
 // --- Auth Routes ---
 router.post('/auth/register', authController.register);
 router.post('/auth/login', authController.login);
+router.post('/auth/google', authController.googleAuth);
+router.post('/auth/apple', authController.appleAuth);
 router.get('/auth/profile', authenticateToken, authController.getProfile);
 
 // --- User Management (Admin Only) ---

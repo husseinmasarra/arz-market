@@ -71,6 +71,43 @@ export const AuthProvider = ({ children }) => {
     return data;
   };
 
+  const loginWithGoogle = async (googlePayload) => {
+    const body = typeof googlePayload === 'string' ? { credential: googlePayload } : googlePayload;
+    const res = await fetch(`${apiBase}/auth/google`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error_ar || data.error_en || 'Google authentication failed');
+    }
+
+    setToken(data.token);
+    setUser(data.user);
+    localStorage.setItem('token', data.token);
+    return data;
+  };
+
+  const loginWithApple = async (applePayload) => {
+    const res = await fetch(`${apiBase}/auth/apple`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(applePayload)
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error_ar || data.error_en || 'Apple authentication failed');
+    }
+
+    setToken(data.token);
+    setUser(data.user);
+    localStorage.setItem('token', data.token);
+    return data;
+  };
+
   const logout = () => {
     setToken(null);
     setUser(null);
@@ -90,6 +127,8 @@ export const AuthProvider = ({ children }) => {
       loading,
       login,
       register,
+      loginWithGoogle,
+      loginWithApple,
       logout,
       hasPermission
     }}>
