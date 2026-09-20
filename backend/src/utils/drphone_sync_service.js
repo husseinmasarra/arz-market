@@ -68,8 +68,38 @@ const CATEGORY_TRANSLATIONS = {
   'Network': 'أجهزة شبكات ومقويات واي فاي',
   'Tablet': 'أجهزة تابلت ولوحية',
   'Diffusers': 'فواحات ومرطبات جو عطرية',
-  'Blender': 'خلاطات فواكه ومشروبات محمولة'
+  'Blender': 'خلاطات فواكه ومشروبات محمولة',
+  'Cables & Plugs': 'كابلات وتوصيلات',
+  'Modules & Converters': 'وحدات ومحولات إلكترونية',
+  'Batteries & Power': 'بطاريات وشواحن',
+  'Electronics & Accessories': 'قطع وإلكترونيات منوعة'
 };
+
+function separateCategoryNames(rawEn, rawAr) {
+  const matchEn = String(rawEn || '').trim().match(/^([^(]+)\s*\(([^)]+)\)$/);
+  if (matchEn) {
+    const p1 = matchEn[1].trim();
+    const p2 = matchEn[2].trim();
+    const isP1Ar = /[\u0600-\u06FF]/.test(p1);
+    return {
+      en: isP1Ar ? p2 : p1,
+      ar: isP1Ar ? p1 : (CATEGORY_TRANSLATIONS[p2] || p2)
+    };
+  }
+  const matchAr = String(rawAr || '').trim().match(/^([^(]+)\s*\(([^)]+)\)$/);
+  if (matchAr) {
+    const p1 = matchAr[1].trim();
+    const p2 = matchAr[2].trim();
+    const isP1Ar = /[\u0600-\u06FF]/.test(p1);
+    return {
+      en: isP1Ar ? p2 : p1,
+      ar: isP1Ar ? p1 : (CATEGORY_TRANSLATIONS[p2] || p2)
+    };
+  }
+  const en = String(rawEn || '').trim();
+  const ar = (rawAr && rawAr !== rawEn) ? rawAr.trim() : (CATEGORY_TRANSLATIONS[en] || en);
+  return { en, ar };
+}
 
 function applyMarkup(price, markupPercent = 45) {
   if (price === undefined || price === null || isNaN(price)) return 2.5;
@@ -239,13 +269,13 @@ function fetchShopifyCatalog(targetBaseUrl) {
               if (!cat) {
                 const titleLower = p.title.toLowerCase();
                 if (titleLower.includes('cable') || titleLower.includes('wire') || titleLower.includes('plug')) {
-                  cat = 'كابلات وتوصيلات (Cables & Plugs)';
+                  cat = 'Cables & Plugs';
                 } else if (titleLower.includes('module') || titleLower.includes('converter') || titleLower.includes('sensor')) {
-                  cat = 'وحدات ومحولات إلكترونية (Modules & Converters)';
+                  cat = 'Modules & Converters';
                 } else if (titleLower.includes('battery') || titleLower.includes('power') || titleLower.includes('charger')) {
-                  cat = 'بطاريات وشواحن (Batteries & Power)';
+                  cat = 'Batteries & Power';
                 } else {
-                  cat = 'قطع وإلكترونيات منوعة (Electronics & Accessories)';
+                  cat = 'Electronics & Accessories';
                 }
               }
 
@@ -268,11 +298,14 @@ function fetchShopifyCatalog(targetBaseUrl) {
               });
             }
 
-            const catalog = Object.keys(catMap).map(catName => ({
-              name: catName,
-              name_ar: catName,
-              items: catMap[catName]
-            }));
+            const catalog = Object.keys(catMap).map(catName => {
+              const { en, ar } = separateCategoryNames(catName, CATEGORY_TRANSLATIONS[catName]);
+              return {
+                name: en,
+                name_ar: ar,
+                items: catMap[catName]
+              };
+            });
 
             resolve({ catalog, totalItems: shopifyProducts.length });
           } catch (e) {
@@ -348,25 +381,37 @@ async function syncDrPhoneToArzMart(options = {}) {
 
   // Step 4: Sync categories into Arz-Mart
   for (const cat of rawCategories) {
-    const catNameEn = cat.name.trim();
-    const catNameAr = CATEGORY_TRANSLATIONS[catNameEn] || cat.name_ar || catNameEn;
+    const { en: catNameEn, ar: catNameAr } = separateCategoryNames(cat.name, cat.name_ar);
     const catKey = catNameEn.toLowerCase();
 
-    if (!categoryMap.has(catKey)) {
-      // Find a sample image from the category
-      const firstItem = (cat.items || cat.products || [])[0];
-      let catImg = '';
-      if (firstItem && firstItem.image) {
-        const fn = firstItem.image.split('/').pop();
-        catImg = `/uploads/products/${fn}`;
-      }
+    const firstItem = (cat.items || cat.products || [])[0];
+    let sampleImg = '';
+    if (firstItem && firstItem.image) {
+      sampleImg = (firstItem.image.startsWith('http://') || firstItem.image.startsWith('https://'))
+        ? firstItem.image
+        : `/uploads/products/${firstItem.image.split('?')[0].split('/').pop()}`;
+    }
 
+    if (!categoryMap.has(catKey)) {
       const res = await db.runAsync(
         "INSERT INTO categories (name_ar, name_en, image_url) VALUES (?, ?, ?)",
-        [catNameAr, catNameEn, catImg]
+        [catNameAr, catNameEn, sampleImg]
       );
       categoryMap.set(catKey, res.lastID);
-      console.log(`[DR PHONE Sync Service] Added Category '${catNameEn}' -> ID: ${res.lastID}`);
+      console.log(`[Sync Service] Added Category '${catNameEn}' -> ID: ${res.lastID}`);
+    } else {
+      const existingCatId = categoryMap.get(catKey);
+      if (sampleImg && sampleImg.startsWith('http')) {
+        await db.runAsync(
+          "UPDATE categories SET name_ar = ?, name_en = ?, image_url = ? WHERE id = ?",
+          [catNameAr, catNameEn, sampleImg, existingCatId]
+        );
+      } else {
+        await db.runAsync(
+          "UPDATE categories SET name_ar = ?, name_en = ? WHERE id = ?",
+          [catNameAr, catNameEn, existingCatId]
+        );
+      }
     }
   }
 
@@ -396,17 +441,20 @@ async function syncDrPhoneToArzMart(options = {}) {
       if (isNaN(retailPrice) || retailPrice <= 0) retailPrice = 2.50;
       const oldPrice = retailPrice > 0 ? Math.round(retailPrice * 1.15 * 100) / 100 : null;
 
-      // Local image filename
-      let imageFilename = '';
+      // Image URL calculation
+      let finalImageUrl = '';
       if (p.image) {
-        const cleanImg = p.image.split('?')[0];
-        imageFilename = cleanImg.split('/').pop();
-      }
-      const localImageUrl = imageFilename ? `/uploads/products/${imageFilename}` : '';
-
-      // Check if image needs downloading
-      if (imageFilename && !fs.existsSync(path.join(UPLOADS_DIR, imageFilename))) {
-        downloadImageLocally(`${targetUrl}/uploads/products/${imageFilename}`, imageFilename, targetUrl).catch(() => {});
+        if (p.image.startsWith('http://') || p.image.startsWith('https://')) {
+          finalImageUrl = p.image;
+        } else {
+          const cleanImg = p.image.split('?')[0];
+          const imageFilename = cleanImg.split('/').pop();
+          finalImageUrl = imageFilename ? `/uploads/products/${imageFilename}` : '';
+          // Check if image needs downloading locally
+          if (imageFilename && !fs.existsSync(path.join(UPLOADS_DIR, imageFilename))) {
+            downloadImageLocally(`${targetUrl}/uploads/products/${imageFilename}`, imageFilename, targetUrl).catch(() => {});
+          }
+        }
       }
 
       const nameEn = p.name.trim();
@@ -435,22 +483,26 @@ async function syncDrPhoneToArzMart(options = {}) {
 
       // Check if product already exists by name_en or sku
       const existing = await db.getAsync(
-        "SELECT id, price_usd, cost_price_usd, stock FROM products WHERE name_en = ? OR (description_en LIKE ? AND category_id = ?)",
+        "SELECT id, price_usd, cost_price_usd, stock, image_url FROM products WHERE name_en = ? OR (description_en LIKE ? AND category_id = ?)",
         [nameEn, `%${p.sku || nameEn}%`, catId]
       );
 
       if (existing) {
+        // If existing has no image or a local /uploads image and new one is a valid CDN URL, use finalImageUrl
+        const shouldReplaceImage = finalImageUrl.startsWith('http') || !existing.image_url;
+        const targetImg = shouldReplaceImage && finalImageUrl ? finalImageUrl : (existing.image_url || finalImageUrl);
+
         await db.runAsync(
           `UPDATE products SET 
             price_usd = ?, 
             cost_price_usd = ?, 
             old_price_usd = ?, 
             stock = ?,
-            image_url = COALESCE(NULLIF(image_url, ''), ?),
+            image_url = ?,
             category_id = ?,
             sizes = ?
           WHERE id = ?`,
-          [retailPrice, wholesalePrice, oldPrice, stock, localImageUrl, catId, sizesJson, existing.id]
+          [retailPrice, wholesalePrice, oldPrice, stock, targetImg, catId, sizesJson, existing.id]
         );
         updatedCount++;
       } else {
@@ -465,7 +517,7 @@ async function syncDrPhoneToArzMart(options = {}) {
           [
             nameAr, nameEn, descAr, descEn,
             retailPrice, wholesalePrice, oldPrice,
-            catId, merchantId, localImageUrl, stock,
+            catId, merchantId, finalImageUrl, stock,
             24, 5, colorsJson, sizesJson
           ]
         );

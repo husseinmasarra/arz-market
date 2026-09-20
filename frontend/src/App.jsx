@@ -17,6 +17,23 @@ import AdminDashboard from './components/admin/AdminDashboard';
 
 import { Key, User, FileText, ChevronDown, Check, Star, RefreshCw, Fingerprint, Smartphone, Globe } from 'lucide-react';
 
+// Clean category names strictly separating Arabic and English
+function getCategoryName(cat, currentLang) {
+  if (!cat) return '';
+  const raw = currentLang === 'ar' 
+    ? (cat.name_ar || cat.name_en || '') 
+    : (cat.name_en || cat.name_ar || '');
+  if (!raw) return '';
+  const match = raw.match(/^([^(]+)\s*\(([^)]+)\)$/);
+  if (match) {
+    const p1 = match[1].trim();
+    const p2 = match[2].trim();
+    const isP1Ar = /[\u0600-\u06FF]/.test(p1);
+    return currentLang === 'ar' ? (isP1Ar ? p1 : p2) : (isP1Ar ? p2 : p1);
+  }
+  return raw;
+}
+
 export default function App() {
   const { lang, formatPrice, t, apiBase, settings, currency, apiHost } = useApp();
   const { user, login, register, token } = useAuth();
@@ -966,7 +983,7 @@ export default function App() {
                     <option value="">{t('all_categories')}</option>
                     {categories.map(c => (
                       <option key={c.id} value={c.id}>
-                        {lang === 'ar' ? c.name_ar : c.name_en}
+                        {getCategoryName(c, lang)}
                       </option>
                     ))}
                   </select>
@@ -1024,7 +1041,7 @@ export default function App() {
                   gap: '24px'
                 }}>
                   {categories.map((cat) => {
-                    const catName = lang === 'ar' ? cat.name_ar : cat.name_en;
+                    const catName = getCategoryName(cat, lang);
                     
                     // Assign realistic category background image
                     let bgImg = 'https://images.unsplash.com/photo-1550009158-9ebf69173e03?auto=format&fit=crop&w=500&q=80'; // Tech & accessories default
@@ -1135,9 +1152,7 @@ export default function App() {
                     <h2 style={{ fontSize: '1.3rem', fontWeight: '800' }}>
                       {selectedCategory !== '' ? (
                         categories.find(c => c.id === parseInt(selectedCategory)) ? (
-                          lang === 'ar' 
-                            ? categories.find(c => c.id === parseInt(selectedCategory)).name_ar 
-                            : categories.find(c => c.id === parseInt(selectedCategory)).name_en
+                          getCategoryName(categories.find(c => c.id === parseInt(selectedCategory)), lang)
                         ) : ''
                       ) : (
                         lang === 'ar' ? 'نتائج البحث' : 'Search Results'
@@ -1164,7 +1179,7 @@ export default function App() {
                             fontWeight: '600'
                           }}
                         >
-                          {lang === 'ar' ? sub.name_ar : sub.name_en}
+                          {getCategoryName(sub, lang)}
                         </button>
                       ))}
                     </div>
