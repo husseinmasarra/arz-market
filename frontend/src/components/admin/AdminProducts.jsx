@@ -202,12 +202,16 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
     }
   };
 
-  const handleTriggerSync = async () => {
-    const curSource = supplierSources.find(s => String(s.id) === String(selectedSourceId));
-    const sourceName = curSource ? curSource.name : 'المورد';
+  const handleTriggerSync = async (sourceToSync = null) => {
+    const curSource = sourceToSync || supplierSources.find(s => String(s.id) === String(selectedSourceId));
+    const targetSourceId = curSource ? curSource.id : selectedSourceId;
+    const targetMarkup = curSource && curSource.markup_percent !== undefined ? curSource.markup_percent : syncMarkup;
+    const targetPasscode = curSource && curSource.passcode !== undefined ? curSource.passcode : syncPasscode;
+    const sourceName = curSource ? curSource.name : (lang === 'ar' ? 'المورد' : 'Supplier');
+
     const confirmMsg = lang === 'ar'
-      ? `هل تريد تأكيد جلب وتحديث منتجات "${sourceName}" وتنزيل الصور بزيادة هامش ربح (+${syncMarkup}%)؟`
-      : `Are you sure you want to sync products from "${sourceName}" with +${syncMarkup}% markup?`;
+      ? `هل تريد تأكيد جلب وتحديث منتجات "${sourceName}" وتنزيل الصور بزيادة هامش ربح (+${targetMarkup}%)؟`
+      : `Are you sure you want to sync products from "${sourceName}" with +${targetMarkup}% markup?`;
     if (!window.confirm(confirmMsg)) return;
 
     setIsSyncing(true);
@@ -215,8 +219,8 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
     setSyncError(null);
 
     try {
-      const syncEndpoint = selectedSourceId 
-        ? `${apiBase}/supplier-sources/${selectedSourceId}/sync`
+      const syncEndpoint = targetSourceId 
+        ? `${apiBase}/supplier-sources/${targetSourceId}/sync`
         : `${apiBase}/drphone/sync`;
 
       const res = await fetch(syncEndpoint, {
@@ -226,8 +230,8 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          passcode: syncPasscode,
-          markupPercent: Number(syncMarkup) || 45
+          passcode: targetPasscode,
+          markupPercent: Number(targetMarkup) || 45
         })
       });
 
@@ -253,7 +257,8 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
     fetchCategories();
     fetchMerchants();
     fetchDrPhoneStatus();
-  }, []);
+    fetchSupplierSources();
+  }, [token]);
 
   const handleFileChange = (e) => {
     setSelectedFile(e.target.files[0]);
@@ -757,6 +762,177 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                 <div>{syncError}</div>
               </div>
             )}
+
+            {/* Connected Supplier Websites Table / Directory */}
+            <div style={{ marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Globe size={18} color="#2563eb" />
+                  <span>{lang === 'ar' ? 'لائحة مواقع الموردين المربوطة والمتاحة للتحديث:' : 'Connected Supplier Websites Directory:'}</span>
+                </h4>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontWeight: '700', backgroundColor: 'var(--bg-primary)', padding: '3px 10px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                  {lang === 'ar' ? `عدد المواقع: ${supplierSources.length}` : `Total Sites: ${supplierSources.length}`}
+                </span>
+              </div>
+
+              {supplierSources.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                  {lang === 'ar' ? 'جاري تحميل قائمة المواقع...' : 'Loading supplier sites...'}
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto', borderRadius: '10px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-primary)' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'start', fontSize: '0.85rem' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: 'var(--bg-tertiary)', borderBottom: '1px solid var(--border-color)' }}>
+                        <th style={{ padding: '10px 14px', textAlign: 'start' }}>{lang === 'ar' ? 'الموقع والمورد' : 'Supplier / Site'}</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'start' }}>{lang === 'ar' ? 'الرابط الإلكتروني' : 'Website URL'}</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'center' }}>{lang === 'ar' ? 'نوع الموقع' : 'Type'}</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'center' }}>{lang === 'ar' ? 'هامش الربح' : 'Markup'}</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'center' }}>{lang === 'ar' ? 'المنتجات المستوردة' : 'Imported Items'}</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'start' }}>{lang === 'ar' ? 'آخر مزامنة' : 'Last Sync'}</th>
+                        <th style={{ padding: '10px 14px', textAlign: 'center' }}>{lang === 'ar' ? 'إجراء وتحديث' : 'Actions'}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {supplierSources.map((source) => {
+                        const isCurrentSelected = String(source.id) === String(selectedSourceId);
+                        return (
+                          <tr 
+                            key={source.id} 
+                            style={{ 
+                              borderBottom: '1px solid var(--border-color)',
+                              backgroundColor: isCurrentSelected ? 'rgba(37, 99, 235, 0.05)' : 'transparent',
+                              transition: 'background 0.2s'
+                            }}
+                          >
+                            <td style={{ padding: '12px 14px', fontWeight: '700' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span>{source.name}</span>
+                                {source.is_default ? (
+                                  <span style={{ fontSize: '0.68rem', backgroundColor: '#dbeafe', color: '#1d4ed8', padding: '2px 6px', borderRadius: '4px', fontWeight: '800' }}>
+                                    {lang === 'ar' ? 'الرئيسي' : 'Default'}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </td>
+                            <td style={{ padding: '12px 14px' }}>
+                              <a 
+                                href={source.url} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                style={{ color: '#2563eb', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: '600' }}
+                              >
+                                <span style={{ maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', direction: 'ltr', display: 'inline-block' }}>
+                                  {source.url.replace(/^https?:\/\//, '')}
+                                </span>
+                                <ExternalLink size={13} />
+                              </a>
+                            </td>
+                            <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                              <span style={{ 
+                                fontSize: '0.72rem', 
+                                padding: '3px 8px', 
+                                borderRadius: '12px',
+                                fontWeight: '700',
+                                backgroundColor: source.sync_type === 'shopify_json' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(59, 130, 246, 0.12)',
+                                color: source.sync_type === 'shopify_json' ? '#059669' : '#2563eb'
+                              }}>
+                                {source.sync_type === 'shopify_json' ? 'Shopify' : (lang === 'ar' ? 'بوابة جملة' : 'Wholesale')}
+                              </span>
+                            </td>
+                            <td style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800', color: '#16a34a' }}>
+                              +{source.markup_percent}%
+                            </td>
+                            <td style={{ padding: '12px 14px', textAlign: 'center', fontWeight: '800' }}>
+                              <span style={{ backgroundColor: 'var(--bg-secondary)', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                                {source.products_count || 0}
+                              </span>
+                            </td>
+                            <td style={{ padding: '12px 14px', fontSize: '0.78rem', color: 'var(--text-light)' }}>
+                              {source.last_sync_time ? (
+                                <div>
+                                  <div style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{source.last_sync_time}</div>
+                                  <div style={{ color: '#16a34a', marginTop: '2px', fontSize: '0.74rem' }}>{source.last_sync_status || 'نجحت المزامنة'}</div>
+                                </div>
+                              ) : (
+                                <span style={{ color: 'var(--text-muted)' }}>{lang === 'ar' ? 'لم تتم المزامنة بعد' : 'Not synced yet'}</span>
+                              )}
+                            </td>
+                            <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                              <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', alignItems: 'center' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleTriggerSync(source)}
+                                  disabled={isSyncing}
+                                  title={lang === 'ar' ? `تحديث ومزامنة منتجات ${source.name} الآن` : `Sync ${source.name} now`}
+                                  style={{
+                                    padding: '5px 12px',
+                                    backgroundColor: '#2563eb',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    fontSize: '0.78rem',
+                                    fontWeight: '700',
+                                    cursor: isSyncing ? 'not-allowed' : 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)'
+                                  }}
+                                >
+                                  <RefreshCw size={13} className={isSyncing && isCurrentSelected ? 'spin-anim' : ''} />
+                                  <span>{lang === 'ar' ? 'تحديث الآن' : 'Sync Now'}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingSource(source);
+                                    setNewSourceName(source.name);
+                                    setNewSourceUrl(source.url);
+                                    setNewSourcePasscode(source.passcode || '');
+                                    setNewSourceMarkup(source.markup_percent !== undefined ? source.markup_percent : 45);
+                                    setNewSourceType(source.sync_type || 'drphone_catalog');
+                                    setShowSourceModal(true);
+                                  }}
+                                  title={lang === 'ar' ? 'تعديل بيانات الموقع' : 'Edit site'}
+                                  style={{
+                                    padding: '5px 8px',
+                                    backgroundColor: 'var(--bg-secondary)',
+                                    color: '#2563eb',
+                                    border: '1px solid var(--border-color)',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  <Edit3 size={14} />
+                                </button>
+                                {!source.is_default && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteSource(source)}
+                                    title={lang === 'ar' ? 'حذف هذا الموقع' : 'Delete site'}
+                                    style={{
+                                      padding: '5px 8px',
+                                      backgroundColor: 'var(--bg-secondary)',
+                                      color: '#ef4444',
+                                      border: '1px solid var(--border-color)',
+                                      borderRadius: '6px',
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         );
       })()}
