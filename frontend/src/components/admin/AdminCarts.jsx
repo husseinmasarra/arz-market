@@ -38,6 +38,17 @@ export default function AdminCarts() {
     fetchCarts();
   }, []);
 
+  // ESC key closes the cart inspection modal
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && selectedCart) {
+        setSelectedCart(null);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [selectedCart]);
+
   const filteredCarts = carts.filter(c => {
     const q = searchQuery.toLowerCase().trim();
     if (!q) return true;

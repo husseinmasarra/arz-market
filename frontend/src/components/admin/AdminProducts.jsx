@@ -495,6 +495,17 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
     new Set(products.map(p => p.merchant_name).filter(Boolean))
   );
 
+  // ESC key closes the supplier source modal
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && showSourceModal) {
+        setShowSourceModal(false);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [showSourceModal]);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       

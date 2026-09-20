@@ -30,6 +30,15 @@ export default function Checkout({ onClose }) {
     }
   }, [user]);
 
+  // ESC key closes the checkout modal
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   const handleInlineLogin = async (e) => {
     e.preventDefault();
     setAuthError('');

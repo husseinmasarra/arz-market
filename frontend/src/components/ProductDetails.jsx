@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart, getOptionPrice } from '../context/CartContext';
 import { Star, ShoppingCart, X } from 'lucide-react';
@@ -54,6 +54,16 @@ export default function ProductDetails({ product, onClose, onRefresh }) {
   });
 
   if (!product) return null;
+
+  // ESC key closes this modal
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   const name = lang === 'ar' ? product.name_ar : product.name_en;
   const desc = lang === 'ar' ? product.description_ar : product.description_en;
