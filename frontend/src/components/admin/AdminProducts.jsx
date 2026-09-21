@@ -777,10 +777,16 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                                 padding: '4px 12px', 
                                 borderRadius: '14px',
                                 fontWeight: '800',
-                                backgroundColor: source.sync_type === 'shopify_json' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(59, 130, 246, 0.12)',
-                                color: source.sync_type === 'shopify_json' ? '#059669' : '#2563eb'
+                                backgroundColor: source.sync_type === 'shopify_json' ? 'rgba(16, 185, 129, 0.12)' : (source.sync_type === 'deal_scraper' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(59, 130, 246, 0.12)'),
+                                color: source.sync_type === 'shopify_json' ? '#059669' : (source.sync_type === 'deal_scraper' ? '#d97706' : '#2563eb')
                               }}>
-                                {source.sync_type === 'shopify_json' ? 'Shopify Store' : (lang === 'ar' ? 'بوابة جملة خاصة' : 'Wholesale Portal')}
+                                {source.sync_type === 'shopify_json' 
+                                  ? 'Shopify Store' 
+                                  : (source.sync_type === 'deal_scraper' 
+                                      ? (lang === 'ar' ? 'منصة Deal.com.lb' : 'Deal.com.lb') 
+                                      : (lang === 'ar' ? 'بوابة جملة خاصة' : 'Wholesale Portal')
+                                    )
+                                }
                               </span>
                             </td>
 
@@ -1074,6 +1080,9 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                 >
                   <option value="drphone_catalog">
                     {lang === 'ar' ? 'موقع جملة بكلمة مرور (Wholesale Passcode Portal / DR PHONE)' : 'Wholesale Passcode Portal (DR PHONE compatible)'}
+                  </option>
+                  <option value="deal_scraper">
+                    {lang === 'ar' ? 'منصة الصفقات Deal.com.lb (Web Crawler / Scraper)' : 'Deal.com.lb Web Scraper'}
                   </option>
                   <option value="shopify_json">
                     {lang === 'ar' ? 'متجر شوبيفاي (Shopify / products.json)' : 'Shopify Store (products.json)'}

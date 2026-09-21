@@ -442,8 +442,16 @@ async function initializeDatabasePostgres() {
       const sourcesCount = await pgPool.query('SELECT COUNT(*) FROM supplier_sources');
       if (parseInt(sourcesCount.rows[0].count) === 0) {
         await pgPool.query(
-          "INSERT INTO supplier_sources (name, url, passcode, markup_percent, sync_type, is_default) VALUES ($1, $2, $3, $4, $5, $6)",
-          ['DR PHONE Wholesale', 'https://drphonewholesale.online', 'Drphone123', 45, 'drphone_catalog', 1]
+          "INSERT INTO supplier_sources (name, url, passcode, markup_percent, sync_type, is_default, phone, email, whatsapp_number, shipping_notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+          ['DR PHONE Wholesale', 'https://drphonewholesale.online', 'Drphone123', 45, 'drphone_catalog', 1, '+96171000000', 'wholesale@drphonewholesale.online', '+96171000000', 'المورد الافتراضي']
+        );
+      }
+      
+      const dealExists = await pgPool.query("SELECT id FROM supplier_sources WHERE name = 'Deal.com.lb'");
+      if (dealExists.rows.length === 0) {
+        await pgPool.query(
+          "INSERT INTO supplier_sources (name, url, passcode, markup_percent, sync_type, is_default, phone, email, whatsapp_number, shipping_notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+          ['Deal.com.lb', 'https://www.deal.com.lb/', '', 18, 'deal_scraper', 0, '+96170221998', 'support@deal.com.lb', '+96170221998', 'موقع الصفقات والعروض في لبنان']
         );
       }
     } catch (e) {}
@@ -936,14 +944,36 @@ function initializeDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `, [], () => {
+      // Ensure all dynamic columns exist in SQLite supplier_sources
+      const alterCols = [
+        "ALTER TABLE supplier_sources ADD COLUMN phone TEXT DEFAULT ''",
+        "ALTER TABLE supplier_sources ADD COLUMN email TEXT DEFAULT ''",
+        "ALTER TABLE supplier_sources ADD COLUMN whatsapp_number TEXT DEFAULT ''",
+        "ALTER TABLE supplier_sources ADD COLUMN shipping_notes TEXT DEFAULT ''",
+        "ALTER TABLE supplier_sources ADD COLUMN last_sync_inserted INTEGER DEFAULT 0",
+        "ALTER TABLE supplier_sources ADD COLUMN last_sync_updated INTEGER DEFAULT 0",
+        "ALTER TABLE supplier_sources ADD COLUMN last_sync_out_of_stock INTEGER DEFAULT 0"
+      ];
+      alterCols.forEach(sql => db.run(sql, [], () => {}));
+
       db.get('SELECT COUNT(*) as count FROM supplier_sources', [], (err, row) => {
         if (!err && row && parseInt(row.count) === 0) {
           db.run(
-            "INSERT INTO supplier_sources (name, url, passcode, markup_percent, sync_type, is_default) VALUES (?, ?, ?, ?, ?, ?)",
-            ['DR PHONE Wholesale', 'https://drphonewholesale.online', 'Drphone123', 45, 'drphone_catalog', 1],
+            "INSERT INTO supplier_sources (name, url, passcode, markup_percent, sync_type, is_default, phone, email, whatsapp_number, shipping_notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ['DR PHONE Wholesale', 'https://drphonewholesale.online', 'Drphone123', 45, 'drphone_catalog', 1, '+96171000000', 'wholesale@drphonewholesale.online', '+96171000000', 'المورد الافتراضي'],
             () => {}
           );
         }
+        
+        db.get("SELECT id FROM supplier_sources WHERE name = 'Deal.com.lb'", [], (dErr, dRow) => {
+          if (!dRow) {
+            db.run(
+              "INSERT INTO supplier_sources (name, url, passcode, markup_percent, sync_type, is_default, phone, email, whatsapp_number, shipping_notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              ['Deal.com.lb', 'https://www.deal.com.lb/', '', 18, 'deal_scraper', 0, '+96170221998', 'support@deal.com.lb', '+96170221998', 'موقع الصفقات والعروض في لبنان'],
+              () => {}
+            );
+          }
+        });
       });
     });
 

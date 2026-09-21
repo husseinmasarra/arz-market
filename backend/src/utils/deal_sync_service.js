@@ -55,7 +55,6 @@ function splitTitleBilingual(title) {
     nameAr = arParts.join(' ') || title;
     nameEn = enParts.join(' ') || title;
   } else {
-    // Check if title has both Arabic and English text
     const words = title.split(/\s+/);
     const arWords = words.filter(w => /[\u0600-\u06FF]/.test(w));
     const enWords = words.filter(w => !/[\u0600-\u06FF]/.test(w));
@@ -130,21 +129,41 @@ function parseCards(html, categoryInfo) {
   return cards;
 }
 
-async function syncDealLebanon({ markupPercent = 18 } = {}) {
-  console.log(`[Deal.com.lb Sync] Starting sync with +${markupPercent}% markup...`);
+async function syncDealLebanon({ sourceId = null, markupPercent = 18 } = {}) {
+  const effectiveMarkup = Number(markupPercent) >= 0 ? Number(markupPercent) : 18;
+  const markupMultiplier = 1 + (effectiveMarkup / 100);
+  const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+  console.log(`[Deal.com.lb Sync] Starting sync with +${effectiveMarkup}% markup at ${now}...`);
   
   // 1. Ensure Merchant Deal.com.lb exists
   let merchant = await db.getAsync("SELECT id FROM merchants WHERE name = 'Deal.com.lb'");
   if (!merchant) {
     const res = await db.runAsync(
-      "INSERT INTO merchants (name, company, phone, email) VALUES (?, ?, ?, ?)",
-      ['Deal.com.lb', 'Deal Lebanon', '+96170221998', 'support@deal.com.lb']
+      "INSERT INTO merchants (name, company, phone, email, whatsapp_number) VALUES (?, ?, ?, ?, ?)",
+      ['Deal.com.lb', 'Deal Lebanon', '+96170221998', 'support@deal.com.lb', '+96170221998']
     );
     merchant = { id: res.lastID };
     console.log(`[Deal.com.lb Sync] Created merchant Deal.com.lb with ID: ${merchant.id}`);
   }
 
-  // 2. Fetch existing categories to avoid duplicates
+  // 2. Ensure Supplier Source Deal.com.lb exists
+  let source = null;
+  if (sourceId) {
+    source = await db.getAsync("SELECT * FROM supplier_sources WHERE id = ?", [sourceId]);
+  }
+  if (!source) {
+    source = await db.getAsync("SELECT * FROM supplier_sources WHERE name = 'Deal.com.lb' OR url LIKE '%deal.com.lb%'");
+  }
+  if (!source) {
+    const sRes = await db.runAsync(
+      "INSERT INTO supplier_sources (name, url, passcode, markup_percent, sync_type, is_default, phone, email, whatsapp_number, shipping_notes) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)",
+      ['Deal.com.lb', 'https://www.deal.com.lb/', '', effectiveMarkup, 'deal_scraper', '+96170221998', 'support@deal.com.lb', '+96170221998', 'منصة الصفقات والعروض في لبنان']
+    );
+    source = { id: sRes.lastID, name: 'Deal.com.lb' };
+  }
+
+  // 3. Fetch existing categories to avoid duplicates
   let existingCats = await db.allAsync("SELECT id, name_ar, name_en FROM categories");
   const norm = str => (str || '').toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, '');
 
@@ -166,7 +185,6 @@ async function syncDealLebanon({ markupPercent = 18 } = {}) {
 
     if (matched) {
       categoryIdMap[dealCat.id] = matched.id;
-      console.log(`[Category Matched] "${dealCat.name_en}" -> Existing Category #${matched.id} (${matched.name_ar})`);
     } else {
       // Create new clean category
       const res = await db.runAsync(
@@ -176,25 +194,26 @@ async function syncDealLebanon({ markupPercent = 18 } = {}) {
       const newCatId = res.lastID;
       categoryIdMap[dealCat.id] = newCatId;
       existingCats.push({ id: newCatId, name_ar: dealCat.name_ar, name_en: dealCat.name_en });
-      console.log(`[Category Created] Created Category #${newCatId} (${dealCat.name_ar} | ${dealCat.name_en})`);
     }
   }
 
-  // 3. Scrape and insert/update products
+  // 4. Scrape and insert/update products
   let totalImported = 0;
   let totalUpdated = 0;
 
   for (const dealCat of DEAL_CATEGORIES) {
     const targetCatId = categoryIdMap[dealCat.id];
     try {
-      console.log(`[Fetching] Deal Category: ${dealCat.name_en} (ID: ${dealCat.id})...`);
       const html = await fetchUrl(`https://www.deal.com.lb/shop/?categ=${dealCat.id}`);
       const items = parseCards(html, dealCat);
-      console.log(`  -> Found ${items.length} products to process`);
 
       for (const item of items) {
         const bilingual = splitTitleBilingual(item.title);
         const sku = item.dealId ? `DEAL-${item.dealId}` : '';
+        const markupPrice = Math.round(item.originalPrice * markupMultiplier * 100) / 100;
+        const oldPrice = item.oldPrice > item.originalPrice 
+          ? Math.round(item.oldPrice * markupMultiplier * 100) / 100 
+          : Math.round(markupPrice * 1.30 * 100) / 100;
 
         // Check if product already exists
         let existingProd = null;
@@ -212,18 +231,19 @@ async function syncDealLebanon({ markupPercent = 18 } = {}) {
         }
 
         if (existingProd) {
-          // Update product price (+18%) and ensure category and active status
+          // Update product price and ensure category and active status
           await db.runAsync(`
             UPDATE products 
-            SET price_usd = ?, cost_price_usd = ?, old_price_usd = ?, image_url = ?, category_id = ?, merchant_id = ?, stock = 50
+            SET price_usd = ?, cost_price_usd = ?, old_price_usd = ?, image_url = ?, category_id = ?, merchant_id = ?, stock = 50, sync_batch_time = ?
             WHERE id = ?
           `, [
-            item.markupPrice,
+            markupPrice,
             item.originalPrice,
-            item.oldPrice,
+            oldPrice,
             item.imageUrl,
             targetCatId,
             merchant.id,
+            now,
             existingProd.id
           ]);
           totalUpdated++;
@@ -233,20 +253,22 @@ async function syncDealLebanon({ markupPercent = 18 } = {}) {
             INSERT INTO products (
               name_ar, name_en, description_ar, description_en,
               price_usd, cost_price_usd, old_price_usd,
-              category_id, merchant_id, image_url, stock
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              category_id, merchant_id, image_url, stock,
+              is_new_arrival, sync_batch_time
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
           `, [
             bilingual.name_ar,
             bilingual.name_en,
             `منتج أصلي عالي الجودة متوفر للتوصيل الفوري والدفع عند الاستلام. SKU: ${sku}`,
             `Original high quality product available for fast delivery and cash on delivery in Lebanon. SKU: ${sku}`,
-            item.markupPrice,
+            markupPrice,
             item.originalPrice,
-            item.oldPrice,
+            oldPrice,
             targetCatId,
             merchant.id,
             item.imageUrl,
-            50
+            50,
+            now
           ]);
           totalImported++;
         }
@@ -256,7 +278,21 @@ async function syncDealLebanon({ markupPercent = 18 } = {}) {
     }
   }
 
-  // 4. Invalidate product cache
+  // 5. Update Supplier Source status
+  const statusMsg = `جديد: +${totalImported} | تحديث: ${totalUpdated} | نفد: 0`;
+  if (source && source.id) {
+    await db.runAsync(`
+      UPDATE supplier_sources 
+      SET last_sync_time = ?, 
+          last_sync_status = ?,
+          last_sync_inserted = ?,
+          last_sync_updated = ?,
+          last_sync_out_of_stock = 0
+      WHERE id = ?
+    `, [now, statusMsg, totalImported, totalUpdated, source.id]).catch(() => {});
+  }
+
+  // 6. Invalidate product and category caches
   const { invalidateProductsCache } = require('../controllers/productController');
   if (invalidateProductsCache) invalidateProductsCache();
   const { invalidateCategoriesCache } = require('../controllers/categoryController');
@@ -269,7 +305,9 @@ async function syncDealLebanon({ markupPercent = 18 } = {}) {
     totalImported,
     totalUpdated,
     totalProcessed: totalImported + totalUpdated,
-    markupApplied: `+${markupPercent}%`
+    markupApplied: `+${effectiveMarkup}%`,
+    last_sync_time: now,
+    message: statusMsg
   };
 }
 

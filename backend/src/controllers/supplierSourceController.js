@@ -149,14 +149,23 @@ exports.syncSource = async (req, res) => {
     const effectivePass = passcode !== undefined ? passcode : source.passcode;
     const effectiveMarkup = markupPercent !== undefined ? markupPercent : source.markup_percent;
 
-    const result = await syncDrPhoneToArzMart({
-      sourceId: source.id,
-      merchantName: source.name,
-      url: source.url,
-      passcode: effectivePass,
-      markupPercent: effectiveMarkup,
-      syncType: source.sync_type
-    });
+    let result;
+    if (source.sync_type === 'deal_scraper' || source.name.toLowerCase().includes('deal') || (source.url && source.url.includes('deal.com.lb'))) {
+      const { syncDealLebanon } = require('../utils/deal_sync_service');
+      result = await syncDealLebanon({
+        sourceId: source.id,
+        markupPercent: effectiveMarkup
+      });
+    } else {
+      result = await syncDrPhoneToArzMart({
+        sourceId: source.id,
+        merchantName: source.name,
+        url: source.url,
+        passcode: effectivePass,
+        markupPercent: effectiveMarkup,
+        syncType: source.sync_type
+      });
+    }
 
     try {
       const { invalidateCategoriesCache } = require('./categoryController');
