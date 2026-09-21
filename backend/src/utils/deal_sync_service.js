@@ -26,9 +26,19 @@ function fetchUrl(url) {
   });
 }
 
+const http = require('http');
+
 function fetchImageBuffer(url) {
   return new Promise((resolve, reject) => {
-    https.get(url, { agent }, (res) => {
+    const client = url.startsWith('https') ? https : http;
+    client.get(url, { agent, headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' } }, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        let redirectUrl = res.headers.location;
+        if (!redirectUrl.startsWith('http')) {
+          redirectUrl = new URL(redirectUrl, url).href;
+        }
+        return fetchImageBuffer(redirectUrl).then(resolve).catch(reject);
+      }
       if (res.statusCode !== 200) {
         return reject(new Error(`Failed to fetch image status: ${res.statusCode}`));
       }
@@ -39,26 +49,85 @@ function fetchImageBuffer(url) {
   });
 }
 
+function detectLogoPatches(data, width, height, channels) {
+  const patches = [];
+  const regions = [
+    { name: 'top-left', x1: 0, y1: 0, x2: Math.round(width * 0.45), y2: Math.round(height * 0.35) },
+    { name: 'top-right', x1: Math.round(width * 0.55), y1: 0, x2: width, y2: Math.round(height * 0.35) },
+    { name: 'bottom-left', x1: 0, y1: Math.round(height * 0.65), x2: Math.round(width * 0.45), y2: height },
+    { name: 'bottom-right', x1: Math.round(width * 0.55), y1: Math.round(height * 0.65), x2: width, y2: height }
+  ];
+
+  for (const reg of regions) {
+    let minX = reg.x2, maxX = reg.x1, minY = reg.y2, maxY = reg.y1;
+    let logoPixelCount = 0;
+
+    for (let y = reg.y1; y < reg.y2; y++) {
+      for (let x = reg.x1; x < reg.x2; x++) {
+        const idx = (y * width + x) * channels;
+        const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+        const isBlue = (r < 90 && g > 70 && g < 225 && b > 130);
+        const isOrange = (r > 180 && g > 60 && g < 200 && b < 100);
+        if (isBlue || isOrange) {
+          logoPixelCount++;
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+
+    if (logoPixelCount > 15) {
+      const padX = Math.max(20, Math.round(width * 0.03));
+      const padY = Math.max(20, Math.round(height * 0.03));
+      const patchLeft = Math.max(0, minX - padX);
+      const patchTop = Math.max(0, minY - padY);
+      const patchWidth = Math.min(width - patchLeft, (maxX - minX) + padX * 2);
+      const patchHeight = Math.min(height - patchTop, (maxY - minY) + padY * 2);
+
+      patches.push({
+        name: reg.name,
+        left: patchLeft,
+        top: patchTop,
+        width: patchWidth,
+        height: patchHeight,
+        count: logoPixelCount
+      });
+    }
+  }
+
+  // Ensure clean top-left standard corner
+  const hasTopLeft = patches.some(p => p.name === 'top-left');
+  if (!hasTopLeft) {
+    patches.push({
+      name: 'top-left-standard',
+      left: 0,
+      top: 0,
+      width: Math.round(width * 0.38),
+      height: Math.round(height * 0.22),
+      count: 0
+    });
+  }
+
+  return patches;
+}
+
 async function cleanAndSaveDealImage(imageUrl, skuOrId) {
   try {
     const rawBuffer = await fetchImageBuffer(imageUrl);
-    const metadata = await sharp(rawBuffer).metadata();
-    const w = metadata.width || 800;
-    const h = metadata.height || 800;
+    const { data, info } = await sharp(rawBuffer).raw().toBuffer({ resolveWithObject: true });
+    const patches = detectLogoPatches(data, info.width, info.height, info.channels);
 
-    // Watermark rectangle box in top-left
-    const patchW = Math.round(w * 0.32);
-    const patchH = Math.round(h * 0.18);
-
-    const patchSvg = Buffer.from(`
-      <svg width="${patchW}" height="${patchH}">
-        <rect width="${patchW}" height="${patchH}" fill="#ffffff" />
-      </svg>
-    `);
+    const compositeInputs = patches.map(p => ({
+      input: Buffer.from(`<svg width="${p.width}" height="${p.height}"><rect width="${p.width}" height="${p.height}" fill="#ffffff" /></svg>`),
+      top: p.top,
+      left: p.left
+    }));
 
     const cleanedBuffer = await sharp(rawBuffer)
-      .composite([{ input: patchSvg, top: 0, left: 0 }])
-      .webp({ quality: 88 })
+      .composite(compositeInputs)
+      .webp({ quality: 90 })
       .toBuffer();
 
     const fileName = `deal_prod_${skuOrId}.webp`;
