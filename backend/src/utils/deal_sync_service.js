@@ -1,7 +1,15 @@
 const https = require('https');
+const fs = require('fs');
+const path = require('path');
+const sharp = require('sharp');
 const db = require('../config/db');
 
 const agent = new https.Agent({ rejectUnauthorized: false });
+
+const UPLOADS_DIR = path.join(__dirname, '../../uploads/products');
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
 
 function fetchUrl(url) {
   return new Promise((resolve, reject) => {
@@ -16,6 +24,52 @@ function fetchUrl(url) {
       res.on('end', () => resolve(data));
     }).on('error', reject);
   });
+}
+
+function fetchImageBuffer(url) {
+  return new Promise((resolve, reject) => {
+    https.get(url, { agent }, (res) => {
+      if (res.statusCode !== 200) {
+        return reject(new Error(`Failed to fetch image status: ${res.statusCode}`));
+      }
+      const chunks = [];
+      res.on('data', chunk => chunks.push(chunk));
+      res.on('end', () => resolve(Buffer.concat(chunks)));
+    }).on('error', reject);
+  });
+}
+
+async function cleanAndSaveDealImage(imageUrl, skuOrId) {
+  try {
+    const rawBuffer = await fetchImageBuffer(imageUrl);
+    const metadata = await sharp(rawBuffer).metadata();
+    const w = metadata.width || 800;
+    const h = metadata.height || 800;
+
+    // Watermark rectangle box in top-left
+    const patchW = Math.round(w * 0.32);
+    const patchH = Math.round(h * 0.18);
+
+    const patchSvg = Buffer.from(`
+      <svg width="${patchW}" height="${patchH}">
+        <rect width="${patchW}" height="${patchH}" fill="#ffffff" />
+      </svg>
+    `);
+
+    const cleanedBuffer = await sharp(rawBuffer)
+      .composite([{ input: patchSvg, top: 0, left: 0 }])
+      .webp({ quality: 88 })
+      .toBuffer();
+
+    const fileName = `deal_prod_${skuOrId}.webp`;
+    const localFilePath = path.join(UPLOADS_DIR, fileName);
+    fs.writeFileSync(localFilePath, cleanedBuffer);
+
+    return `/uploads/products/${fileName}`;
+  } catch (err) {
+    console.error(`Error cleaning image ${imageUrl}:`, err.message);
+    return imageUrl;
+  }
 }
 
 const DEAL_CATEGORIES = [
@@ -144,7 +198,6 @@ async function syncDealLebanon({ sourceId = null, markupPercent = 18 } = {}) {
       ['Deal.com.lb', 'Deal Lebanon', '+96170221998', 'support@deal.com.lb', '+96170221998']
     );
     merchant = { id: res.lastID };
-    console.log(`[Deal.com.lb Sync] Created merchant Deal.com.lb with ID: ${merchant.id}`);
   }
 
   // 2. Ensure Supplier Source Deal.com.lb exists
@@ -175,18 +228,16 @@ async function syncDealLebanon({ sourceId = null, markupPercent = 18 } = {}) {
       norm(c.name_ar) === norm(dealCat.name_ar)
     );
 
-    // Fuzzy matching for existing categories
     if (!matched) {
-      if (dealCat.id === '127') matched = existingCats.find(c => c.name_en.toLowerCase().includes('toys'));
-      if (dealCat.id === '107') matched = existingCats.find(c => c.name_en.toLowerCase().includes('mix') || c.name_en.toLowerCase().includes('accessories'));
-      if (dealCat.id === '168') matched = existingCats.find(c => c.name_en.toLowerCase().includes('blender') || c.name_en.toLowerCase().includes('coffee'));
-      if (dealCat.id === '164') matched = existingCats.find(c => c.name_en.toLowerCase().includes('scale') || c.name_en.toLowerCase().includes('massage'));
+      if (dealCat.id === '127') matched = existingCats.find(c => c.name_en && c.name_en.toLowerCase().includes('toys'));
+      if (dealCat.id === '107') matched = existingCats.find(c => c.name_en && (c.name_en.toLowerCase().includes('mix') || c.name_en.toLowerCase().includes('accessories')));
+      if (dealCat.id === '168') matched = existingCats.find(c => c.name_en && (c.name_en.toLowerCase().includes('blender') || c.name_en.toLowerCase().includes('coffee')));
+      if (dealCat.id === '164') matched = existingCats.find(c => c.name_en && (c.name_en.toLowerCase().includes('scale') || c.name_en.toLowerCase().includes('massage')));
     }
 
     if (matched) {
       categoryIdMap[dealCat.id] = matched.id;
     } else {
-      // Create new clean category
       const res = await db.runAsync(
         "INSERT INTO categories (name_ar, name_en, active, sort_order) VALUES (?, ?, 1, 0)",
         [dealCat.name_ar, dealCat.name_en]
@@ -218,20 +269,24 @@ async function syncDealLebanon({ sourceId = null, markupPercent = 18 } = {}) {
         // Check if product already exists
         let existingProd = null;
         if (sku) {
-          existingProd = await db.getAsync("SELECT id FROM products WHERE (name_en = ? OR name_ar = ? OR description_en LIKE ?)", [
+          existingProd = await db.getAsync("SELECT id, image_url FROM products WHERE (name_en = ? OR name_ar = ? OR description_en LIKE ?)", [
             bilingual.name_en,
             bilingual.name_ar,
             `%${sku}%`
           ]);
         } else {
-          existingProd = await db.getAsync("SELECT id FROM products WHERE name_en = ? OR name_ar = ?", [
+          existingProd = await db.getAsync("SELECT id, image_url FROM products WHERE name_en = ? OR name_ar = ?", [
             bilingual.name_en,
             bilingual.name_ar
           ]);
         }
 
+        let finalImageUrl = item.imageUrl;
+        if (item.imageUrl.includes('deal.com.lb')) {
+          finalImageUrl = await cleanAndSaveDealImage(item.imageUrl, item.dealId || Date.now());
+        }
+
         if (existingProd) {
-          // Update product price and ensure category and active status
           await db.runAsync(`
             UPDATE products 
             SET price_usd = ?, cost_price_usd = ?, old_price_usd = ?, image_url = ?, category_id = ?, merchant_id = ?, stock = 50, sync_batch_time = ?
@@ -240,7 +295,7 @@ async function syncDealLebanon({ sourceId = null, markupPercent = 18 } = {}) {
             markupPrice,
             item.originalPrice,
             oldPrice,
-            item.imageUrl,
+            finalImageUrl,
             targetCatId,
             merchant.id,
             now,
@@ -248,7 +303,6 @@ async function syncDealLebanon({ sourceId = null, markupPercent = 18 } = {}) {
           ]);
           totalUpdated++;
         } else {
-          // Insert new product
           await db.runAsync(`
             INSERT INTO products (
               name_ar, name_en, description_ar, description_en,
@@ -266,7 +320,7 @@ async function syncDealLebanon({ sourceId = null, markupPercent = 18 } = {}) {
             oldPrice,
             targetCatId,
             merchant.id,
-            item.imageUrl,
+            finalImageUrl,
             50,
             now
           ]);
@@ -298,7 +352,7 @@ async function syncDealLebanon({ sourceId = null, markupPercent = 18 } = {}) {
   const { invalidateCategoriesCache } = require('../controllers/categoryController');
   if (invalidateCategoriesCache) invalidateCategoriesCache();
 
-  console.log(`\n[Deal.com.lb Sync Finished] Imported: ${totalImported}, Updated: ${totalUpdated}, Total: ${totalImported + totalUpdated}`);
+  console.log(`\n[Deal.com.lb Sync Finished] Cleaned & Imported: ${totalImported}, Updated: ${totalUpdated}, Total: ${totalImported + totalUpdated}`);
 
   return {
     success: true,
@@ -313,5 +367,6 @@ async function syncDealLebanon({ sourceId = null, markupPercent = 18 } = {}) {
 
 module.exports = {
   syncDealLebanon,
+  cleanAndSaveDealImage,
   DEAL_CATEGORIES
 };
