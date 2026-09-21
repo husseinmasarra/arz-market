@@ -13,6 +13,10 @@ const settingsController = require('../controllers/settingsController');
 const chatController = require('../controllers/chatController');
 const merchantController = require('../controllers/merchantController');
 const cartController = require('../controllers/cartController');
+const sitemapController = require('../controllers/sitemapController');
+
+// --- SEO Sitemap Route ---
+router.get('/sitemap.xml', sitemapController.getSitemapXml);
 
 // --- Auth Routes ---
 router.post('/auth/register', authController.register);

@@ -189,6 +189,48 @@ export default function App() {
     }
   }, [currentView, token]);
 
+  // Dynamic SEO Page Title and Meta Tags
+  useEffect(() => {
+    let title = lang === 'ar' 
+      ? 'ArzMart | متجر أرز مارت - أفضل عروض الهواتف والإلكترونيات في لبنان' 
+      : 'ArzMart | Online Shopping & Electronics in Lebanon';
+    let description = lang === 'ar'
+      ? 'تسوق أفضل العروض على الهواتف الذكية، الأجهزة اللوحية، اللابتوبات، والإلكترونيات في لبنان مع أرز مارت ArzMart. دفع عند الاستلام وتوصيل سريع.'
+      : 'Shop the best deals on smartphones, electronics, tablets, and accessories in Lebanon with ArzMart. Cash on delivery & fast shipping across Lebanon.';
+
+    if (selectedProduct) {
+      title = `${selectedProduct.title} | ArzMart`;
+      if (selectedProduct.description) {
+        description = selectedProduct.description.substring(0, 160);
+      }
+    } else if (selectedCategory && categories.length > 0) {
+      const cat = categories.find(c => String(c.id) === String(selectedCategory));
+      if (cat) {
+        const catName = getCategoryName(cat, lang);
+        title = `${catName} | ArzMart`;
+        description = lang === 'ar'
+          ? `تسوق أحدث منتجات ${catName} بأفضل الأسعار مع توصيل سريع في لبنان من أرز مارت.`
+          : `Shop latest ${catName} products with best prices and fast delivery in Lebanon from ArzMart.`;
+      }
+    } else if (currentView === 'admin') {
+      title = lang === 'ar' ? 'لوحة التحكم | أرز مارت' : 'Admin Panel | ArzMart';
+    } else if (currentView === 'orders') {
+      title = lang === 'ar' ? 'طلباتي | أرز مارت' : 'My Orders | ArzMart';
+    }
+
+    document.title = title;
+
+    // Update Meta Description
+    const metaDesc = document.querySelector('meta[name="description"]');
+    if (metaDesc) metaDesc.setAttribute('content', description);
+
+    // Update OG Title & Description
+    const ogTitle = document.querySelector('meta[property="og:title"]');
+    if (ogTitle) ogTitle.setAttribute('content', title);
+    const ogDesc = document.querySelector('meta[property="og:description"]');
+    if (ogDesc) ogDesc.setAttribute('content', description);
+  }, [selectedProduct, selectedCategory, categories, currentView, lang]);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const viewParam = params.get('view') || 'store';

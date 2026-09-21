@@ -1,22 +1,119 @@
 <!doctype html>
-<html lang="en">
+<html lang="ar" dir="rtl">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Arz-Mart</title>
+    
+    <!-- Primary Title & Meta Description -->
+    <title>ArzMart | متجر أرز مارت - أفضل عروض الهواتف والإلكترونيات في لبنان</title>
+    <meta name="description" content="تسوق أفضل العروض على الهواتف الذكية، الأجهزة اللوحية، اللابتوبات، والإلكترونيات في لبنان مع أرز مارت ArzMart. دفع عند الاستلام وتوصيل سريع لكافة المناطق اللبنانية." />
+    <meta name="keywords" content="أرز مارت, متجر أرز مارت, ArzMart, arz mart, هواتف ذكية لبنان, تسوق أونلاين لبنان, سامسونج, آيفون, شاومي, إلكترونيات بيروت, دفع عند الاستلام لبنان, توصيل سريع لبنان, smartphones lebanon, electronics lebanon, online shopping beirut" />
+    <meta name="author" content="ArzMart Lebanon" />
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+    <link rel="canonical" href="https://arzmart.com/" />
+    <link rel="alternate" href="https://arzmart.com/" hreflang="ar" />
+    <link rel="alternate" href="https://arzmart.com/?lang=en" hreflang="en" />
+    <link rel="alternate" href="https://arzmart.com/" hreflang="x-default" />
+
+    <!-- Open Graph (Facebook, WhatsApp, LinkedIn, Telegram) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="ArzMart | أرز مارت" />
+    <meta property="og:url" content="https://arzmart.com/" />
+    <meta property="og:title" content="ArzMart | متجر أرز مارت - وجهتك الأولى للإلكترونيات في لبنان" />
+    <meta property="og:description" content="تسوق أحدث الهواتف الذكية والأجهزة الإلكترونية بأفضل الأسعار مع التوصيل لكافة الأراضي اللبنانية والدفع عند الاستلام." />
+    <meta property="og:image" content="https://arzmart.com/logo.png" />
+    <meta property="og:image:secure_url" content="https://arzmart.com/logo.png" />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
+    <meta property="og:image:alt" content="شعار متجر أرز مارت ArzMart" />
+    <meta property="og:locale" content="ar_LB" />
+    <meta property="og:locale:alternate" content="en_US" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="ArzMart | متجر أرز مارت - أفضل العروض في لبنان" />
+    <meta name="twitter:description" content="تسوق أحدث الهواتف الذكية والإلكترونيات بأسعار الجملة والتجزئة في لبنان مع التوصيل السريع." />
+    <meta name="twitter:image" content="https://arzmart.com/logo.png" />
+
+    <!-- Local SEO Geo Tags for Lebanon -->
+    <meta name="geo.region" content="LB" />
+    <meta name="geo.placename" content="Beirut, Lebanon" />
+    <meta name="geo.position" content="33.8938;35.5018" />
+    <meta name="ICBM" content="33.8938, 35.5018" />
+
+    <!-- Favicon & Icons -->
     <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/logo.png" />
+    
     <!-- Google Fonts for Cairo (Arabic) and Inter (English) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- PWA Manifest & iOS Meta Tags -->
+    <!-- PWA Manifest & Mobile Meta Tags -->
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#2563eb" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="Arz-Mart" />
-    <link rel="apple-touch-icon" href="/logo.png" />
+    <meta name="apple-mobile-web-app-title" content="ArzMart" />
+
+    <!-- Structured Data: JSON-LD (Schema.org) for Google Rich Snippets -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "@id": "https://arzmart.com/#website",
+          "url": "https://arzmart.com/",
+          "name": "ArzMart",
+          "description": "متجر أرز مارت للتسوق الإلكتروني في لبنان",
+          "inLanguage": ["ar-LB", "en-US"],
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://arzmart.com/?search={search_term_string}",
+            "query-input": "required name=search_term_string"
+          }
+        },
+        {
+          "@type": "Store",
+          "@id": "https://arzmart.com/#store",
+          "name": "ArzMart Lebanon",
+          "url": "https://arzmart.com/",
+          "logo": "https://arzmart.com/logo.png",
+          "image": "https://arzmart.com/logo.png",
+          "description": "متجر إلكتروني رائد لبيع الهواتف الذكية والإلكترونيات والأجهزة المنزلية في لبنان مع الدفع عند الاستلام.",
+          "telephone": "+96170123456",
+          "priceRange": "$$",
+          "currenciesAccepted": "USD, LBP",
+          "paymentAccepted": "Cash on Delivery, COD",
+          "address": {
+            "@type": "PostalAddress",
+            "addressCountry": "LB",
+            "addressLocality": "Beirut"
+          },
+          "areaServed": {
+            "@type": "Country",
+            "name": "Lebanon"
+          },
+          "openingHoursSpecification": {
+            "@type": "OpeningHoursSpecification",
+            "dayOfWeek": [
+              "Monday",
+              "Tuesday",
+              "Wednesday",
+              "Thursday",
+              "Friday",
+              "Saturday",
+              "Sunday"
+            ],
+            "opens": "00:00",
+            "closes": "23:59"
+          }
+        }
+      ]
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>
