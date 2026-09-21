@@ -126,4 +126,35 @@ router.get('/drphone/status', async (req, res) => {
   }
 });
 
+// --- Deal.com.lb Sync Routes ---
+const { syncDealLebanon } = require('../utils/deal_sync_service');
+router.post('/deal/sync', authenticateToken, requirePermission('settings'), async (req, res) => {
+  try {
+    const { markupPercent = 18 } = req.body || {};
+    const result = await syncDealLebanon({ markupPercent: parseFloat(markupPercent) || 18 });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/deal/status', async (req, res) => {
+  try {
+    const db = require('../config/db');
+    const dealMerchant = await db.getAsync("SELECT id FROM merchants WHERE name = 'Deal.com.lb'");
+    const dealProducts = dealMerchant ? await db.getAsync("SELECT count(*) as c FROM products WHERE merchant_id = ?", [dealMerchant.id]) : { c: 0 };
+    const total = await db.getAsync("SELECT count(*) as c FROM products");
+    const categoriesCount = await db.getAsync("SELECT count(*) as c FROM categories");
+    res.json({
+      merchant: 'Deal.com.lb',
+      dealProductsCount: dealProducts ? dealProducts.c : 0,
+      totalStoreProducts: total ? total.c : 0,
+      totalCategories: categoriesCount ? categoriesCount.c : 0,
+      activeMarkup: '18%'
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
