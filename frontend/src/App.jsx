@@ -1137,49 +1137,55 @@ export default function App() {
                         onClick={() => handleSelectCategory(cat.id)}
                         className="dashboard-card animate-fade"
                         style={{
-                          height: '280px',
+                          height: '240px',
                           position: 'relative',
                           overflow: 'hidden',
-                          borderRadius: '20px',
+                          borderRadius: '18px',
                           cursor: 'pointer',
                           padding: '0',
-                          border: '1px solid var(--border-color)',
-                          boxShadow: 'var(--shadow-md)',
-                          transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease'
+                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                          boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                          transition: 'all 0.35s cubic-bezier(0.2, 0.8, 0.2, 1)'
                         }}
                         onMouseEnter={(e) => {
-                          e.currentTarget.style.transform = 'translateY(-8px)';
-                          e.currentTarget.style.boxShadow = 'var(--shadow-lg)';
+                          e.currentTarget.style.transform = 'translateY(-6px)';
+                          e.currentTarget.style.boxShadow = '0 16px 32px rgba(0,0,0,0.22)';
+                          const img = e.currentTarget.querySelector('.cat-bg-img');
+                          if (img) img.style.transform = 'scale(1.08)';
                         }}
                         onMouseLeave={(e) => {
                           e.currentTarget.style.transform = 'translateY(0)';
-                          e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+                          e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)';
+                          const img = e.currentTarget.querySelector('.cat-bg-img');
+                          if (img) img.style.transform = 'scale(1.0)';
                         }}
                       >
                         {/* Background Cover image */}
-                        <div style={{
-                          width: '100%',
-                          height: '100%',
-                          backgroundImage: `linear-gradient(to top, rgba(10, 14, 23, 0.95) 0%, rgba(10, 14, 23, 0.35) 60%, rgba(10, 14, 23, 0.05) 100%), url(${imageUrl})`,
-                          backgroundSize: 'cover',
-                          backgroundPosition: 'center',
-                          transition: 'transform 0.5s ease'
-                        }} 
+                        <div 
+                          className="cat-bg-img"
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            backgroundImage: `linear-gradient(to top, rgba(15, 23, 42, 0.92) 0%, rgba(15, 23, 42, 0.45) 50%, rgba(15, 23, 42, 0.1) 100%), url(${imageUrl})`,
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                            transition: 'transform 0.5s ease'
+                          }} 
                         />
 
                         {/* Sub-category count badge */}
                         {subCount > 0 && (
                           <div style={{
                             position: 'absolute',
-                            top: '16px',
-                            insetInlineEnd: '16px',
-                            backgroundColor: 'rgba(0, 0, 0, 0.65)',
+                            top: '14px',
+                            insetInlineEnd: '14px',
+                            backgroundColor: 'rgba(15, 23, 42, 0.75)',
                             backdropFilter: 'blur(8px)',
                             color: '#fbbf24',
                             fontSize: '0.75rem',
                             fontWeight: '700',
                             padding: '4px 10px',
-                            borderRadius: '20px',
+                            borderRadius: '12px',
                             border: '1px solid rgba(251, 191, 36, 0.3)',
                             zIndex: 4
                           }}>
@@ -1193,22 +1199,29 @@ export default function App() {
                           bottom: '0',
                           left: '0',
                           right: '0',
-                          padding: '24px',
+                          padding: '20px',
                           color: 'white',
                           display: 'flex',
                           flexDirection: 'column',
-                          gap: '8px',
+                          gap: '6px',
                           zIndex: 5
                         }}>
-                          <h3 style={{ fontSize: '1.45rem', fontWeight: '800', textShadow: '0 2px 4px rgba(0,0,0,0.9)' }}>
+                          <h3 style={{ 
+                            fontSize: '1.35rem', 
+                            fontWeight: '800', 
+                            textShadow: '0 2px 4px rgba(0,0,0,0.8)',
+                            margin: 0
+                          }}>
                             {catName}
                           </h3>
                           <span style={{ 
-                            fontSize: '0.85rem', 
-                            color: 'var(--accent-red-gold)', 
+                            fontSize: '0.82rem', 
+                            color: '#38bdf8', 
                             fontWeight: '700',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.5px'
+                            letterSpacing: '0.3px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
                           }}>
                             {lang === 'ar' ? 'تصفح القسم والمنتجات ←' : 'Browse category →'}
                           </span>
