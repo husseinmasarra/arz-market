@@ -41,6 +41,7 @@ router.get('/products/best-sellers', productController.getBestSellers);
 router.get('/products/new-arrivals-home', productController.getNewArrivalsHome);
 router.get('/products', productController.getProducts);
 router.get('/products/:id', productController.getProductById);
+router.post('/products/bulk-whatsapp', productController.bulkCreateProducts);
 router.post('/products', authenticateToken, requirePermission('products'), upload.single('product_image'), productController.createProduct);
 router.put('/products/:id', authenticateToken, requirePermission('products'), upload.single('product_image'), productController.updateProduct);
 router.delete('/products/:id', authenticateToken, requirePermission('products'), productController.deleteProduct);
