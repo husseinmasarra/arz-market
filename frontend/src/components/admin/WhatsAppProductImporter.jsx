@@ -41,7 +41,6 @@ const ARABIC_TO_ENGLISH_TERMS = [
   { ar: /حقيبة\s*يد|شنطة\s*كتف|حقيبة/gi, en: 'Bag' }
 ];
 
-// Color dictionary (Arabic -> English / Normalized)
 const COLOR_KEYWORDS = [
   { ar: 'اسود', en: 'Black' },
   { ar: 'ابيض', en: 'White' },
@@ -71,11 +70,10 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
   const { lang, formatPrice } = useApp();
   const { token } = useAuth();
 
-  // Raw inputs
   const [rawText, setRawText] = useState('');
   const [markupPercent, setMarkupPercent] = useState(40);
   const [selectedMerchantId, setSelectedMerchantId] = useState('');
-  const [uploadedFiles, setUploadedFiles] = useState([]); // array of { file, previewUrl, isMain }
+  const [uploadedFiles, setUploadedFiles] = useState([]);
   const [isDragOver, setIsDragOver] = useState(false);
 
   // Parsed / Editable product state
@@ -95,12 +93,9 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successProduct, setSuccessProduct] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
-  const [copyNotice, setCopyNotice] = useState(false);
 
   const fileInputRef = useRef(null);
-  const dropZoneRef = useRef(null);
 
-  // Auto-select first matching merchant (e.g. DigitalSouklb or DR PHONE or first merchant)
   useEffect(() => {
     if (merchants && merchants.length > 0 && !selectedMerchantId) {
       const digitalSouk = merchants.find(m => m.name.toLowerCase().includes('digital') || m.name.includes('سوق'));
@@ -112,10 +107,8 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
     }
   }, [merchants]);
 
-  // Global Ctrl+V paste listener to capture images directly from clipboard!
   useEffect(() => {
     const handleWindowPaste = (e) => {
-      // If clipboard contains files/images
       if (e.clipboardData && e.clipboardData.files && e.clipboardData.files.length > 0) {
         const imageFiles = Array.from(e.clipboardData.files).filter(f => f.type.startsWith('image/'));
         if (imageFiles.length > 0) {
@@ -159,35 +152,22 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
     })));
   };
 
-  // -------------------------------------------------------------
-  // SMART PARSING ENGINE (Arabic WhatsApp Post Analyzer)
-  // -------------------------------------------------------------
   const parseWhatsAppPost = (text, currentMarkup = markupPercent) => {
-    if (!text || !text.trim()) {
-      return;
-    }
+    if (!text || !text.trim()) return;
 
-    const lines = text
-      .split('\n')
-      .map(l => l.trim())
-      .filter(Boolean);
-
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
     if (lines.length === 0) return;
 
-    // 1. Remove contact info, delivery notes, and promotional emojis/hashtags
     const cleanLines = [];
     let detectedCost = null;
     let detectedSizes = [];
     let detectedColors = [];
 
     for (const rawLine of lines) {
-      // Filter out phone numbers, links, delivery dispatches
       if (/(\+?961|03\d{6}|70\d{6}|71\d{6}|76\d{6}|78\d{6}|79\d{6}|81\d{6}|واتساب|whatsapp|توصيل\s*لكل\s*لبنان|يوجد\s*توصيل|للتواصل|للحجز|للاستفسار|http|www\.)/i.test(rawLine)) {
         continue;
       }
 
-      // 2. Extract Price ($xx, xx$, xx USD, xx دولار, xx,xxx L.L)
-      const priceRegexUsd = /(?:السعر|سعر|price|cost)?\s*[:=\-]?\s*\$?\s*([0-9]+(?:\.[0-9]+)?)\s*(?:\$|usd|دولار)?/i;
       const explicitPriceMatch = rawLine.match(/(?:سعر|السعر|price|cost|فقط)\s*[:=\-]?\s*\$?\s*([0-9]+(?:\.[0-9]+)?)\s*\$?/i) ||
                                 rawLine.match(/\$([0-9]+(?:\.[0-9]+)?)/) ||
                                 rawLine.match(/([0-9]+(?:\.[0-9]+)?)\s*\$/);
@@ -199,7 +179,6 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
         }
       }
 
-      // 3. Extract Dimensions / Sizes (e.g. 160/230, 200*220, 160x230, مفرد, مجوز, كينغ)
       const sizeMatch = rawLine.match(/(?:قياس|حجم|مقاس|size)?\s*[:=\-]?\s*([0-9]{2,3}\s*[\/\*xX]\s*[0-9]{2,3})/i);
       if (sizeMatch) {
         detectedSizes.push(sizeMatch[1].replace(/\s+/g, ''));
@@ -209,7 +188,6 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
       if (/مجوز|مزدوج/i.test(rawLine) && !detectedSizes.includes('مجوز')) detectedSizes.push('مجوز');
       if (/كينغ|king/i.test(rawLine) && !detectedSizes.includes('كينغ')) detectedSizes.push('King Size');
 
-      // 4. Extract Colors
       COLOR_KEYWORDS.forEach(c => {
         if (new RegExp(`\\b${c.ar}\\b|ال${c.ar}|${c.ar}`, 'i').test(rawLine)) {
           if (!detectedColors.includes(c.ar)) {
@@ -218,7 +196,6 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
         }
       });
 
-      // Clean line from emojis for clean specs
       const cleanedLine = rawLine
         .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
         .trim();
@@ -228,12 +205,9 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
       }
     }
 
-    // Determine Arabic Title: First clean line or clean combined
     let titleAr = cleanLines[0] || lines[0] || '';
-    // Strip trailing prices from title
     titleAr = titleAr.replace(/\s*[\(\[]?\$?[0-9]+(?:\.[0-9]+)?\s*\$?[\)\]]?/g, '').trim();
 
-    // Determine English Title: Translate known keywords or transliterate
     let titleEn = 'New Arrival Product';
     for (const mapping of ARABIC_TO_ENGLISH_TERMS) {
       if (mapping.ar.test(titleAr) || mapping.ar.test(text)) {
@@ -241,12 +215,10 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
         break;
       }
     }
-    // If dimension is detected, append to English title for clarity
     if (detectedSizes.length > 0 && !titleEn.includes(detectedSizes[0])) {
       titleEn += ` - ${detectedSizes[0]}`;
     }
 
-    // Determine Category from keywords
     let matchedCatId = '';
     const fullSearchText = (text + ' ' + titleAr).toLowerCase();
 
@@ -271,19 +243,16 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
       matchedCatId = categories[0].id;
     }
 
-    // Price calculation
     let calculatedSelling = '';
     let calculatedOld = '';
     if (detectedCost !== null) {
       const markupRatio = 1 + (Number(currentMarkup) / 100);
       const rawSell = detectedCost * markupRatio;
-      // Round nicely: e.g. 16.8 -> 17.00 or 16.99
       const roundedSell = Math.ceil(rawSell);
       calculatedSelling = roundedSell.toFixed(2);
-      calculatedOld = (Math.ceil(roundedSell * 1.35)).toFixed(2); // 35% compare price
+      calculatedOld = (Math.ceil(roundedSell * 1.35)).toFixed(2);
     }
 
-    // Set state
     setNameAr(titleAr);
     setNameEn(titleEn);
     if (detectedCost !== null) {
@@ -295,24 +264,20 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
       setCategoryId(matchedCatId);
     }
 
-    // Description
     const descLines = cleanLines.slice(1);
     const finalDescAr = descLines.join(' - ');
     setDescAr(finalDescAr || titleAr);
     setDescEn(titleEn + (finalDescAr ? ` (${finalDescAr})` : ''));
 
-    // Sizes
     if (detectedSizes.length > 0) {
       setSizes(detectedSizes.map(sz => ({ name: sz, price: calculatedSelling || '0' })));
     } else {
       setSizes([]);
     }
 
-    // Colors
     setColors(detectedColors);
   };
 
-  // Recalculate selling price when markup or cost changes
   const handleMarkupChange = (newMarkup) => {
     setMarkupPercent(newMarkup);
     const cVal = parseFloat(costPrice);
@@ -335,14 +300,12 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
     }
   };
 
-  // Handle WhatsApp text paste / typing
   const handleTextChange = (e) => {
     const val = e.target.value;
     setRawText(val);
     parseWhatsAppPost(val, markupPercent);
   };
 
-  // Reset form ready for NEXT WhatsApp post
   const handleResetForNext = () => {
     setRawText('');
     setNameAr('');
@@ -359,7 +322,6 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
     setErrorMsg(null);
   };
 
-  // Example Loader to test with 1-click
   const handleLoadDemo = () => {
     const demoPost = `حرام tv بلانكيت قياس 160/230
 نوعية مرتبة (سميك)
@@ -370,7 +332,6 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
     parseWhatsAppPost(demoPost, markupPercent);
   };
 
-  // Submit Product to Store
   const handlePublish = async () => {
     if (!nameAr || !nameEn || !sellingPrice) {
       setErrorMsg(lang === 'ar' ? 'يرجى التأكد من اسم المنتج وسعر البيع' : 'Please verify product name and selling price');
@@ -394,7 +355,6 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
     formData.append('colors', JSON.stringify(colors));
     formData.append('sizes', JSON.stringify(sizes));
 
-    // Append main image file if available
     const mainImgEntry = uploadedFiles.find(f => f.isMain) || uploadedFiles[0];
     if (mainImgEntry && mainImgEntry.file) {
       formData.append('product_image', mainImgEntry.file);
@@ -427,23 +387,62 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
   };
 
   return (
-    <div className="bg-white rounded-3xl shadow-xl border border-emerald-100 overflow-hidden mb-8 transition-all">
+    <div style={{
+      backgroundColor: 'var(--bg-primary)',
+      borderRadius: '20px',
+      border: '1px solid #10b981',
+      boxShadow: '0 10px 30px rgba(16, 185, 129, 0.12)',
+      overflow: 'hidden',
+      marginBottom: '24px'
+    }}>
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 p-6 text-white flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-3xl shadow-inner border border-white/30">
+      <div style={{
+        background: 'linear-gradient(135deg, #059669 0%, #0d9488 50%, #047857 100%)',
+        padding: '20px 24px',
+        color: '#ffffff',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '16px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{
+            width: '52px',
+            height: '52px',
+            borderRadius: '14px',
+            backgroundColor: 'rgba(255, 255, 255, 0.2)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '1.8rem',
+            boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.35)',
+            flexShrink: 0
+          }}>
             💬
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-xl font-black tracking-wide">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <h3 style={{ margin: 0, fontSize: '1.3rem', fontWeight: '900', letterSpacing: '-0.02em', color: '#fff' }}>
                 {lang === 'ar' ? 'المستورد الذكي من منشورات واتساب' : 'WhatsApp Smart Product Importer'}
               </h3>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-400 text-amber-950 uppercase tracking-wider shadow-sm flex items-center gap-1">
-                <Sparkles size={12} /> Fast AI 1-Click
+              <span style={{
+                padding: '3px 10px',
+                borderRadius: '20px',
+                fontSize: '0.72rem',
+                fontWeight: '900',
+                backgroundColor: '#fbbf24',
+                color: '#78350f',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}>
+                <Sparkles size={13} /> Fast AI 1-Click
               </span>
             </div>
-            <p className="text-emerald-100 text-sm mt-1">
+            <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: '#d1fae5', opacity: 0.95 }}>
               {lang === 'ar'
                 ? 'انسخ منشور المورّد من الواتساب والصقه هنا، واسحب الصور أو اضغط Ctrl+V للصق الصور فوراً!'
                 : 'Paste supplier post from WhatsApp & drag-drop photos or press Ctrl+V to auto-create products!'}
@@ -451,81 +450,154 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <button
             type="button"
             onClick={handleLoadDemo}
-            className="px-3.5 py-2 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold transition flex items-center gap-1.5 border border-white/20 backdrop-blur-sm"
-            title="تجربة منشور واتساب تلقائي"
+            style={{
+              padding: '8px 16px',
+              borderRadius: '10px',
+              backgroundColor: 'rgba(255, 255, 255, 0.2)',
+              color: '#ffffff',
+              fontSize: '0.82rem',
+              fontWeight: '800',
+              border: '1px solid rgba(255,255,255,0.3)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.2s'
+            }}
           >
-            <Wand2 size={14} />
+            <Wand2 size={15} />
             {lang === 'ar' ? 'تجربة مثال جاهز' : 'Load Demo Post'}
           </button>
           {rawText && (
             <button
               type="button"
               onClick={handleResetForNext}
-              className="px-3 py-2 rounded-xl bg-black/20 hover:bg-black/30 text-white text-xs font-bold transition flex items-center gap-1.5"
+              style={{
+                padding: '8px 14px',
+                borderRadius: '10px',
+                backgroundColor: 'rgba(0, 0, 0, 0.25)',
+                color: '#ffffff',
+                fontSize: '0.82rem',
+                fontWeight: '800',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
             >
               <RefreshCw size={14} />
-              {lang === 'ar' ? 'تفريغ الخانات' : 'Clear Form'}
+              {lang === 'ar' ? 'تفريغ' : 'Clear'}
             </button>
           )}
         </div>
       </div>
 
-      {/* Success Notification Alert */}
+      {/* Success Alert */}
       {successProduct && (
-        <div className="p-6 bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-emerald-200 flex flex-wrap items-center justify-between gap-4 animate-in fade-in slide-in-from-top duration-300">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xl shadow-md">
-              <Check size={22} />
+        <div style={{
+          padding: '18px 24px',
+          background: 'linear-gradient(90deg, #ecfdf5 0%, #f0fdf4 100%)',
+          borderBottom: '1px solid #a7f3d0',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '14px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: '50%',
+              backgroundColor: '#10b981',
+              color: '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 4px 10px rgba(16, 185, 129, 0.35)'
+            }}>
+              <Check size={24} />
             </div>
             <div>
-              <h4 className="font-bold text-emerald-900 text-base">
+              <h4 style={{ margin: 0, fontWeight: '800', color: '#065f46', fontSize: '1rem' }}>
                 {lang === 'ar' ? `🎉 تم نشر منتج "${successProduct.name_ar}" بنجاح في المتجر!` : `🎉 Product "${successProduct.name_ar}" published successfully!`}
               </h4>
-              <p className="text-emerald-700 text-xs mt-0.5">
+              <p style={{ margin: '2px 0 0', fontSize: '0.82rem', color: '#047857' }}>
                 {lang === 'ar'
-                  ? `بسعر بيع $${Number(successProduct.price_usd).toFixed(2)} (${formatPrice(successProduct.price_usd)}) - جاهز للطلب الفوري`
+                  ? `بسعر بيع $${Number(successProduct.price_usd).toFixed(2)} (${formatPrice(successProduct.price_usd)}) - متاح للزبائن حالياً`
                   : `Selling at $${Number(successProduct.price_usd).toFixed(2)} - Live on storefront`}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleResetForNext}
-              className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-md hover:shadow-lg transition flex items-center gap-2"
-            >
-              <Plus size={16} />
-              {lang === 'ar' ? 'إضافة منتج واتساب التالي 🚀' : 'Add Next Product 🚀'}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleResetForNext}
+            style={{
+              padding: '10px 20px',
+              borderRadius: '10px',
+              backgroundColor: '#059669',
+              color: '#ffffff',
+              fontWeight: '800',
+              fontSize: '0.88rem',
+              border: 'none',
+              boxShadow: '0 4px 12px rgba(5, 150, 105, 0.3)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <Plus size={16} />
+            {lang === 'ar' ? 'إضافة منتج واتساب التالي 🚀' : 'Add Next Product 🚀'}
+          </button>
         </div>
       )}
 
       {/* Error Alert */}
       {errorMsg && (
-        <div className="p-4 bg-rose-50 border-b border-rose-200 text-rose-800 text-sm flex items-center gap-2">
-          <AlertCircle size={18} className="text-rose-600 flex-shrink-0" />
+        <div style={{
+          padding: '14px 20px',
+          backgroundColor: '#fff1f2',
+          borderBottom: '1px solid #fecdd3',
+          color: '#9f1239',
+          fontSize: '0.88rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px'
+        }}>
+          <AlertCircle size={20} color="#e11d48" style={{ flexShrink: 0 }} />
           <span>{errorMsg}</span>
         </div>
       )}
 
-      {/* Main 2-Column Workflow */}
-      <div className="p-6 grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left / Input Column (5 Cols) */}
-        <div className="lg:col-span-5 space-y-6">
-          {/* 1. WhatsApp Textarea Box */}
-          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                <FileText size={15} className="text-emerald-600" />
+      {/* 2-Column Responsive Body */}
+      <div style={{
+        padding: '24px',
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+        gap: '24px'
+      }}>
+        {/* Left Column: Inputs */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          {/* 1. WhatsApp Text Input */}
+          <div style={{
+            backgroundColor: 'var(--bg-secondary)',
+            padding: '16px',
+            borderRadius: '16px',
+            border: '1px solid var(--border-color)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <label style={{ fontSize: '0.82rem', fontWeight: '800', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <FileText size={16} color="#059669" />
                 {lang === 'ar' ? '1. نص رسالة / منشور الواتساب' : '1. WhatsApp Message Text'}
               </label>
-              <span className="text-[11px] text-slate-500 font-medium">
-                {lang === 'ar' ? 'يتم التحليل تلقائياً فور اللصق' : 'Auto-parsed live'}
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                {lang === 'ar' ? 'تحليل مباشر' : 'Auto-parsed'}
               </span>
             </div>
             <textarea
@@ -535,25 +607,47 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
               placeholder={lang === 'ar' 
                 ? "الصق هنا نص رسالة الواتساب مباشرة...\nمثال:\nحرام tv بلانكيت قياس 160/230\nنوعية مرتبة (سميك)\nالسعر $12" 
                 : "Paste WhatsApp text here...\nExample:\nTV Blanket 160/230\nHigh quality (thick)\nPrice $12"}
-              className="w-full p-3.5 text-sm bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-inner font-mono text-slate-800"
+              style={{
+                width: '100%',
+                padding: '12px',
+                fontSize: '0.9rem',
+                backgroundColor: 'var(--bg-primary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '12px',
+                color: 'var(--text-primary)',
+                fontFamily: 'inherit',
+                lineHeight: '1.5',
+                boxSizing: 'border-box'
+              }}
             />
           </div>
 
-          {/* 2. Drag & Drop Image Uploader with Clipboard Paste */}
-          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                <ImageIcon size={15} className="text-emerald-600" />
+          {/* 2. Images Drag & Drop Area */}
+          <div style={{
+            backgroundColor: 'var(--bg-secondary)',
+            padding: '16px',
+            borderRadius: '16px',
+            border: '1px solid var(--border-color)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <label style={{ fontSize: '0.82rem', fontWeight: '800', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <ImageIcon size={16} color="#059669" />
                 {lang === 'ar' ? '2. صور المنتج (سحب أو Ctrl+V)' : '2. Product Images (Drag / Ctrl+V)'}
               </label>
-              <span className="text-[11px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">
-                {uploadedFiles.length} {lang === 'ar' ? 'صور محددة' : 'images'}
+              <span style={{
+                fontSize: '0.72rem',
+                backgroundColor: '#d1fae5',
+                color: '#065f46',
+                padding: '2px 8px',
+                borderRadius: '12px',
+                fontWeight: '800'
+              }}>
+                {uploadedFiles.length} {lang === 'ar' ? 'صور' : 'images'}
               </span>
             </div>
 
-            {/* Dropzone Box */}
+            {/* Drop Box */}
             <div
-              ref={dropZoneRef}
               onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
               onDragLeave={() => setIsDragOver(false)}
               onDrop={(e) => {
@@ -564,67 +658,128 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
                 }
               }}
               onClick={() => fileInputRef.current && fileInputRef.current.click()}
-              className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition flex flex-col items-center justify-center gap-2 ${
-                isDragOver ? 'border-emerald-500 bg-emerald-50 scale-[1.01]' : 'border-slate-300 hover:border-emerald-400 bg-white'
-              }`}
+              style={{
+                border: isDragOver ? '2px dashed #059669' : '2px dashed var(--border-color)',
+                backgroundColor: isDragOver ? 'rgba(5, 150, 105, 0.08)' : 'var(--bg-primary)',
+                borderRadius: '14px',
+                padding: '24px 16px',
+                textAlign: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '8px'
+              }}
             >
               <input
                 type="file"
                 ref={fileInputRef}
                 multiple
                 accept="image/*"
-                className="hidden"
+                style={{ display: 'none' }}
                 onChange={(e) => handleNewFiles(e.target.files)}
               />
-              <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <div style={{
+                width: '44px',
+                height: '44px',
+                borderRadius: '50%',
+                backgroundColor: '#ecfdf5',
+                color: '#059669',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
                 <Upload size={22} />
               </div>
-              <p className="text-xs font-bold text-slate-700">
+              <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: '800', color: 'var(--text-primary)' }}>
                 {lang === 'ar' ? 'اسحب الصور من الواتساب هنا، أو اضغط للاختيار' : 'Drag images from WhatsApp here, or click to browse'}
               </p>
-              <p className="text-[11px] text-slate-400">
+              <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                 {lang === 'ar' ? '💡 يمكنك أيضاً نسخ الصورة من الواتساب وضغط Ctrl+V مباشرة!' : '💡 You can also copy image from WhatsApp and press Ctrl+V directly!'}
               </p>
             </div>
 
-            {/* Uploaded Thumbnails Grid */}
+            {/* Thumbnails Grid */}
             {uploadedFiles.length > 0 && (
-              <div className="grid grid-cols-3 gap-2.5 mt-3">
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))',
+                gap: '10px',
+                marginTop: '12px'
+              }}>
                 {uploadedFiles.map((item, idx) => (
                   <div
                     key={idx}
-                    className={`relative rounded-xl overflow-hidden border-2 aspect-square group shadow-sm bg-slate-100 ${
-                      item.isMain ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-slate-200'
-                    }`}
+                    style={{
+                      position: 'relative',
+                      borderRadius: '10px',
+                      overflow: 'hidden',
+                      aspectRatio: '1',
+                      border: item.isMain ? '2px solid #059669' : '1px solid var(--border-color)',
+                      backgroundColor: 'var(--bg-tertiary)'
+                    }}
                   >
                     <img
                       src={item.previewUrl}
                       alt={`Product preview ${idx}`}
-                      className="w-full h-full object-cover"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     />
                     {item.isMain && (
-                      <span className="absolute top-1 left-1 bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow">
-                        {lang === 'ar' ? 'الرئيسية' : 'Main'}
+                      <span style={{
+                        position: 'absolute',
+                        top: '4px',
+                        left: '4px',
+                        backgroundColor: '#059669',
+                        color: '#fff',
+                        fontSize: '0.62rem',
+                        fontWeight: '900',
+                        padding: '1px 5px',
+                        borderRadius: '4px'
+                      }}>
+                        {lang === 'ar' ? 'رئيسية' : 'Main'}
                       </span>
                     )}
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-1.5">
+                    <div style={{
+                      position: 'absolute',
+                      bottom: '4px',
+                      right: '4px',
+                      display: 'flex',
+                      gap: '4px'
+                    }}>
                       {!item.isMain && (
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); setMainFile(idx); }}
-                          className="p-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-md text-[10px] font-bold"
-                          title="تعيين كصورة رئيسية"
+                          style={{
+                            padding: '2px 5px',
+                            backgroundColor: '#059669',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '4px',
+                            fontSize: '0.62rem',
+                            fontWeight: '700',
+                            cursor: 'pointer'
+                          }}
                         >
-                          {lang === 'ar' ? 'رئيسية' : 'Main'}
+                          {lang === 'ar' ? 'تعيين' : 'Set'}
                         </button>
                       )}
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); removeFile(idx); }}
-                        className="p-1 bg-rose-500 hover:bg-rose-600 text-white rounded-md text-[10px]"
-                        title="حذف"
+                        style={{
+                          padding: '2px 4px',
+                          backgroundColor: '#ef4444',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center'
+                        }}
                       >
-                        <Trash2 size={12} />
+                        <Trash2 size={11} />
                       </button>
                     </div>
                   </div>
@@ -633,24 +788,31 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
             )}
           </div>
 
-          {/* 3. Supplier & Profit Margin Config */}
-          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                <DollarSign size={15} className="text-emerald-600" />
-                {lang === 'ar' ? '3. المورّد وهامش الربح' : '3. Supplier & Profit Markup'}
-              </label>
-            </div>
+          {/* 3. Supplier & Profit Margin */}
+          <div style={{
+            backgroundColor: 'var(--bg-secondary)',
+            padding: '16px',
+            borderRadius: '16px',
+            border: '1px solid var(--border-color)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px'
+          }}>
+            <label style={{ fontSize: '0.82rem', fontWeight: '800', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <DollarSign size={16} color="#059669" />
+              {lang === 'ar' ? '3. المورّد وهامش الربح' : '3. Supplier & Profit Margin'}
+            </label>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div>
-                <label className="text-[11px] font-bold text-slate-600 mb-1 block">
-                  {lang === 'ar' ? 'المورّد / المصدر' : 'Supplier'}
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                  {lang === 'ar' ? 'المورّد' : 'Supplier'}
                 </label>
                 <select
                   value={selectedMerchantId}
                   onChange={(e) => setSelectedMerchantId(e.target.value)}
-                  className="w-full p-2.5 text-xs bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 font-bold"
+                  className="input-field"
+                  style={{ margin: 0, padding: '8px 12px', fontSize: '0.85rem' }}
                 >
                   <option value="">{lang === 'ar' ? '-- بدون مورد --' : '-- No Merchant --'}</option>
                   {merchants.map(m => (
@@ -660,36 +822,44 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-slate-600 mb-1 block">
+                <label style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
                   {lang === 'ar' ? 'نسبة الربح (%)' : 'Markup %'}
                 </label>
-                <div className="flex items-center gap-1.5">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <input
                     type="number"
                     min="0"
                     max="300"
                     value={markupPercent}
                     onChange={(e) => handleMarkupChange(e.target.value)}
-                    className="w-full p-2.5 text-xs bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 font-black text-emerald-700 text-center"
+                    className="input-field"
+                    style={{ margin: 0, padding: '8px 12px', fontSize: '0.85rem', fontWeight: '800', textAlign: 'center' }}
                   />
-                  <span className="text-xs font-bold text-slate-400">%</span>
+                  <span style={{ fontSize: '0.85rem', fontWeight: '800', color: 'var(--text-muted)' }}>%</span>
                 </div>
               </div>
             </div>
 
-            {/* Quick Profit Chips */}
-            <div className="flex items-center gap-1.5 pt-1">
-              <span className="text-[10px] text-slate-400 font-bold">{lang === 'ar' ? 'خيارات سريعة:' : 'Quick:'}</span>
+            {/* Quick Profit Buttons */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '700' }}>
+                {lang === 'ar' ? 'خيارات سريعة:' : 'Quick:'}
+              </span>
               {[25, 35, 40, 50, 60].map(pct => (
                 <button
                   key={pct}
                   type="button"
                   onClick={() => handleMarkupChange(pct)}
-                  className={`px-2 py-0.5 text-[11px] rounded-lg font-bold transition ${
-                    Number(markupPercent) === pct 
-                      ? 'bg-emerald-600 text-white shadow-sm' 
-                      : 'bg-white text-slate-600 hover:bg-slate-200 border border-slate-200'
-                  }`}
+                  style={{
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    fontSize: '0.75rem',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    border: Number(markupPercent) === pct ? '1px solid #059669' : '1px solid var(--border-color)',
+                    backgroundColor: Number(markupPercent) === pct ? '#059669' : 'var(--bg-primary)',
+                    color: Number(markupPercent) === pct ? '#fff' : 'var(--text-secondary)'
+                  }}
                 >
                   +{pct}%
                 </button>
@@ -698,133 +868,168 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
           </div>
         </div>
 
-        {/* Right / Live Smart Preview Column (7 Cols) */}
-        <div className="lg:col-span-7 bg-slate-50/60 p-6 rounded-3xl border border-slate-200 flex flex-col justify-between space-y-6">
-          <div className="space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-emerald-500 text-white flex items-center justify-center font-black">
-                  <Sparkles size={16} />
+        {/* Right Column: Live Extracted Preview & Adjustments */}
+        <div style={{
+          backgroundColor: 'var(--bg-secondary)',
+          padding: '20px',
+          borderRadius: '16px',
+          border: '1px solid var(--border-color)',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          gap: '16px'
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingBottom: '12px',
+              borderBottom: '1px solid var(--border-color)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  backgroundColor: '#10b981',
+                  color: '#fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <Sparkles size={18} />
                 </div>
                 <div>
-                  <h4 className="text-sm font-black text-slate-800">
-                    {lang === 'ar' ? 'المعاينة المباشرة وتأكيد الحقول' : 'Live Extracted Preview & Adjustments'}
+                  <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-primary)' }}>
+                    {lang === 'ar' ? 'المعاينة المباشرة وتأكيد الحقول' : 'Live Extracted Preview'}
                   </h4>
-                  <p className="text-[11px] text-slate-500">
-                    {lang === 'ar' ? 'تم استخراج وتنسيق كافة البيانات تلقائياً، يمكنك التعديل قبل النشر' : 'All specs auto-parsed. Ready for 1-click publishing.'}
-                  </p>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    {lang === 'ar' ? 'البيانات جاهزة للنشر بنقرة واحدة' : 'Auto-populated specs'}
+                  </span>
                 </div>
               </div>
 
               {costPrice && sellingPrice && (
-                <div className="bg-emerald-100 text-emerald-900 px-3 py-1 rounded-xl text-xs font-black flex items-center gap-1.5">
-                  <span>{lang === 'ar' ? 'صافي الربح:' : 'Est. Profit:'}</span>
-                  <span className="text-emerald-700 underline underline-offset-2">
-                    +${(parseFloat(sellingPrice) - parseFloat(costPrice)).toFixed(2)}
-                  </span>
+                <div style={{
+                  backgroundColor: '#d1fae5',
+                  color: '#065f46',
+                  padding: '4px 10px',
+                  borderRadius: '8px',
+                  fontSize: '0.78rem',
+                  fontWeight: '800'
+                }}>
+                  {lang === 'ar' ? 'صافي الربح: ' : 'Profit: '}
+                  <strong>+${(parseFloat(sellingPrice) - parseFloat(costPrice)).toFixed(2)}</strong>
                 </div>
               )}
             </div>
 
-            {/* Arabic & English Name Fields */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Names */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div>
-                <label className="text-xs font-bold text-slate-700 mb-1 block">
-                  {lang === 'ar' ? 'اسم المنتج (بالعربي)' : 'Product Name (Arabic)'} <span className="text-rose-500">*</span>
+                <label className="input-label" style={{ fontSize: '0.75rem' }}>
+                  {lang === 'ar' ? 'اسم المنتج (عربي) *' : 'Product Name (Arabic) *'}
                 </label>
                 <input
                   type="text"
                   value={nameAr}
                   onChange={(e) => setNameAr(e.target.value)}
-                  placeholder={lang === 'ar' ? 'مثال: حرام TV بلانكيت' : 'Arabic Name'}
-                  className="w-full p-3 text-sm bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800"
+                  placeholder="حرام TV بلانكيت"
+                  className="input-field"
+                  style={{ margin: 0, fontWeight: '700' }}
                 />
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-700 mb-1 block">
-                  {lang === 'ar' ? 'اسم المنتج (بالإنجليزي)' : 'Product Name (English)'} <span className="text-rose-500">*</span>
+                <label className="input-label" style={{ fontSize: '0.75rem' }}>
+                  {lang === 'ar' ? 'اسم المنتج (إنجليزي) *' : 'Product Name (English) *'}
                 </label>
                 <input
                   type="text"
                   value={nameEn}
                   onChange={(e) => setNameEn(e.target.value)}
-                  placeholder="e.g. TV Throw Blanket"
-                  className="w-full p-3 text-sm bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800"
+                  placeholder="TV Throw Blanket"
+                  className="input-field"
+                  style={{ margin: 0, fontWeight: '700' }}
                 />
               </div>
             </div>
 
-            {/* Price Row (Cost, Selling, Compare Price) */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="bg-white p-3 rounded-xl border border-slate-200">
-                <label className="text-[11px] font-bold text-slate-500 mb-1 block">
-                  {lang === 'ar' ? 'سعر الجملة (التكلفة $)' : 'Cost Price ($)'}
+            {/* Price Triplet */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+              <div style={{
+                backgroundColor: 'var(--bg-primary)',
+                padding: '10px',
+                borderRadius: '10px',
+                border: '1px solid var(--border-color)'
+              }}>
+                <label style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>
+                  {lang === 'ar' ? 'سعر التكلفة ($)' : 'Cost Price ($)'}
                 </label>
-                <div className="relative">
-                  <span className="absolute left-2.5 top-2.5 text-slate-400 text-xs font-bold">$</span>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={costPrice}
-                    onChange={(e) => handleCostPriceChange(e.target.value)}
-                    placeholder="12.00"
-                    className="w-full pl-6 pr-2 py-1.5 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 text-left"
-                  />
-                </div>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={costPrice}
+                  onChange={(e) => handleCostPriceChange(e.target.value)}
+                  placeholder="12.00"
+                  className="input-field"
+                  style={{ margin: 0, padding: '6px 8px', fontSize: '0.85rem', fontWeight: '700' }}
+                />
               </div>
 
-              <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-200">
-                <label className="text-[11px] font-black text-emerald-800 mb-1 block flex items-center justify-between">
-                  <span>{lang === 'ar' ? 'سعر البيع للزبون ($)' : 'Selling Price ($)'}</span>
-                  <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1 rounded">+{markupPercent}%</span>
+              <div style={{
+                backgroundColor: '#ecfdf5',
+                padding: '10px',
+                borderRadius: '10px',
+                border: '1px solid #a7f3d0'
+              }}>
+                <label style={{ fontSize: '0.7rem', fontWeight: '900', color: '#065f46', display: 'block', marginBottom: '2px' }}>
+                  {lang === 'ar' ? 'سعر البيع ($)' : 'Selling Price ($)'}
                 </label>
-                <div className="relative">
-                  <span className="absolute left-2.5 top-2.5 text-emerald-600 text-xs font-bold">$</span>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={sellingPrice}
-                    onChange={(e) => setSellingPrice(e.target.value)}
-                    placeholder="17.00"
-                    className="w-full pl-6 pr-2 py-1.5 text-sm bg-white border border-emerald-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-black text-emerald-800 text-left"
-                  />
-                </div>
-                {sellingPrice && (
-                  <p className="text-[10px] text-emerald-700 font-bold mt-1 text-right">
-                    ≈ {formatPrice(sellingPrice)}
-                  </p>
-                )}
+                <input
+                  type="number"
+                  step="0.1"
+                  value={sellingPrice}
+                  onChange={(e) => setSellingPrice(e.target.value)}
+                  placeholder="17.00"
+                  className="input-field"
+                  style={{ margin: 0, padding: '6px 8px', fontSize: '0.9rem', fontWeight: '900', color: '#047857', backgroundColor: '#fff' }}
+                />
               </div>
 
-              <div className="bg-white p-3 rounded-xl border border-slate-200">
-                <label className="text-[11px] font-bold text-slate-500 mb-1 block">
-                  {lang === 'ar' ? 'السعر القديم (قبل الخصم)' : 'Compare Price ($)'}
+              <div style={{
+                backgroundColor: 'var(--bg-primary)',
+                padding: '10px',
+                borderRadius: '10px',
+                border: '1px solid var(--border-color)'
+              }}>
+                <label style={{ fontSize: '0.7rem', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>
+                  {lang === 'ar' ? 'السعر القديم ($)' : 'Compare ($)'}
                 </label>
-                <div className="relative">
-                  <span className="absolute left-2.5 top-2.5 text-slate-400 text-xs font-bold">$</span>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={oldPrice}
-                    onChange={(e) => setOldPrice(e.target.value)}
-                    placeholder="23.00"
-                    className="w-full pl-6 pr-2 py-1.5 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 font-medium text-slate-500 line-through text-left"
-                  />
-                </div>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={oldPrice}
+                  onChange={(e) => setOldPrice(e.target.value)}
+                  placeholder="23.00"
+                  className="input-field"
+                  style={{ margin: 0, padding: '6px 8px', fontSize: '0.85rem', textDecoration: 'line-through' }}
+                />
               </div>
             </div>
 
             {/* Category & Stock */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div>
-                <label className="text-xs font-bold text-slate-700 mb-1 block">
+                <label className="input-label" style={{ fontSize: '0.75rem' }}>
                   {lang === 'ar' ? 'القسم / التصنيف' : 'Category'}
                 </label>
                 <select
                   value={categoryId}
                   onChange={(e) => setCategoryId(e.target.value)}
-                  className="w-full p-3 text-sm bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800"
+                  className="input-field"
+                  style={{ margin: 0, fontWeight: '700' }}
                 >
                   <option value="">{lang === 'ar' ? '-- اختر القسم --' : '-- Select Category --'}</option>
                   {categories.map(c => (
@@ -836,50 +1041,79 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-700 mb-1 block">
+                <label className="input-label" style={{ fontSize: '0.75rem' }}>
                   {lang === 'ar' ? 'المخزون المتوفر' : 'Stock Quantity'}
                 </label>
                 <input
                   type="number"
                   value={stock}
                   onChange={(e) => setStock(e.target.value)}
-                  className="w-full p-3 text-sm bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800"
+                  className="input-field"
+                  style={{ margin: 0, fontWeight: '700' }}
                 />
               </div>
             </div>
 
             {/* Description Arabic */}
             <div>
-              <label className="text-xs font-bold text-slate-700 mb-1 block">
-                {lang === 'ar' ? 'الوصف والمواصفات (بالعربي)' : 'Description (Arabic)'}
+              <label className="input-label" style={{ fontSize: '0.75rem' }}>
+                {lang === 'ar' ? 'الوصف والمواصفات (عربي)' : 'Description (Arabic)'}
               </label>
               <textarea
                 rows={2}
                 value={descAr}
                 onChange={(e) => setDescAr(e.target.value)}
-                placeholder={lang === 'ar' ? 'تفاصيل المنتج ومميزاته...' : 'Product details...'}
-                className="w-full p-2.5 text-xs bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 text-slate-700"
+                placeholder="تفاصيل المنتج..."
+                className="input-field"
+                style={{ margin: 0, fontSize: '0.82rem' }}
               />
             </div>
 
-            {/* Detected Badges (Colors & Sizes) */}
+            {/* Tags (Sizes & Colors) */}
             {(colors.length > 0 || sizes.length > 0) && (
-              <div className="flex flex-wrap items-center gap-2 p-3 bg-white rounded-xl border border-slate-200">
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                flexWrap: 'wrap',
+                padding: '8px 12px',
+                backgroundColor: 'var(--bg-primary)',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)'
+              }}>
                 {sizes.length > 0 && (
-                  <div className="flex items-center gap-1">
-                    <span className="text-[11px] font-black text-slate-500">{lang === 'ar' ? 'القياسات:' : 'Sizes:'}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ fontSize: '0.72rem', fontWeight: '800', color: 'var(--text-muted)' }}>
+                      {lang === 'ar' ? 'القياس:' : 'Size:'}
+                    </span>
                     {sizes.map((sz, idx) => (
-                      <span key={idx} className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-md text-xs font-bold">
+                      <span key={idx} style={{
+                        padding: '1px 6px',
+                        backgroundColor: '#dbeafe',
+                        color: '#1e40af',
+                        borderRadius: '4px',
+                        fontSize: '0.75rem',
+                        fontWeight: '700'
+                      }}>
                         {sz.name}
                       </span>
                     ))}
                   </div>
                 )}
                 {colors.length > 0 && (
-                  <div className="flex items-center gap-1 mr-4">
-                    <span className="text-[11px] font-black text-slate-500">{lang === 'ar' ? 'الألوان:' : 'Colors:'}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginInlineStart: '8px' }}>
+                    <span style={{ fontSize: '0.72rem', fontWeight: '800', color: 'var(--text-muted)' }}>
+                      {lang === 'ar' ? 'الألوان:' : 'Colors:'}
+                    </span>
                     {colors.map((clr, idx) => (
-                      <span key={idx} className="px-2 py-0.5 bg-purple-50 text-purple-700 border border-purple-200 rounded-md text-xs font-bold">
+                      <span key={idx} style={{
+                        padding: '1px 6px',
+                        backgroundColor: '#f3e8ff',
+                        color: '#6b21a8',
+                        borderRadius: '4px',
+                        fontSize: '0.75rem',
+                        fontWeight: '700'
+                      }}>
                         {clr}
                       </span>
                     ))}
@@ -889,27 +1123,48 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
             )}
           </div>
 
-          {/* Action Submit Button */}
-          <div className="pt-4 border-t border-slate-200 flex items-center justify-between gap-4">
-            <div className="text-xs text-slate-500 flex items-center gap-1.5">
-              <ShieldCheck size={16} className="text-emerald-600" />
-              <span>{lang === 'ar' ? 'يتم حفظ المنتج فوراً وربطه بالمورّد والأسعار' : 'Instant live store publishing'}</span>
+          {/* Action Button */}
+          <div style={{
+            paddingTop: '16px',
+            borderTop: '1px solid var(--border-color)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '12px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              <ShieldCheck size={16} color="#059669" />
+              <span>{lang === 'ar' ? 'حفظ ونشر فوري للمتجر' : 'Instant 1-Click Publishing'}</span>
             </div>
 
             <button
               type="button"
               disabled={isSubmitting || !nameAr || !sellingPrice}
               onClick={handlePublish}
-              className={`px-8 py-3.5 rounded-2xl font-black text-sm shadow-xl flex items-center gap-2.5 transition transform active:scale-95 ${
-                isSubmitting || !nameAr || !sellingPrice
-                  ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-800 text-white shadow-emerald-600/25 hover:shadow-emerald-600/40'
-              }`}
+              style={{
+                padding: '12px 28px',
+                borderRadius: '12px',
+                fontWeight: '900',
+                fontSize: '0.92rem',
+                color: '#ffffff',
+                border: 'none',
+                cursor: isSubmitting || !nameAr || !sellingPrice ? 'not-allowed' : 'pointer',
+                background: isSubmitting || !nameAr || !sellingPrice
+                  ? 'var(--bg-tertiary)'
+                  : 'linear-gradient(135deg, #059669 0%, #0d9488 100%)',
+                boxShadow: isSubmitting || !nameAr || !sellingPrice
+                  ? 'none'
+                  : '0 6px 18px rgba(5, 150, 105, 0.4)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'all 0.2s'
+              }}
             >
               {isSubmitting ? (
                 <>
-                  <RefreshCw size={18} className="animate-spin" />
-                  <span>{lang === 'ar' ? 'جاري الحفظ والنشر...' : 'Publishing Product...'}</span>
+                  <RefreshCw size={18} className="spin-anim" />
+                  <span>{lang === 'ar' ? 'جاري النشر...' : 'Publishing...'}</span>
                 </>
               ) : (
                 <>
