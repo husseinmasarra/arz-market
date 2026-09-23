@@ -37,6 +37,8 @@ export const CartProvider = ({ children }) => {
   const [cartItems, setCartItems] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
 
+  const [orderNotes, setOrderNotes] = useState('');
+
   useEffect(() => {
     const localData = localStorage.getItem(cartKey);
     if (localData) {
@@ -65,12 +67,14 @@ export const CartProvider = ({ children }) => {
                   name_ar: it.name_ar,
                   name_en: it.name_en,
                   image: it.image,
+                  image_url: it.image_url || it.image,
                   price_usd: it.price_usd,
                   stock: 999
                 },
                 quantity: Number(it.quantity) || 1,
                 selectedColor: it.selectedColor,
-                selectedSize: it.selectedSize
+                selectedSize: it.selectedSize,
+                customerNote: it.customerNote || it.customer_note || ''
               }));
               setCartItems(restoredItems);
             }
@@ -86,7 +90,7 @@ export const CartProvider = ({ children }) => {
     }
   }, [cartItems, cartKey, loadedKey]);
 
-  const addToCart = (product, quantity = 1, selectedColor = null, selectedSize = null) => {
+  const addToCart = (product, quantity = 1, selectedColor = null, selectedSize = null, customerNote = '') => {
     setCartItems((prevItems) => {
       const existingItem = prevItems.find((item) => 
         item.product.id === product.id && 
@@ -96,11 +100,12 @@ export const CartProvider = ({ children }) => {
       if (existingItem) {
         // Ensure quantity doesn't exceed stock
         const newQty = Math.min(existingItem.quantity + quantity, product.stock);
+        const mergedNote = customerNote ? customerNote : (existingItem.customerNote || '');
         return prevItems.map((item) =>
           (item.product.id === product.id && 
            item.selectedColor === selectedColor && 
            item.selectedSize === selectedSize) 
-            ? { ...item, quantity: newQty } 
+            ? { ...item, quantity: newQty, customerNote: mergedNote } 
             : item
         );
       }
@@ -108,9 +113,22 @@ export const CartProvider = ({ children }) => {
         product, 
         quantity: Math.min(quantity, product.stock), 
         selectedColor, 
-        selectedSize 
+        selectedSize,
+        customerNote: customerNote || ''
       }];
     });
+  };
+
+  const updateItemNote = (productId, selectedColor = null, selectedSize = null, note = '') => {
+    setCartItems((prevItems) =>
+      prevItems.map((item) =>
+        (item.product.id === productId && 
+         item.selectedColor === selectedColor && 
+         item.selectedSize === selectedSize)
+          ? { ...item, customerNote: note }
+          : item
+      )
+    );
   };
 
   const removeFromCart = (productId, selectedColor = null, selectedSize = null) => {
@@ -212,6 +230,9 @@ export const CartProvider = ({ children }) => {
       addToCart,
       removeFromCart,
       updateQuantity,
+      updateItemNote,
+      orderNotes,
+      setOrderNotes,
       clearCart,
       subtotal,
       deliveryFee,

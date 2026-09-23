@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart, getOptionPrice } from '../context/CartContext';
-import { Star, ShoppingCart, X, ZoomIn, ZoomOut, RotateCcw, Move } from 'lucide-react';
+import { Star, ShoppingCart, X, ZoomIn, ZoomOut, RotateCcw, Move, MessageSquare } from 'lucide-react';
 
 function parseProductOptions(sizes, basePrice) {
   if (!sizes) return [];
@@ -517,8 +517,28 @@ export default function ProductDetails({ product, onClose, onRefresh }) {
               {desc || <span style={{ fontStyle: 'italic', color: 'var(--text-light)' }}>No description available.</span>}
             </div>
 
+            {/* Customer Special Note on this product */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '10px' }}>
+              <label className="input-label" style={{ margin: 0, fontWeight: '700', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-secondary)' }}>
+                <MessageSquare size={13} color="var(--accent-blue)" />
+                <span>{lang === 'ar' ? 'ملاحظة خاصة على هذا الصنف (اختياري):' : 'Special note for this item (optional):'}</span>
+              </label>
+              <input
+                type="text"
+                value={customerNote}
+                onChange={(e) => setCustomerNote(e.target.value)}
+                placeholder={lang === 'ar' ? 'مثلاً: اللون البديل، المقاس، تفضيل معين...' : 'e.g. alternative color, special preferences...'}
+                className="input-field"
+                style={{
+                  padding: '8px 12px',
+                  fontSize: '0.85rem',
+                  borderRadius: '8px'
+                }}
+              />
+            </div>
+
             {/* Quantity Selector & Add to Cart */}
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '6px' }}>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '10px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 <span className="input-label" style={{ margin: 0, fontWeight: '700', fontSize: '0.8rem' }}>
                   {lang === 'ar' ? 'الكمية' : 'Quantity'}
@@ -547,7 +567,7 @@ export default function ProductDetails({ product, onClose, onRefresh }) {
                     const chosenOptionString = selectedOption
                       ? `${selectedOption.name} ($${selectedOption.price.toFixed(2)})`
                       : null;
-                    addToCart(product, qty, selectedColor, chosenOptionString);
+                    addToCart(product, qty, selectedColor, chosenOptionString, customerNote.trim());
                     onClose();
                   }}
                   disabled={product.stock <= 0}

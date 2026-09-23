@@ -358,6 +358,7 @@ async function initializeDatabasePostgres() {
 
     try {
       await pgPool.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS supplier_fulfillment_status TEXT DEFAULT 'pending_supplier'");
+      await pgPool.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT ''");
     } catch (e) {}
 
     // 7. Chats Table
@@ -871,7 +872,10 @@ function initializeDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
       )
-    `);
+    `, [], () => {
+      db.run("ALTER TABLE orders ADD COLUMN notes TEXT DEFAULT ''", [], () => {});
+      db.run("ALTER TABLE orders ADD COLUMN supplier_fulfillment_status TEXT DEFAULT 'pending_supplier'", [], () => {});
+    });
 
     // 7. Chats Table
     runInit(`

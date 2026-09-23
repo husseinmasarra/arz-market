@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart, getOptionPrice } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { X, CheckCircle, ShieldCheck, LogIn, UserPlus } from 'lucide-react';
+import { X, CheckCircle, ShieldCheck, LogIn, UserPlus, MessageSquare } from 'lucide-react';
 import SocialAuthButtons from './SocialAuthButtons';
 
 export default function Checkout({ onClose }) {
   const { lang, formatPrice, settings, t, apiBase } = useApp();
   const { user, token, login, register } = useAuth();
-  const { cartItems, subtotal, deliveryFee, total, clearCart } = useCart();
+  const { cartItems, subtotal, deliveryFee, total, clearCart, orderNotes, setOrderNotes } = useCart();
 
   const [phone, setPhone] = useState(user?.phone || '');
   const [address, setAddress] = useState('');
@@ -152,8 +152,10 @@ export default function Checkout({ onClose }) {
         product_id: item.product.id,
         quantity: item.quantity,
         selectedColor: item.selectedColor || null,
-        selectedSize: item.selectedSize || null
+        selectedSize: item.selectedSize || null,
+        customer_note: item.customerNote || null
       })),
+      notes: orderNotes || null,
       coupon_code: appliedCode || null,
       payment_method: paymentMethod
     };
@@ -637,6 +639,21 @@ export default function Checkout({ onClose }) {
               </div>
 
               <div>
+                <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <MessageSquare size={14} color="var(--accent-blue)" />
+                  <span>{lang === 'ar' ? 'ملاحظات إضافية على الطلبية أو التوصيل (اختياري):' : 'Order or Delivery Notes (optional):'}</span>
+                </label>
+                <textarea
+                  rows={2}
+                  className="input-field"
+                  placeholder={lang === 'ar' ? 'مثلاً: الاتصال قبل الوصول، تعليمات التسليم...' : 'e.g. call upon arrival, delivery instructions...'}
+                  value={orderNotes}
+                  onChange={(e) => setOrderNotes(e.target.value)}
+                  style={{ resize: 'none' }}
+                />
+              </div>
+
+              <div>
                 <label className="input-label">{t('payment_method')}</label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', cursor: 'pointer' }}>
@@ -712,7 +729,7 @@ export default function Checkout({ onClose }) {
             </h3>
 
             {/* Cart list preview */}
-            <div style={{ maxHeight: '120px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ maxHeight: '160px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {cartItems.map(item => (
                 <div key={`${item.product.id}_${item.selectedColor || ''}_${item.selectedSize || ''}`} style={{ display: 'flex', flexDirection: 'column', fontSize: '0.85rem', borderBottom: '1px dashed var(--border-color)', paddingBottom: '4px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -731,6 +748,12 @@ export default function Checkout({ onClose }) {
                       {item.selectedSize && (
                         <span>{lang === 'ar' ? `القياس: ${item.selectedSize}` : `Size: ${item.selectedSize}`}</span>
                       )}
+                    </div>
+                  )}
+                  {item.customerNote && (
+                    <div style={{ fontSize: '0.75rem', color: '#d97706', backgroundColor: 'rgba(245, 158, 11, 0.08)', padding: '2px 6px', borderRadius: '4px', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <MessageSquare size={11} />
+                      <span>{lang === 'ar' ? 'ملاحظة: ' : 'Note: '}"{item.customerNote}"</span>
                     </div>
                   )}
                 </div>

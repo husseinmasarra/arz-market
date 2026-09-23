@@ -1,7 +1,7 @@
 const db = require('../config/db');
 
 exports.createOrder = async (req, res) => {
-  const { phone, address, items, coupon_code, payment_method } = req.body;
+  const { phone, address, items, coupon_code, payment_method, notes } = req.body;
   const userId = req.user ? req.user.id : null;
   const userName = req.user ? req.user.username : 'Guest';
 
@@ -94,7 +94,8 @@ exports.createOrder = async (req, res) => {
         quantity: item.quantity,
         merchant_name: product.merchant_name || '',
         selectedColor: item.selectedColor || null,
-        selectedSize: item.selectedSize || null
+        selectedSize: item.selectedSize || null,
+        customer_note: item.customer_note || item.customerNote || item.notes || ''
       });
 
       // Deduct stock
@@ -128,8 +129,8 @@ exports.createOrder = async (req, res) => {
     const trackingNumber = `ARZ-${dateStr}-${randomSuffix}`;
 
     const result = await db.runAsync(`
-      INSERT INTO orders (user_id, user_name, phone, address, items, total_usd, total_lbp, total_cost_usd, delivery_fee_usd, delivery_fee_lbp, status, tracking_number, payment_method)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
+      INSERT INTO orders (user_id, user_name, phone, address, items, total_usd, total_lbp, total_cost_usd, delivery_fee_usd, delivery_fee_lbp, status, tracking_number, payment_method, notes)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)
     `, [
       userId,
       userName,
@@ -142,7 +143,8 @@ exports.createOrder = async (req, res) => {
       deliveryFeeUsd,
       deliveryFeeLbp,
       trackingNumber,
-      payment_method || 'COD'
+      payment_method || 'COD',
+      notes || ''
     ]);
 
 
@@ -160,7 +162,8 @@ exports.createOrder = async (req, res) => {
         total_usd: totalUsd,
         total_lbp: totalLbp,
         delivery_fee_usd: deliveryFeeUsd,
-        tracking_number: trackingNumber
+        tracking_number: trackingNumber,
+        notes: notes || ''
       }
     });
 
@@ -170,6 +173,7 @@ exports.createOrder = async (req, res) => {
         user_name: userName,
         total_usd: totalUsd,
         tracking_number: trackingNumber,
+        notes: notes || '',
         created_at: new Date()
       });
     }

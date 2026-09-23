@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
-import { Printer, Eye, CheckCircle2, MessageCircle, Mail, DollarSign, PackageCheck, Send } from 'lucide-react';
+import { Printer, Eye, CheckCircle2, MessageCircle, Mail, DollarSign, PackageCheck, Send, MessageSquare } from 'lucide-react';
 
 export default function AdminOrders() {
   const { lang, formatPrice, apiBase, settings, apiHost } = useApp();
@@ -87,6 +87,7 @@ export default function AdminOrders() {
       const opts = [];
       if (item.selectedColor) opts.push(`اللون: ${item.selectedColor}`);
       if (item.selectedSize) opts.push(`القياس: ${item.selectedSize}`);
+      if (item.customer_note) opts.push(`ملاحظة الزبون: ${item.customer_note}`);
       const optsStr = opts.length > 0 ? ` (${opts.join(' - ')})` : '';
       const costStr = item.cost_price_usd ? ` [تكلفة الجملة: $${(Number(item.cost_price_usd) * item.quantity).toFixed(2)}]` : '';
       return `${idx + 1}. ${name} × ${item.quantity}${optsStr}${costStr}`;
@@ -107,7 +108,7 @@ ${totalSupplierCost > 0 ? `*مجموع تكلفة الجملة:* $${totalSupplie
 *الاسم:* ${order.user_name || 'عميل'}
 *الهاتف:* ${order.phone}
 *العنوان:* ${order.address}
-*طريقة الدفع:* ${order.payment_method === 'COD' ? 'الدفع عند الاستلام (COD)' : 'مدفوع مسبقاً (Online)'}
+${order.notes ? `*ملاحظات الزبون:* ${order.notes}\n` : ''}*طريقة الدفع:* ${order.payment_method === 'COD' ? 'الدفع عند الاستلام (COD)' : 'مدفوع مسبقاً (Online)'}
 *المبلغ المطلوب تحصيله من الزبون:* ${order.payment_method === 'COD' ? `$${Number(order.total_usd).toFixed(2)} (${formatPrice(order.total_lbp).replace('$', '')} L.L.)` : 'تم الدفع أونلاين ($0)'}
 ----------------------------------
 شكراً لتعاونكم! الرجاء تأكيد الاستلام والبدء بالتجهيز.`;
@@ -127,11 +128,12 @@ ${totalSupplierCost > 0 ? `*مجموع تكلفة الجملة:* $${totalSupplie
 
     const itemsText = supplierItems.map((item, idx) => {
       const name = lang === 'ar' ? item.name_ar : item.name_en;
-      return `${idx + 1}. ${name} × ${item.quantity} (Wholesale Cost: $${(Number(item.cost_price_usd || 0) * item.quantity).toFixed(2)})`;
+      const noteStr = item.customer_note ? ` (ملاحظة الزبون: ${item.customer_note})` : '';
+      return `${idx + 1}. ${name} × ${item.quantity}${noteStr} (Wholesale Cost: $${(Number(item.cost_price_usd || 0) * item.quantity).toFixed(2)})`;
     }).join('\n');
 
     const subject = `طلب دروب شيبينغ جديد #${order.tracking_number || order.id} - Arz-Mart`;
-    const body = `مرحباً ${supplierName}،\n\nنرجو تجهيز وشحن طلبية الدروب شيبينغ التالية:\nرقم الطلب: #${order.tracking_number || order.id}\n\nالمنتجات:\n${itemsText}\n\nعنوان الزبون للتوصيل:\nالاسم: ${order.user_name}\nالهاتف: ${order.phone}\nالعنوان: ${order.address}\nطريقة الدفع: ${order.payment_method === 'COD' ? `الدفع عند الاستلام ($${order.total_usd})` : 'مدفوع أونلاين'}\n\nشكراً لكم،\nفريق أرز مارت`;
+    const body = `مرحباً ${supplierName}،\n\nنرجو تجهيز وشحن طلبية الدروب شيبينغ التالية:\nرقم الطلب: #${order.tracking_number || order.id}\n\nالمنتجات:\n${itemsText}\n\nعنوان الزبون للتوصيل:\nالاسم: ${order.user_name}\nالهاتف: ${order.phone}\nالعنوان: ${order.address}\n${order.notes ? `ملاحظات الزبون: ${order.notes}\n` : ''}طريقة الدفع: ${order.payment_method === 'COD' ? `الدفع عند الاستلام ($${order.total_usd})` : 'مدفوع أونلاين'}\n\nشكراً لكم،\nفريق أرز مارت`;
 
     window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     handleUpdateSupplierStatus(order.id, 'forwarded_to_supplier');
@@ -675,6 +677,15 @@ ${totalSupplierCost > 0 ? `*مجموع تكلفة الجملة:* $${totalSupplie
                       <span style={{ fontWeight: '600' }}>{lang === 'ar' ? 'العنوان: ' : 'Address: '}</span>
                       {selectedOrder.address}
                     </div>
+                    {selectedOrder.notes && (
+                      <div style={{ marginTop: '8px', padding: '6px 10px', backgroundColor: 'rgba(245, 158, 11, 0.1)', border: '1px dashed #f59e0b', borderRadius: '6px', fontSize: '0.82rem' }}>
+                        <strong style={{ color: '#d97706', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <MessageSquare size={13} />
+                          {lang === 'ar' ? 'ملاحظات الزبون على الطلب:' : 'Customer Order Notes:'}
+                        </strong>
+                        <span style={{ color: 'var(--text-primary)', marginTop: '2px', display: 'block' }}>{selectedOrder.notes}</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Right Column: Order/Invoice Info */}
@@ -751,6 +762,12 @@ ${totalSupplierCost > 0 ? `*مجموع تكلفة الجملة:* $${totalSupplie
                                     {lang === 'ar' ? `القياس: ${item.selectedSize}` : `Size: ${item.selectedSize}`}
                                   </span>
                                 )}
+                              </div>
+                            )}
+                            {item.customer_note && (
+                              <div style={{ fontSize: '0.75rem', color: '#d97706', backgroundColor: 'rgba(245, 158, 11, 0.1)', padding: '3px 8px', borderRadius: '4px', marginTop: '4px', display: 'inline-flex', alignItems: 'center', gap: '4px', border: '1px dashed rgba(245, 158, 11, 0.4)' }}>
+                                <MessageSquare size={12} />
+                                <span><strong>{lang === 'ar' ? 'ملاحظة الزبون: ' : 'Customer Note: '}</strong>"{item.customer_note}"</span>
                               </div>
                             )}
                             {item.merchant_name && (
