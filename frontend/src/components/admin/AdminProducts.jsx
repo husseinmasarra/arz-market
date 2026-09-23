@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
-import { Trash2, Edit3, Image, RefreshCw, Sparkles, CheckCircle2, AlertCircle, Plus, Globe, ExternalLink, X, Search, Filter, Eye, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
+import { Trash2, Edit3, Image, RefreshCw, Sparkles, CheckCircle2, AlertCircle, Plus, Globe, ExternalLink, X, Search, Filter, Eye, ChevronLeft, ChevronRight, ArrowUpDown, MessageSquare } from 'lucide-react';
+import WhatsAppProductImporter from './WhatsAppProductImporter';
 
 export default function AdminProducts({ filterOutOfStock = false, onClearFilter = null }) {
   const { lang, formatPrice, apiBase, apiHost } = useApp();
   const { token } = useAuth();
 
+  const [activeSection, setActiveSection] = useState('whatsapp'); // 'whatsapp' | 'manual' | 'suppliers'
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [merchants, setMerchants] = useState([]);
@@ -367,6 +369,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
   };
 
   const handleEdit = (product) => {
+    setActiveSection('manual');
     setIsEditing(true);
     setEditingId(product.id);
     setNameAr(product.name_ar);
@@ -509,8 +512,123 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       
-            {/* Multi-Supplier Website Synchronization Card */}
-      {(() => {
+      {/* Quick Mode Switcher Tabs */}
+      <div style={{
+        display: 'flex',
+        gap: '12px',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        padding: '12px 16px',
+        backgroundColor: 'var(--bg-primary)',
+        borderRadius: '16px',
+        border: '1px solid var(--border-color)',
+        boxShadow: 'var(--shadow-sm)'
+      }}>
+        <button
+          type="button"
+          onClick={() => setActiveSection('whatsapp')}
+          style={{
+            padding: '10px 20px',
+            borderRadius: '12px',
+            fontWeight: '800',
+            fontSize: '0.9rem',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            transition: 'all 0.2s',
+            backgroundColor: activeSection === 'whatsapp' ? '#059669' : 'var(--bg-secondary)',
+            color: activeSection === 'whatsapp' ? '#ffffff' : 'var(--text-primary)',
+            border: activeSection === 'whatsapp' ? '1px solid #059669' : '1px solid var(--border-color)',
+            boxShadow: activeSection === 'whatsapp' ? '0 4px 14px rgba(5, 150, 105, 0.35)' : 'none'
+          }}
+        >
+          <span style={{ fontSize: '1.2rem' }}>💬</span>
+          <span>{lang === 'ar' ? 'استيراد فوري من واتساب (WhatsApp)' : 'WhatsApp Fast Import'}</span>
+          <span style={{
+            fontSize: '0.68rem',
+            padding: '2px 8px',
+            borderRadius: '6px',
+            background: activeSection === 'whatsapp' ? 'rgba(255,255,255,0.25)' : '#d1fae5',
+            color: activeSection === 'whatsapp' ? '#ffffff' : '#065f46',
+            fontWeight: '900'
+          }}>
+            {lang === 'ar' ? 'الأسرع' : 'Fast'}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSection('manual')}
+          style={{
+            padding: '10px 20px',
+            borderRadius: '12px',
+            fontWeight: '800',
+            fontSize: '0.9rem',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            transition: 'all 0.2s',
+            backgroundColor: activeSection === 'manual' ? '#2563eb' : 'var(--bg-secondary)',
+            color: activeSection === 'manual' ? '#ffffff' : 'var(--text-primary)',
+            border: activeSection === 'manual' ? '1px solid #2563eb' : '1px solid var(--border-color)',
+            boxShadow: activeSection === 'manual' ? '0 4px 14px rgba(37, 99, 235, 0.35)' : 'none'
+          }}
+        >
+          <Plus size={16} />
+          <span>{lang === 'ar' ? 'إضافة منتج يدوي' : 'Manual Product Form'}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSection('suppliers')}
+          style={{
+            padding: '10px 20px',
+            borderRadius: '12px',
+            fontWeight: '800',
+            fontSize: '0.9rem',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            transition: 'all 0.2s',
+            backgroundColor: activeSection === 'suppliers' ? '#7c3aed' : 'var(--bg-secondary)',
+            color: activeSection === 'suppliers' ? '#ffffff' : 'var(--text-primary)',
+            border: activeSection === 'suppliers' ? '1px solid #7c3aed' : '1px solid var(--border-color)',
+            boxShadow: activeSection === 'suppliers' ? '0 4px 14px rgba(124, 58, 237, 0.35)' : 'none'
+          }}
+        >
+          <Globe size={16} />
+          <span>{lang === 'ar' ? 'مواقع الموردين والمزامنة' : 'Supplier Websites & Sync'}</span>
+          <span style={{
+            fontSize: '0.68rem',
+            padding: '2px 8px',
+            borderRadius: '6px',
+            background: activeSection === 'suppliers' ? 'rgba(255,255,255,0.25)' : 'var(--bg-tertiary)',
+            color: activeSection === 'suppliers' ? '#ffffff' : 'var(--text-muted)',
+            fontWeight: '800'
+          }}>
+            {supplierSources.length}
+          </span>
+        </button>
+      </div>
+
+      {/* WhatsApp Smart Product Importer */}
+      {activeSection === 'whatsapp' && (
+        <WhatsAppProductImporter
+          categories={categories}
+          merchants={merchants}
+          onProductCreated={() => {
+            fetchProducts();
+            fetchCategories();
+          }}
+          apiBase={apiBase}
+        />
+      )}
+
+      {/* Multi-Supplier Website Synchronization Card */}
+      {activeSection === 'suppliers' && (() => {
         const currentSource = supplierSources.find(s => String(s.id) === String(selectedSourceId)) || supplierSources[0];
 
         return (
@@ -1213,7 +1331,8 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
 
 
       {/* Product Form */}
-      <div className="dashboard-card" style={{ padding: '20px' }}>
+      {(activeSection === 'manual' || isEditing) && (
+        <div className="dashboard-card" style={{ padding: '20px' }}>
         <h4 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '16px' }}>
           {isEditing 
             ? (lang === 'ar' ? 'تعديل بيانات المنتج' : 'Edit Product Details') 
@@ -1397,6 +1516,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
           </div>
         </form>
       </div>
+      )}
 
       {filterOutOfStock && (
         <div className="animate-scale" style={{

@@ -297,7 +297,7 @@ exports.getProductById = async (req, res) => {
 
 exports.createProduct = async (req, res) => {
   const { name_ar, name_en, description_ar, description_en, price_usd, cost_price_usd, old_price_usd, category_id, merchant_id, stock, colors, sizes } = req.body;
-  const imageUrl = req.file ? fileToBase64(req.file) : '';
+  const imageUrl = req.file ? fileToBase64(req.file) : (req.body.image_url || '');
 
   if (!name_ar || !name_en || !price_usd) {
     return res.status(400).json({ error_ar: 'الرجاء إدخال الحقول المطلوبة (الاسم والسعر)', error_en: 'Please enter required fields (name and price)' });
