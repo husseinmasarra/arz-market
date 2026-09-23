@@ -431,8 +431,8 @@ exports.bulkCreateProducts = async (req, res) => {
           name_ar, name_en, description_ar, description_en,
           price_usd, cost_price_usd, old_price_usd,
           category_id, merchant_id, image_url, stock,
-          colors, sizes, is_new_arrival
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+          colors, sizes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [
         item.name_ar.trim(),
         item.name_en ? item.name_en.trim() : item.name_ar.trim(),
