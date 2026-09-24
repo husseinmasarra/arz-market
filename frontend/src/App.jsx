@@ -94,19 +94,22 @@ export default function App() {
     try {
       setLoadingProducts(true);
       let url = `${apiBase}/products?`;
-      if (selectedCategory) url += `category_id=${selectedCategory}&`;
+      if (selectedCategory) url += `category_id=${encodeURIComponent(selectedCategory)}&`;
       if (searchVal) url += `search=${encodeURIComponent(searchVal)}&`;
-      if (minPrice) url += `min_price=${minPrice}&`;
-      if (maxPrice) url += `max_price=${maxPrice}&`;
-      if (minRating) url += `min_rating=${minRating}&`;
+      if (minPrice) url += `min_price=${encodeURIComponent(minPrice)}&`;
+      if (maxPrice) url += `max_price=${encodeURIComponent(maxPrice)}&`;
+      if (minRating) url += `min_rating=${encodeURIComponent(minRating)}&`;
 
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
-        setProducts(data);
+        setProducts(Array.isArray(data) ? data : []);
+      } else {
+        setProducts([]);
       }
     } catch (err) {
       console.error('Fetch products client error:', err);
+      setProducts([]);
     } finally {
       setLoadingProducts(false);
     }
@@ -117,10 +120,15 @@ export default function App() {
       const res = await fetch(`${apiBase}/categories`);
       if (res.ok) {
         const data = await res.json();
-        setCategories(data.filter(c => c.active !== 0));
+        if (Array.isArray(data)) {
+          setCategories(data.filter(c => c && c.active !== 0));
+        } else {
+          setCategories([]);
+        }
       }
     } catch (err) {
       console.error('Fetch categories client error:', err);
+      setCategories([]);
     }
   };
 
@@ -1240,10 +1248,11 @@ export default function App() {
               <div className="animate-fade" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 
                 {(() => {
-                  const currentCat = categories.find(c => c.id === parseInt(selectedCategory));
+                  const catList = Array.isArray(categories) ? categories : [];
+                  const currentCat = catList.find(c => c && String(c.id) === String(selectedCategory));
                   const parentId = currentCat ? (currentCat.parent_id || currentCat.id) : null;
-                  const parentCat = parentId ? categories.find(c => c.id === parentId) : null;
-                  const availableSubCats = parentId ? categories.filter(c => c.parent_id === parentId) : [];
+                  const parentCat = parentId ? catList.find(c => c && String(c.id) === String(parentId)) : null;
+                  const availableSubCats = parentId ? catList.filter(c => c && String(c.parent_id) === String(parentId)) : [];
 
                   return (
                     <div style={{
@@ -1284,7 +1293,7 @@ export default function App() {
                             {parentCat ? (
                               <span>
                                 {getCategoryName(parentCat, lang)}
-                                {currentCat && currentCat.parent_id ? (
+                                {currentCat && currentCat.parent_id && String(currentCat.parent_id) !== String(currentCat.id) ? (
                                   <span style={{ fontSize: '1.05rem', color: 'var(--accent-blue)', marginInlineStart: '8px', fontWeight: '600' }}>
                                     / {getCategoryName(currentCat, lang)}
                                   </span>
@@ -1328,6 +1337,7 @@ export default function App() {
 
                           {/* Individual Subcategory Pills */}
                           {availableSubCats.map((sub) => {
+                            if (!sub) return null;
                             const isSubActive = selectedCategory === String(sub.id);
                             return (
                               <button
@@ -1387,16 +1397,16 @@ export default function App() {
                       gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
                       gap: '24px'
                     }}>
-                      {products.map((p) => (
+                      {(Array.isArray(products) ? products : []).map((p) => p && (
                         <ProductCard 
-                          key={p.id} 
+                          key={p.id || Math.random()} 
                           product={p} 
                           onDetailsClick={setSelectedProduct} 
                         />
                       ))}
                     </div>
 
-                    {products.length === 0 && (
+                    {(!products || products.length === 0) && (
                       <div style={{
                         textAlign: 'center',
                         padding: '80px 0',

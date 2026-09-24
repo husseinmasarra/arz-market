@@ -7,13 +7,23 @@ export default function ProductCard({ product, onDetailsClick }) {
   const { lang, formatPrice, t, apiHost } = useApp();
   const { addToCart } = useCart();
 
-  const name = (lang === 'ar' ? product?.name_ar : product?.name_en) || product?.name_ar || product?.name_en || 'Product';
+  const name = (lang === 'ar' ? product?.name_ar : product?.name_en) || product?.name_ar || product?.name_en || product?.title || 'Product';
   const categoryName = (lang === 'ar' ? product?.category_name_ar : product?.category_name_en) || product?.category_name_ar || product?.category_name_en;
   
-  // Rating calculation
-  const rating = product?.rating || 0;
+  // Safe options parsing
+  const parsedSizes = React.useMemo(() => {
+    if (!product?.sizes) return [];
+    let arr = product.sizes;
+    if (typeof arr === 'string') {
+      try { arr = JSON.parse(arr); } catch (e) { arr = []; }
+    }
+    return Array.isArray(arr) ? arr : [];
+  }, [product?.sizes]);
 
-  const hasDiscount = product?.old_price_usd && product.old_price_usd > product.price_usd;
+  // Rating calculation
+  const rating = Number(product?.rating) || 0;
+
+  const hasDiscount = product?.old_price_usd && Number(product.old_price_usd) > Number(product.price_usd);
 
   const rawImg = product?.image_url;
   const imageUrl = (typeof rawImg === 'string' && rawImg.trim().length > 0)
@@ -149,7 +159,7 @@ export default function ProductCard({ product, onDetailsClick }) {
           <div style={{ fontSize: '0.75rem', fontWeight: '600', color: product.stock > 0 ? '#10b981' : '#ef4444' }}>
             {product.stock > 0 ? `${t('in_stock')}: ${product.stock}` : t('out_of_stock')}
           </div>
-          {product.sizes && product.sizes.length > 0 && (
+          {parsedSizes.length > 0 && (
             <span style={{
               fontSize: '0.72rem',
               fontWeight: '700',
@@ -158,7 +168,7 @@ export default function ProductCard({ product, onDetailsClick }) {
               padding: '2px 8px',
               borderRadius: '6px'
             }}>
-              {lang === 'ar' ? `${product.sizes.length} خيارات/موديلات` : `${product.sizes.length} options`}
+              {lang === 'ar' ? `${parsedSizes.length} خيارات/موديلات` : `${parsedSizes.length} options`}
             </span>
           )}
         </div>
@@ -192,7 +202,7 @@ export default function ProductCard({ product, onDetailsClick }) {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              if (product.sizes && product.sizes.length > 0) {
+              if (parsedSizes.length > 0) {
                 onDetailsClick(product);
               } else {
                 addToCart(product);
@@ -217,7 +227,7 @@ export default function ProductCard({ product, onDetailsClick }) {
             }}
           >
             <ShoppingCart size={14} />
-            <span>{product.sizes && product.sizes.length > 0 ? (lang === 'ar' ? 'اختر الموديل' : 'Select Option') : t('add_to_cart')}</span>
+            <span>{parsedSizes.length > 0 ? (lang === 'ar' ? 'اختر الموديل' : 'Select Option') : t('add_to_cart')}</span>
           </button>
         </div>
       </div>

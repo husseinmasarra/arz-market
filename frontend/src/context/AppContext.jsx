@@ -264,12 +264,17 @@ export const AppProvider = ({ children }) => {
     return translations[lang][key] || key;
   };
 
-  // Format price helper
+  // Format price helper (bulletproof against null, undefined, string, or NaN)
   const formatPrice = (priceInUsd) => {
+    if (priceInUsd === null || priceInUsd === undefined || isNaN(Number(priceInUsd))) {
+      return currency === 'USD' ? '$0.00' : '0 ل.ل.';
+    }
+    const num = Number(priceInUsd);
     if (currency === 'USD') {
-      return `$${priceInUsd.toFixed(2)}`;
+      return `$${num.toFixed(2)}`;
     } else {
-      const lbpVal = priceInUsd * settings.exchange_rate;
+      const rate = Number(settings?.exchange_rate) || 89500;
+      const lbpVal = Math.round(num * rate);
       return `${lbpVal.toLocaleString()} ل.ل.`;
     }
   };
