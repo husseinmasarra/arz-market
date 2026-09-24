@@ -257,6 +257,19 @@ export default function App() {
     }
   }, [currentView]);
 
+  // Always scroll to the top on first load and disable browser restoring mid-page scroll
+  useEffect(() => {
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, []);
+
+  // Always scroll to the top when switching views, selecting a category, or searching
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [currentView, selectedCategory]);
+
   useEffect(() => {
     const handlePopState = () => {
       const params = new URLSearchParams(window.location.search);
@@ -264,6 +277,7 @@ export default function App() {
       const cat = params.get('category_id') || params.get('category') || '';
       setCurrentView(view);
       setSelectedCategory(cat);
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     };
 
     window.addEventListener('popstate', handlePopState);
@@ -409,6 +423,7 @@ export default function App() {
     }
     const searchStr = url.searchParams.toString();
     window.history.pushState(null, '', url.pathname + (searchStr ? '?' + searchStr : ''));
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   };
 
   const clearFilters = () => {
@@ -421,6 +436,7 @@ export default function App() {
     url.searchParams.delete('category');
     const searchStr = url.searchParams.toString();
     window.history.pushState(null, '', url.pathname + (searchStr ? '?' + searchStr : ''));
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   };
 
   return (

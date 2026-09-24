@@ -23,6 +23,10 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(40);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, []);
+
   const isCreatedToday = (dateStr) => {
     if (!dateStr) return false;
     try {

@@ -121,6 +121,7 @@ export default function AdminDashboard({ setCurrentView }) {
     
     // Update browser URL
     window.history.pushState(null, '', `/?view=admin&tab=${tabId}`);
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   };
 
   return (
