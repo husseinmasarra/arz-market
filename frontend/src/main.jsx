@@ -18,6 +18,19 @@ class ErrorBoundary extends React.Component {
   componentDidCatch(error, errorInfo) {
     console.error('App Crash caught by ErrorBoundary:', error, errorInfo);
   }
+  handleReset = () => {
+    try {
+      if ('caches' in window) {
+        caches.keys().then(names => names.forEach(name => caches.delete(name)));
+      }
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister()));
+      }
+    } catch (e) {}
+    this.setState({ hasError: false, error: null });
+    window.location.reload();
+  };
+
   render() {
     if (this.state.hasError) {
       return (
@@ -44,12 +57,12 @@ class ErrorBoundary extends React.Component {
               حدث خطأ غير متوقع في العرض
             </h3>
             <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '20px', lineHeight: '1.5' }}>
-              نعتذر عن هذا الخطأ المؤقت. يمكنك تحديث الصفحة أو العودة إلى الواجهة الرئيسية.
+              نعتذر عن هذا الخطأ المؤقت. يمكنك تحديث الصفحة وتحديث البيانات تلقائياً.
             </p>
             <div style={{ display: 'flex', gap: '10px' }}>
               <button
                 onClick={() => {
-                  this.setState({ hasError: false });
+                  this.setState({ hasError: false, error: null });
                   window.location.href = '/';
                 }}
                 style={{
@@ -66,7 +79,7 @@ class ErrorBoundary extends React.Component {
                 العودة للمتجر
               </button>
               <button
-                onClick={() => window.location.reload()}
+                onClick={this.handleReset}
                 style={{
                   padding: '10px 16px',
                   backgroundColor: '#f1f5f9',

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arz-mart-cache-v6';
+const CACHE_NAME = 'arz-mart-cache-v7';
 
 // Install Event - skip waiting immediately
 self.addEventListener('install', (event) => {
