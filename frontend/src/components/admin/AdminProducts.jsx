@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
-import { Trash2, Edit3, Image, RefreshCw, Sparkles, CheckCircle2, AlertCircle, Plus, Globe, ExternalLink, X, Search, Filter, Eye, ChevronLeft, ChevronRight, ArrowUpDown, MessageSquare, Package } from 'lucide-react';
+import { Trash2, Edit3, Image, RefreshCw, Sparkles, CheckCircle2, AlertCircle, Plus, Globe, ExternalLink, X, Search, Filter, Eye, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, MessageSquare, Package } from 'lucide-react';
 
 export default function AdminProducts({ filterOutOfStock = false, onClearFilter = null }) {
   const { lang, formatPrice, apiBase, apiHost } = useApp();
@@ -21,7 +21,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('newest'); // default: newest first so newly fetched products appear at the top
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 40;
+  const [itemsPerPage, setItemsPerPage] = useState(40);
 
   const isCreatedToday = (dateStr) => {
     if (!dateStr) return false;
@@ -2146,82 +2146,256 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
           </table>
         </div>
 
-        {/* Pagination Controls */}
-        {totalPages > 1 && (
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center', 
-            flexWrap: 'wrap',
-            gap: '12px',
-            marginTop: '20px',
-            paddingTop: '16px',
-            borderTop: '1px solid var(--border-color)'
-          }}>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>
-              {lang === 'ar' 
-                ? `صفحة ${safeCurrentPage} من إجمالي ${totalPages} صفحات (${filteredProducts.length} منتج)`
-                : `Page ${safeCurrentPage} of ${totalPages} (${filteredProducts.length} items)`}
+        {/* Full Interactive Pagination Controls */}
+        {totalPages > 1 && (() => {
+          // Compute window of visible page numbers
+          const getPageNumbers = () => {
+            if (totalPages <= 9) {
+              return Array.from({ length: totalPages }, (_, i) => i + 1);
+            }
+            const pages = [];
+            pages.push(1);
+
+            let start = Math.max(2, safeCurrentPage - 2);
+            let end = Math.min(totalPages - 1, safeCurrentPage + 2);
+
+            if (safeCurrentPage <= 4) {
+              start = 2;
+              end = 6;
+            } else if (safeCurrentPage >= totalPages - 3) {
+              start = totalPages - 5;
+              end = totalPages - 1;
+            }
+
+            if (start > 2) {
+              pages.push('ellipsis-start');
+            }
+
+            for (let i = start; i <= end; i++) {
+              pages.push(i);
+            }
+
+            if (end < totalPages - 1) {
+              pages.push('ellipsis-end');
+            }
+
+            pages.push(totalPages);
+            return pages;
+          };
+
+          const pageNumbers = getPageNumbers();
+
+          return (
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              flexWrap: 'wrap',
+              gap: '16px',
+              marginTop: '20px',
+              paddingTop: '16px',
+              borderTop: '1px solid var(--border-color)'
+            }}>
+              {/* Summary & Items Per Page Selector */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-light)', fontWeight: '600' }}>
+                  {lang === 'ar' 
+                    ? `صفحة ${safeCurrentPage} من إجمالي ${totalPages} صفحات (${filteredProducts.length.toLocaleString()} منتج)`
+                    : `Page ${safeCurrentPage} of ${totalPages} (${filteredProducts.length.toLocaleString()} items)`}
+                </span>
+
+                {/* Items Per Page dropdown */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    {lang === 'ar' ? 'عرض بالصفحة:' : 'Per page:'}
+                  </span>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => {
+                      setItemsPerPage(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                    style={{
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--border-color)',
+                      backgroundColor: 'var(--bg-secondary)',
+                      color: 'var(--text-primary)',
+                      fontSize: '0.8rem',
+                      fontWeight: '700',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value={20}>20</option>
+                    <option value={40}>40</option>
+                    <option value={100}>100</option>
+                    <option value={200}>200</option>
+                    <option value={500}>500</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Numbered Page Buttons & Navigation */}
+              <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
+                {/* First Page Button */}
+                <button
+                  type="button"
+                  title={lang === 'ar' ? 'الصفحة الأولى' : 'First Page'}
+                  disabled={safeCurrentPage === 1}
+                  onClick={() => setCurrentPage(1)}
+                  style={{
+                    padding: '6px 8px',
+                    backgroundColor: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '6px',
+                    cursor: safeCurrentPage === 1 ? 'not-allowed' : 'pointer',
+                    opacity: safeCurrentPage === 1 ? 0.4 : 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--text-primary)',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  <ChevronsRight size={16} style={{ transform: lang === 'ar' ? 'none' : 'rotate(180deg)' }} />
+                </button>
+
+                {/* Previous Button */}
+                <button
+                  type="button"
+                  disabled={safeCurrentPage === 1}
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  style={{
+                    padding: '6px 10px',
+                    backgroundColor: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '6px',
+                    cursor: safeCurrentPage === 1 ? 'not-allowed' : 'pointer',
+                    opacity: safeCurrentPage === 1 ? 0.4 : 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    fontSize: '0.8rem',
+                    fontWeight: '700',
+                    color: 'var(--text-primary)',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  <ChevronRight size={15} style={{ transform: lang === 'ar' ? 'none' : 'rotate(180deg)' }} />
+                  <span>{lang === 'ar' ? 'السابق' : 'Prev'}</span>
+                </button>
+
+                {/* Numbered Buttons */}
+                {pageNumbers.map((item, idx) => {
+                  if (typeof item === 'string') {
+                    return (
+                      <span key={`ellipsis-${idx}`} style={{ padding: '0 4px', color: 'var(--text-light)', fontWeight: '800' }}>
+                        …
+                      </span>
+                    );
+                  }
+
+                  const isCurrent = safeCurrentPage === item;
+                  return (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => setCurrentPage(item)}
+                      style={{
+                        minWidth: '32px',
+                        height: '32px',
+                        padding: '0 6px',
+                        borderRadius: '6px',
+                        border: isCurrent ? '1px solid var(--accent-blue)' : '1px solid var(--border-color)',
+                        backgroundColor: isCurrent ? 'var(--accent-blue)' : 'var(--bg-secondary)',
+                        color: isCurrent ? 'white' : 'var(--text-primary)',
+                        fontWeight: isCurrent ? '800' : '600',
+                        fontSize: '0.82rem',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      {item}
+                    </button>
+                  );
+                })}
+
+                {/* Next Button */}
+                <button
+                  type="button"
+                  disabled={safeCurrentPage >= totalPages}
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  style={{
+                    padding: '6px 10px',
+                    backgroundColor: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '6px',
+                    cursor: safeCurrentPage >= totalPages ? 'not-allowed' : 'pointer',
+                    opacity: safeCurrentPage >= totalPages ? 0.4 : 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    fontSize: '0.8rem',
+                    fontWeight: '700',
+                    color: 'var(--text-primary)',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  <span>{lang === 'ar' ? 'التالي' : 'Next'}</span>
+                  <ChevronLeft size={15} style={{ transform: lang === 'ar' ? 'none' : 'rotate(180deg)' }} />
+                </button>
+
+                {/* Last Page Button */}
+                <button
+                  type="button"
+                  title={lang === 'ar' ? 'الصفحة الأخيرة' : 'Last Page'}
+                  disabled={safeCurrentPage >= totalPages}
+                  onClick={() => setCurrentPage(totalPages)}
+                  style={{
+                    padding: '6px 8px',
+                    backgroundColor: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '6px',
+                    cursor: safeCurrentPage >= totalPages ? 'not-allowed' : 'pointer',
+                    opacity: safeCurrentPage >= totalPages ? 0.4 : 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'var(--text-primary)',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  <ChevronsLeft size={16} style={{ transform: lang === 'ar' ? 'none' : 'rotate(180deg)' }} />
+                </button>
+
+                {/* Direct Jump To Page Selector */}
+                <div style={{ marginInlineStart: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <select
+                    value={safeCurrentPage}
+                    onChange={(e) => setCurrentPage(Number(e.target.value))}
+                    aria-label="Jump to page"
+                    style={{
+                      padding: '5px 8px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--border-color)',
+                      backgroundColor: 'var(--bg-secondary)',
+                      color: 'var(--text-primary)',
+                      fontSize: '0.8rem',
+                      fontWeight: '700',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                      <option key={p} value={p}>
+                        {lang === 'ar' ? `صفحة ${p}` : `Page ${p}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
-
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              <button
-                type="button"
-                disabled={safeCurrentPage === 1}
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                style={{
-                  padding: '6px 12px',
-                  backgroundColor: 'var(--bg-secondary)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '6px',
-                  cursor: safeCurrentPage === 1 ? 'not-allowed' : 'pointer',
-                  opacity: safeCurrentPage === 1 ? 0.5 : 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  fontSize: '0.85rem',
-                  fontWeight: '700'
-                }}
-              >
-                <ChevronRight size={16} />
-                <span>{lang === 'ar' ? 'السابق' : 'Previous'}</span>
-              </button>
-
-              <span style={{ 
-                padding: '6px 14px', 
-                backgroundColor: 'var(--accent-blue)', 
-                color: 'white', 
-                borderRadius: '6px', 
-                fontWeight: '800',
-                fontSize: '0.85rem'
-              }}>
-                {safeCurrentPage}
-              </span>
-
-              <button
-                type="button"
-                disabled={safeCurrentPage >= totalPages}
-                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                style={{
-                  padding: '6px 12px',
-                  backgroundColor: 'var(--bg-secondary)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '6px',
-                  cursor: safeCurrentPage >= totalPages ? 'not-allowed' : 'pointer',
-                  opacity: safeCurrentPage >= totalPages ? 0.5 : 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  fontSize: '0.85rem',
-                  fontWeight: '700'
-                }}
-              >
-                <span>{lang === 'ar' ? 'التالي' : 'Next'}</span>
-                <ChevronLeft size={16} />
-              </button>
-            </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
     </div>
