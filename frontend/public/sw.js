@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arz-mart-cache-v5';
+const CACHE_NAME = 'arz-mart-cache-v6';
 
 // Install Event - skip waiting immediately
 self.addEventListener('install', (event) => {
@@ -11,7 +11,9 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          return caches.delete(cacheName);
+          if (cacheName !== CACHE_NAME) {
+            return caches.delete(cacheName);
+          }
         })
       );
     }).then(() => self.clients.claim())
@@ -29,10 +31,10 @@ self.addEventListener('fetch', (event) => {
     event.request.url.includes('/api/') ||
     !event.request.url.startsWith(self.location.origin)
   ) {
-    return; // Returning without calling event.respondWith lets the browser handle the request natively
+    return;
   }
 
-  // For static assets, fetch from network, fallback to cache, never fail with undefined
+  // Network first for scripts/styles, cache fallback
   event.respondWith(
     fetch(event.request)
       .then((networkResponse) => {
