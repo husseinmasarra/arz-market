@@ -336,6 +336,10 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
     fetchSupplierSources();
   }, [token]);
 
+  const [isSubmittingProduct, setIsSubmittingProduct] = useState(false);
+  const [productFormMsg, setProductFormMsg] = useState('');
+  const [productFormError, setProductFormError] = useState('');
+
   const handleFileChange = (e) => {
     setSelectedFile(e.target.files[0]);
   };
@@ -343,6 +347,10 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!nameAr || !nameEn || !priceUsd) return;
+
+    setIsSubmittingProduct(true);
+    setProductFormMsg('');
+    setProductFormError('');
 
     const formData = new FormData();
     formData.append('name_ar', nameAr);
@@ -384,12 +392,23 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
         body: formData
       });
 
+      const data = await res.json();
+
       if (res.ok) {
+        setProductFormMsg(lang === 'ar' 
+          ? (isEditing ? 'تم تعديل المنتج بنجاح!' : 'تمت إضافة المنتج بنجاح!') 
+          : (isEditing ? 'Product updated successfully!' : 'Product added successfully!'));
         resetForm();
         fetchProducts();
+        setTimeout(() => setProductFormMsg(''), 5000);
+      } else {
+        setProductFormError((lang === 'ar' ? data.error_ar : data.error_en) || data.error || (lang === 'ar' ? 'فشل حفظ المنتج' : 'Failed to save product'));
       }
     } catch (err) {
       console.error('Submit product error:', err);
+      setProductFormError(err.message || (lang === 'ar' ? 'حدث خطأ في الاتصال بالخادم' : 'Server connection error'));
+    } finally {
+      setIsSubmittingProduct(false);
     }
   };
 
@@ -1533,6 +1552,34 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
             ? (lang === 'ar' ? 'تعديل بيانات المنتج' : 'Edit Product Details') 
             : (lang === 'ar' ? 'إضافة منتج جديد' : 'Add New Product')}
         </h4>
+
+        {/* Success / Error Message Banner */}
+        {productFormMsg && (
+          <div style={{
+            padding: '12px 16px',
+            backgroundColor: 'rgba(16, 185, 129, 0.12)',
+            border: '1px solid #10b981',
+            borderRadius: '8px',
+            color: '#059669',
+            fontWeight: '700',
+            marginBottom: '16px'
+          }}>
+            ✓ {productFormMsg}
+          </div>
+        )}
+        {productFormError && (
+          <div style={{
+            padding: '12px 16px',
+            backgroundColor: 'rgba(239, 68, 68, 0.12)',
+            border: '1px solid #ef4444',
+            borderRadius: '8px',
+            color: '#dc2626',
+            fontWeight: '700',
+            marginBottom: '16px'
+          }}>
+            ⚠ {productFormError}
+          </div>
+        )}
         
         <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
           <div>
@@ -1700,12 +1747,33 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
           </div>
 
           <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '10px', marginTop: '10px' }}>
-            <button type="submit" className="input-field" style={{ width: 'auto', padding: '10px 24px', backgroundColor: 'var(--accent-blue)', color: 'white', border: 'none', fontWeight: '700', cursor: 'pointer' }}>
-              {isEditing ? 'حفظ التعديلات' : 'إضافة المنتج'}
+            <button 
+              type="submit" 
+              disabled={isSubmittingProduct} 
+              className="input-field" 
+              style={{ 
+                width: 'auto', 
+                padding: '10px 24px', 
+                backgroundColor: isSubmittingProduct ? '#94a3b8' : 'var(--accent-blue)', 
+                color: 'white', 
+                border: 'none', 
+                fontWeight: '700', 
+                cursor: isSubmittingProduct ? 'not-allowed' : 'pointer' 
+              }}
+            >
+              {isSubmittingProduct 
+                ? (lang === 'ar' ? 'جاري الحفظ...' : 'Saving...') 
+                : (isEditing ? (lang === 'ar' ? 'حفظ التعديلات' : 'Save Changes') : (lang === 'ar' ? 'إضافة المنتج' : 'Add Product'))}
             </button>
             {isEditing && (
-              <button type="button" onClick={resetForm} className="input-field" style={{ width: 'auto', padding: '10px 24px', backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: 'none', fontWeight: '600', cursor: 'pointer' }}>
-                إلغاء
+              <button 
+                type="button" 
+                onClick={resetForm} 
+                disabled={isSubmittingProduct}
+                className="input-field" 
+                style={{ width: 'auto', padding: '10px 24px', backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: 'none', fontWeight: '600', cursor: 'pointer' }}
+              >
+                {lang === 'ar' ? 'إلغاء' : 'Cancel'}
               </button>
             )}
           </div>

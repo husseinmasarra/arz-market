@@ -304,17 +304,22 @@ exports.createProduct = async (req, res) => {
   const mid = merchant_id && merchant_id !== 'null' ? parseInt(merchant_id) : null;
   const oldPrice = old_price_usd && old_price_usd !== 'null' ? parseFloat(old_price_usd) : null;
   const costPrice = cost_price_usd ? parseFloat(cost_price_usd) : 0.0;
-  const productStock = stock ? parseInt(stock) : 10;
+  const productStock = stock !== undefined && stock !== '' ? parseInt(stock) : 10;
   const colorsStr = typeof colors === 'string' ? colors : JSON.stringify(colors || []);
   const sizesStr = typeof sizes === 'string' ? sizes : JSON.stringify(sizes || []);
 
   try {
     const result = await db.runAsync(`
       INSERT INTO products (name_ar, name_en, description_ar, description_en, price_usd, cost_price_usd, old_price_usd, category_id, merchant_id, image_url, stock, colors, sizes, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
-    `, [name_ar, name_en, description_ar, description_en, parseFloat(price_usd), costPrice, oldPrice, cid, mid, imageUrl, productStock, colorsStr, sizesStr]);
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `, [name_ar, name_en, description_ar || '', description_en || '', parseFloat(price_usd), costPrice, oldPrice, cid, mid, imageUrl, productStock, colorsStr, sizesStr]);
 
     invalidateProductsCache();
+
+    let parsedColors = [];
+    try { parsedColors = JSON.parse(colorsStr); } catch (e) { parsedColors = []; }
+    let parsedSizes = [];
+    try { parsedSizes = JSON.parse(sizesStr); } catch (e) { parsedSizes = []; }
 
     res.status(201).json({
       message_ar: 'تم إضافة المنتج بنجاح',
@@ -332,13 +337,13 @@ exports.createProduct = async (req, res) => {
         merchant_id: mid,
         image_url: imageUrl,
         stock: productStock,
-        colors: JSON.parse(colorsStr),
-        sizes: JSON.parse(sizesStr)
+        colors: parsedColors,
+        sizes: parsedSizes
       }
     });
   } catch (err) {
     console.error('Create product error:', err);
-    res.status(500).json({ error_ar: 'خطأ في إضافة المنتج', error_en: 'Error adding product' });
+    res.status(500).json({ error_ar: 'خطأ في إضافة المنتج: ' + (err.message || ''), error_en: 'Error adding product: ' + (err.message || '') });
   }
 };
 
@@ -361,7 +366,7 @@ exports.updateProduct = async (req, res) => {
     const mid = merchant_id && merchant_id !== 'null' ? parseInt(merchant_id) : null;
     const oldPrice = old_price_usd && old_price_usd !== 'null' ? parseFloat(old_price_usd) : null;
     const costPrice = cost_price_usd ? parseFloat(cost_price_usd) : product.cost_price_usd;
-    const productStock = stock ? parseInt(stock) : product.stock;
+    const productStock = stock !== undefined && stock !== '' ? parseInt(stock) : product.stock;
     const colorsStr = typeof colors === 'string' ? colors : JSON.stringify(colors || []);
     const sizesStr = typeof sizes === 'string' ? sizes : JSON.stringify(sizes || []);
 
@@ -369,9 +374,14 @@ exports.updateProduct = async (req, res) => {
       UPDATE products 
       SET name_ar = ?, name_en = ?, description_ar = ?, description_en = ?, price_usd = ?, cost_price_usd = ?, old_price_usd = ?, category_id = ?, merchant_id = ?, image_url = ?, stock = ?, colors = ?, sizes = ?
       WHERE id = ?
-    `, [name_ar, name_en, description_ar, description_en, parseFloat(price_usd), costPrice, oldPrice, cid, mid, imageUrl, productStock, colorsStr, sizesStr, id]);
+    `, [name_ar, name_en, description_ar || '', description_en || '', parseFloat(price_usd), costPrice, oldPrice, cid, mid, imageUrl, productStock, colorsStr, sizesStr, id]);
 
     invalidateProductsCache();
+
+    let parsedColors = [];
+    try { parsedColors = JSON.parse(colorsStr); } catch (e) { parsedColors = []; }
+    let parsedSizes = [];
+    try { parsedSizes = JSON.parse(sizesStr); } catch (e) { parsedSizes = []; }
 
     res.json({
       message_ar: 'تم تحديث المنتج بنجاح',
@@ -389,13 +399,13 @@ exports.updateProduct = async (req, res) => {
         merchant_id: mid,
         image_url: imageUrl,
         stock: productStock,
-        colors: JSON.parse(colorsStr),
-        sizes: JSON.parse(sizesStr)
+        colors: parsedColors,
+        sizes: parsedSizes
       }
     });
   } catch (err) {
     console.error('Update product error:', err);
-    res.status(500).json({ error_ar: 'خطأ في تعديل المنتج', error_en: 'Error updating product' });
+    res.status(500).json({ error_ar: 'خطأ في تعديل المنتج: ' + (err.message || ''), error_en: 'Error updating product: ' + (err.message || '') });
   }
 };
 
