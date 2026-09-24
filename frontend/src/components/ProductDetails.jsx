@@ -42,6 +42,7 @@ export default function ProductDetails({ product, onClose, onRefresh }) {
   const [qty, setQty] = useState(1);
   const [userRating, setUserRating] = useState(5);
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
+  const [customerNote, setCustomerNote] = useState('');
   
   // Image Lightbox Zoom & Pan states
   const [isZoomOpen, setIsZoomOpen] = useState(false);
