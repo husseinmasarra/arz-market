@@ -56,9 +56,27 @@ class ErrorBoundary extends React.Component {
             <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: '#1e293b', marginBottom: '8px' }}>
               حدث خطأ غير متوقع في العرض
             </h3>
-            <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '20px', lineHeight: '1.5' }}>
+            <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '14px', lineHeight: '1.5' }}>
               نعتذر عن هذا الخطأ المؤقت. يمكنك تحديث الصفحة وتحديث البيانات تلقائياً.
             </p>
+            {this.state.error && (
+              <div style={{
+                textAlign: 'left',
+                direction: 'ltr',
+                padding: '8px 12px',
+                backgroundColor: '#fee2e2',
+                color: '#991b1b',
+                borderRadius: '8px',
+                fontSize: '0.75rem',
+                fontFamily: 'monospace',
+                marginBottom: '16px',
+                maxHeight: '100px',
+                overflowY: 'auto',
+                wordBreak: 'break-all'
+              }}>
+                {this.state.error.toString()}
+              </div>
+            )}
             <div style={{ display: 'flex', gap: '10px' }}>
               <button
                 onClick={() => {

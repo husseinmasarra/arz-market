@@ -996,8 +996,8 @@ export default function App() {
         <>
           <div className="container" style={{ flex: '1', paddingBottom: '40px' }}>
             
-            {/* Hero Banner section */}
-            <Hero />
+            {/* Hero Banner section - only on homepage */}
+            {selectedCategory === '' && !searchVal && <Hero />}
 
             {/* Dropdown filters and search toggle */}
             <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
@@ -1061,10 +1061,10 @@ export default function App() {
                     className="input-field"
                   >
                     <option value="">{t('all_categories')}</option>
-                    {categories.filter(c => !c.parent_id).map(parent => (
+                    {(Array.isArray(categories) ? categories : []).filter(c => c && !c.parent_id).map(parent => (
                       <optgroup key={parent.id} label={getCategoryName(parent, lang)}>
                         <option value={parent.id}>{getCategoryName(parent, lang)} ({lang === 'ar' ? 'الكل' : 'All'})</option>
-                        {categories.filter(c => c.parent_id === parent.id).map(sub => (
+                        {(Array.isArray(categories) ? categories : []).filter(c => c && String(c.parent_id) === String(parent.id)).map(sub => (
                           <option key={sub.id} value={sub.id}>
                             &nbsp;&nbsp;↳ {getCategoryName(sub, lang)}
                           </option>
@@ -1132,9 +1132,9 @@ export default function App() {
                   gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
                   gap: '24px'
                 }}>
-                  {categories.filter(c => !c.parent_id).map((cat) => {
+                  {(Array.isArray(categories) ? categories : []).filter(c => c && !c.parent_id).map((cat) => {
                     const catName = getCategoryName(cat, lang);
-                    const subcategories = categories.filter(c => c.parent_id === cat.id);
+                    const subcategories = (Array.isArray(categories) ? categories : []).filter(c => c && String(c.parent_id) === String(cat.id));
                     const subCount = subcategories.length;
                     
                     let bgImg = 'https://images.unsplash.com/photo-1550009158-9ebf69173e03?auto=format&fit=crop&w=500&q=80';
