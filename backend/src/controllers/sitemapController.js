@@ -12,7 +12,7 @@ exports.getSitemapXml = async (req, res) => {
 
     // Fetch products
     const products = await db.allAsync(
-      "SELECT id, title, updated_at, image_url, created_at FROM products WHERE active = 1 ORDER BY id DESC LIMIT 5000"
+      "SELECT id, name_ar, name_en, image_url, created_at FROM products WHERE stock > 0 ORDER BY id DESC LIMIT 5000"
     ).catch(() => []);
 
     let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
@@ -38,17 +38,22 @@ exports.getSitemapXml = async (req, res) => {
 
     // 3. Products
     for (const prod of products) {
-      const prodDate = prod.updated_at || prod.created_at || now;
+      const prodDate = prod.created_at || now;
       const formattedDate = prodDate.includes('T') ? prodDate.split('T')[0] : prodDate.substring(0, 10);
+      const prodTitle = prod.name_ar || prod.name_en || 'Product';
+      const fullImg = prod.image_url 
+        ? (prod.image_url.startsWith('http') ? prod.image_url : `${baseUrl}${prod.image_url.startsWith('/') ? '' : '/'}${prod.image_url}`)
+        : '';
+
       xml += `  <url>\n`;
       xml += `    <loc>${baseUrl}/?product=${prod.id}</loc>\n`;
       xml += `    <lastmod>${formattedDate || now}</lastmod>\n`;
       xml += `    <changefreq>weekly</changefreq>\n`;
       xml += `    <priority>0.9</priority>\n`;
-      if (prod.image_url && prod.image_url.startsWith('http')) {
+      if (fullImg) {
         xml += `    <image:image>\n`;
-        xml += `      <image:loc>${prod.image_url.replace(/&/g, '&amp;')}</image:loc>\n`;
-        xml += `      <image:title><![CDATA[${prod.title}]]></image:title>\n`;
+        xml += `      <image:loc>${fullImg.replace(/&/g, '&amp;')}</image:loc>\n`;
+        xml += `      <image:title><![CDATA[${prodTitle}]]></image:title>\n`;
         xml += `    </image:image>\n`;
       }
       xml += `  </url>\n`;

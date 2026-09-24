@@ -42,3 +42,5 @@ yarn-error.log*
 .vercel
 .env*
 backend/deal_originals/
+backend/.whatsapp_browser_session/
+*.tmp

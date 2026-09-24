@@ -199,15 +199,12 @@ exports.getBestSellers = async (req, res) => {
   try {
     const rows = await db.allAsync(`
       SELECT p.*, c.name_ar as category_name_ar, c.name_en as category_name_en,
-             m.name as merchant_name,
-             COALESCE(SUM(oi.quantity), 0) as total_sold
+             m.name as merchant_name
       FROM products p
       LEFT JOIN categories c ON p.category_id = c.id
       LEFT JOIN merchants m ON p.merchant_id = m.id
-      LEFT JOIN order_items oi ON oi.product_id = p.id
       WHERE (c.active = 1 OR c.active IS NULL) AND p.stock > 0
-      GROUP BY p.id
-      ORDER BY total_sold DESC, p.id DESC
+      ORDER BY p.id DESC
       LIMIT ?
     `, [limit]);
 
@@ -313,8 +310,8 @@ exports.createProduct = async (req, res) => {
 
   try {
     const result = await db.runAsync(`
-      INSERT INTO products (name_ar, name_en, description_ar, description_en, price_usd, cost_price_usd, old_price_usd, category_id, merchant_id, image_url, stock, colors, sizes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO products (name_ar, name_en, description_ar, description_en, price_usd, cost_price_usd, old_price_usd, category_id, merchant_id, image_url, stock, colors, sizes, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
     `, [name_ar, name_en, description_ar, description_en, parseFloat(price_usd), costPrice, oldPrice, cid, mid, imageUrl, productStock, colorsStr, sizesStr]);
 
     invalidateProductsCache();
@@ -343,125 +340,6 @@ exports.createProduct = async (req, res) => {
     console.error('Create product error:', err);
     res.status(500).json({ error_ar: 'خطأ في إضافة المنتج', error_en: 'Error adding product' });
   }
-};
-
-exports.bulkCreateProducts = async (req, res) => {
-  const { products: rawProducts, merchant_name } = req.body;
-  if (!Array.isArray(rawProducts) || rawProducts.length === 0) {
-    return res.status(400).json({ error: 'No products array provided' });
-  }
-
-  const fs = require('fs');
-  const path = require('path');
-  const uploadsDir = path.join(__dirname, '../../uploads/products');
-  if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-  }
-
-  // Find or create merchant if provided
-  let merchantId = null;
-  if (merchant_name) {
-    try {
-      const mRow = await db.getAsync('SELECT id FROM merchants WHERE name = ? LIMIT 1', [merchant_name]);
-      if (mRow) {
-        merchantId = mRow.id;
-      } else {
-        const mRes = await db.runAsync('INSERT INTO merchants (name) VALUES (?)', [merchant_name]);
-        merchantId = mRes.lastID;
-      }
-    } catch (e) {}
-  }
-
-  const allCategories = await db.allAsync('SELECT id, name_ar, name_en FROM categories');
-  let inserted = 0;
-  let skipped = 0;
-
-  for (const item of rawProducts) {
-    if (!item || !item.name_ar || !item.price_usd) continue;
-
-    // Detect Category
-    let catId = item.category_id || null;
-    if (!catId) {
-      const fullText = (item.name_ar + ' ' + (item.description_ar || '')).toLowerCase();
-      if (/حرام|بلانكيت|شرشف|شراشف|مخدة|وسادة|لحاف|دوفيه|بياضات|مفرش|بطانية|مناشف/i.test(fullText)) {
-        const c = allCategories.find(c => c.name_ar.includes('بياضات') || c.name_ar.includes('منزل'));
-        if (c) catId = c.id;
-      } else if (/طنجرة|مقلاة|ايرفراير|خلاط|مطبخ|كاسات|صحون/i.test(fullText)) {
-        const c = allCategories.find(c => c.name_ar.includes('مطبخ'));
-        if (c) catId = c.id;
-      } else if (/سماعة|شاحن|كابل|باوربانك|باور\s*بانك|ايربودز|بلوتوث/i.test(fullText)) {
-        const c = allCategories.find(c => c.name_ar.includes('إلكترونيات'));
-        if (c) catId = c.id;
-      }
-      if (!catId && allCategories.length > 0) {
-        catId = allCategories[0].id;
-      }
-    }
-
-    // Process Image
-    let imageUrl = item.image_url || '';
-    if (imageUrl.startsWith('data:image')) {
-      try {
-        const ext = imageUrl.includes('png') ? 'png' : 'jpg';
-        const fileName = `wa_${Date.now()}_${Math.floor(Math.random() * 10000)}.${ext}`;
-        const filePath = path.join(uploadsDir, fileName);
-        const rawBase64 = imageUrl.replace(/^data:image\/\w+;base64,/, '');
-        fs.writeFileSync(filePath, Buffer.from(rawBase64, 'base64'));
-        imageUrl = `/uploads/products/${fileName}`;
-      } catch (err) {
-        console.error('Error writing base64 image:', err);
-      }
-    }
-
-    const costPrice = parseFloat(item.cost_price_usd) || 0;
-    const sellPrice = parseFloat(item.price_usd);
-    const oldPrice = item.old_price_usd ? parseFloat(item.old_price_usd) : Math.ceil(sellPrice * 1.35);
-    const colorsStr = typeof item.colors === 'string' ? item.colors : JSON.stringify(item.colors || []);
-    const sizesStr = typeof item.sizes === 'string' ? item.sizes : JSON.stringify(item.sizes || []);
-
-    try {
-      const existing = await db.getAsync('SELECT id FROM products WHERE name_ar = ? LIMIT 1', [item.name_ar.trim()]);
-      if (existing) {
-        skipped++;
-        continue;
-      }
-
-      await db.runAsync(`
-        INSERT INTO products (
-          name_ar, name_en, description_ar, description_en,
-          price_usd, cost_price_usd, old_price_usd,
-          category_id, merchant_id, image_url, stock,
-          colors, sizes
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, [
-        item.name_ar.trim(),
-        item.name_en ? item.name_en.trim() : item.name_ar.trim(),
-        item.description_ar || item.name_ar,
-        item.description_en || (item.name_en || item.name_ar),
-        sellPrice,
-        costPrice,
-        oldPrice,
-        catId,
-        merchantId || (item.merchant_id || null),
-        imageUrl,
-        parseInt(item.stock) || 10,
-        colorsStr,
-        sizesStr
-      ]);
-      inserted++;
-    } catch (err) {
-      console.error('Error inserting bulk product:', err);
-    }
-  }
-
-  invalidateProductsCache();
-
-  res.json({
-    success: true,
-    inserted,
-    skipped,
-    total: rawProducts.length
-  });
 };
 
 exports.updateProduct = async (req, res) => {

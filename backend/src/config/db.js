@@ -849,6 +849,18 @@ function initializeDatabase() {
       db.run(alterSizes, [], (err) => {
         // Ignore error
       });
+      const alterCreatedAt = isPostgres
+        ? "ALTER TABLE products ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+        : "ALTER TABLE products ADD COLUMN created_at TEXT DEFAULT NULL";
+      db.run(alterCreatedAt, [], () => {});
+      const alterNewArrival = isPostgres
+        ? "ALTER TABLE products ADD COLUMN IF NOT EXISTS is_new_arrival INTEGER DEFAULT 0"
+        : "ALTER TABLE products ADD COLUMN is_new_arrival INTEGER DEFAULT 0";
+      db.run(alterNewArrival, [], () => {});
+      const alterSyncBatch = isPostgres
+        ? "ALTER TABLE products ADD COLUMN IF NOT EXISTS sync_batch_time TEXT DEFAULT NULL"
+        : "ALTER TABLE products ADD COLUMN sync_batch_time TEXT DEFAULT NULL";
+      db.run(alterSyncBatch, [], () => {});
     });
 
     // 6. Orders Table

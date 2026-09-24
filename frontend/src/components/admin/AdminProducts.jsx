@@ -2,13 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { Trash2, Edit3, Image, RefreshCw, Sparkles, CheckCircle2, AlertCircle, Plus, Globe, ExternalLink, X, Search, Filter, Eye, ChevronLeft, ChevronRight, ArrowUpDown, MessageSquare } from 'lucide-react';
-import WhatsAppProductImporter from './WhatsAppProductImporter';
 
 export default function AdminProducts({ filterOutOfStock = false, onClearFilter = null }) {
   const { lang, formatPrice, apiBase, apiHost } = useApp();
   const { token } = useAuth();
 
-  const [activeSection, setActiveSection] = useState('whatsapp'); // 'whatsapp' | 'manual' | 'suppliers'
+  const [activeSection, setActiveSection] = useState('suppliers'); // 'suppliers' | 'manual'
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [merchants, setMerchants] = useState([]);
@@ -526,39 +525,6 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
       }}>
         <button
           type="button"
-          onClick={() => setActiveSection('whatsapp')}
-          style={{
-            padding: '10px 20px',
-            borderRadius: '12px',
-            fontWeight: '800',
-            fontSize: '0.9rem',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            transition: 'all 0.2s',
-            backgroundColor: activeSection === 'whatsapp' ? '#059669' : 'var(--bg-secondary)',
-            color: activeSection === 'whatsapp' ? '#ffffff' : 'var(--text-primary)',
-            border: activeSection === 'whatsapp' ? '1px solid #059669' : '1px solid var(--border-color)',
-            boxShadow: activeSection === 'whatsapp' ? '0 4px 14px rgba(5, 150, 105, 0.35)' : 'none'
-          }}
-        >
-          <span style={{ fontSize: '1.2rem' }}>💬</span>
-          <span>{lang === 'ar' ? 'استيراد فوري من واتساب (WhatsApp)' : 'WhatsApp Fast Import'}</span>
-          <span style={{
-            fontSize: '0.68rem',
-            padding: '2px 8px',
-            borderRadius: '6px',
-            background: activeSection === 'whatsapp' ? 'rgba(255,255,255,0.25)' : '#d1fae5',
-            color: activeSection === 'whatsapp' ? '#ffffff' : '#065f46',
-            fontWeight: '900'
-          }}>
-            {lang === 'ar' ? 'الأسرع' : 'Fast'}
-          </span>
-        </button>
-
-        <button
-          type="button"
           onClick={() => setActiveSection('manual')}
           style={{
             padding: '10px 20px',
@@ -613,19 +579,6 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
           </span>
         </button>
       </div>
-
-      {/* WhatsApp Smart Product Importer */}
-      {activeSection === 'whatsapp' && (
-        <WhatsAppProductImporter
-          categories={categories}
-          merchants={merchants}
-          onProductCreated={() => {
-            fetchProducts();
-            fetchCategories();
-          }}
-          apiBase={apiBase}
-        />
-      )}
 
       {/* Multi-Supplier Website Synchronization Card */}
       {activeSection === 'suppliers' && (() => {

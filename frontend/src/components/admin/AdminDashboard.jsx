@@ -42,6 +42,8 @@ export default function AdminDashboard({ setCurrentView }) {
     delivered_revenue_lbp: 0,
     pending_orders: 0,
     out_of_stock: 0,
+    total_products: 0,
+    products_added_today: 0,
     unique_visitors: 0,
     new_visitors_today: 0,
     total_views: 0,
@@ -386,6 +388,8 @@ export default function AdminDashboard({ setCurrentView }) {
                 </div>
               </div>
             </div>
+
+
 
             {/* Net Profit USD */}
             {hasPermission('reports') && (

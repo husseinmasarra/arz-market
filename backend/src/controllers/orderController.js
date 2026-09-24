@@ -419,13 +419,25 @@ exports.getReports = async (req, res) => {
       LIMIT 12
     `);
 
-    const inventory = await db.getAsync(`
-      SELECT 
-        COUNT(id) as total_products,
-        SUM(CASE WHEN stock = 0 THEN 1 ELSE 0 END) as out_of_stock,
-        SUM(stock) as total_stock_items
-      FROM products
-    `);
+    let inventory = null;
+    try {
+      inventory = await db.getAsync(`
+        SELECT 
+          COUNT(id) as total_products,
+          SUM(CASE WHEN stock = 0 THEN 1 ELSE 0 END) as out_of_stock,
+          SUM(stock) as total_stock_items,
+          SUM(CASE WHEN ${isPg ? "TO_CHAR(created_at, 'YYYY-MM-DD') = TO_CHAR(CURRENT_DATE, 'YYYY-MM-DD')" : "DATE(created_at) = DATE('now', 'localtime')"} THEN 1 ELSE 0 END) as products_added_today
+        FROM products
+      `);
+    } catch (e) {
+      inventory = await db.getAsync(`
+        SELECT 
+          COUNT(id) as total_products,
+          SUM(CASE WHEN stock = 0 THEN 1 ELSE 0 END) as out_of_stock,
+          SUM(stock) as total_stock_items
+        FROM products
+      `);
+    }
 
     let totalViews = 0;
     let uniqueVisitors = 0;
@@ -511,15 +523,19 @@ exports.getReports = async (req, res) => {
         views_today: viewsToday,
         unique_visitors: cumulativeVisitors,
         new_visitors_today: newVisitorsToday,
-        visitor_baseline_count: baseline
+        visitor_baseline_count: baseline,
+        total_products: inventory?.total_products || 0,
+        products_added_today: inventory?.products_added_today || 0,
+        out_of_stock: inventory?.out_of_stock || 0
       },
       dailySales,
       monthlySales,
       supplierBreakdown,
       inventory: {
-        total_products: inventory.total_products || 0,
-        out_of_stock: inventory.out_of_stock || 0,
-        total_stock_items: inventory.total_stock_items || 0
+        total_products: inventory?.total_products || 0,
+        products_added_today: inventory?.products_added_today || 0,
+        out_of_stock: inventory?.out_of_stock || 0,
+        total_stock_items: inventory?.total_stock_items || 0
       }
     });
   } catch (err) {
