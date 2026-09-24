@@ -391,6 +391,66 @@ export default function AdminDashboard({ setCurrentView }) {
 
 
 
+            {/* Total Products & Added Today Card */}
+            <div 
+              className="dashboard-card" 
+              style={{ 
+                borderLeft: '4px solid #8b5cf6',
+                cursor: hasPermission('products') ? 'pointer' : 'default',
+                transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+              }}
+              onClick={() => {
+                if (hasPermission('products')) {
+                  if (openInNewTab) {
+                    window.open('/?view=admin&tab=products', '_blank');
+                  } else {
+                    setActiveTab('products');
+                  }
+                }
+              }}
+              onMouseEnter={(e) => {
+                if (hasPermission('products')) {
+                  e.currentTarget.style.transform = 'translateY(-3px)';
+                  e.currentTarget.style.boxShadow = 'var(--shadow-lg)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'none';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontWeight: '600' }}>
+                    {lang === 'ar' ? 'عدد المنتجات الكلي' : 'Total Products'}
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', margin: '4px 0' }}>
+                    <h3 style={{ fontSize: '1.5rem', fontWeight: '800', margin: 0, color: 'var(--text-primary)' }}>
+                      {(stats.total_products || 0).toLocaleString()}
+                    </h3>
+                    <span style={{
+                      fontSize: '0.75rem',
+                      padding: '2px 8px',
+                      borderRadius: '20px',
+                      backgroundColor: (stats.products_added_today || 0) > 0 ? '#dcfce7' : 'var(--bg-tertiary)',
+                      color: (stats.products_added_today || 0) > 0 ? '#15803d' : 'var(--text-muted)',
+                      fontWeight: '800',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      border: (stats.products_added_today || 0) > 0 ? '1px solid #86efac' : '1px solid var(--border-color)'
+                    }}>
+                      <span>+{(stats.products_added_today || 0)}</span>
+                      <span>{lang === 'ar' ? 'اليوم' : 'Today'}</span>
+                    </span>
+                  </div>
+                </div>
+                <div style={{ backgroundColor: 'rgba(139,92,246,0.12)', padding: '10px', borderRadius: '50%' }}>
+                  <Package size={22} color="#8b5cf6" />
+                </div>
+              </div>
+            </div>
+
             {/* Net Profit USD */}
             {hasPermission('reports') && (
               <div 

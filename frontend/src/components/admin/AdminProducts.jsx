@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
-import { Trash2, Edit3, Image, RefreshCw, Sparkles, CheckCircle2, AlertCircle, Plus, Globe, ExternalLink, X, Search, Filter, Eye, ChevronLeft, ChevronRight, ArrowUpDown, MessageSquare } from 'lucide-react';
+import { Trash2, Edit3, Image, RefreshCw, Sparkles, CheckCircle2, AlertCircle, Plus, Globe, ExternalLink, X, Search, Filter, Eye, ChevronLeft, ChevronRight, ArrowUpDown, MessageSquare, Package } from 'lucide-react';
 
 export default function AdminProducts({ filterOutOfStock = false, onClearFilter = null }) {
   const { lang, formatPrice, apiBase, apiHost } = useApp();
@@ -17,10 +17,36 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
   const [filterCategory, setFilterCategory] = useState('');
   const [filterOnlyNew, setFilterOnlyNew] = useState(false);
   const [filterOnlyOutOfStock, setFilterOnlyOutOfStock] = useState(false);
+  const [filterOnlyToday, setFilterOnlyToday] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('newest'); // default: newest first so newly fetched products appear at the top
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 40;
+
+  const isCreatedToday = (dateStr) => {
+    if (!dateStr) return false;
+    try {
+      const pDate = new Date(dateStr);
+      const today = new Date();
+      return pDate.getFullYear() === today.getFullYear() &&
+             pDate.getMonth() === today.getMonth() &&
+             pDate.getDate() === today.getDate();
+    } catch (e) {
+      return false;
+    }
+  };
+
+  const handleViewAddedToday = () => {
+    setFilterOnlyToday(prev => !prev);
+    setFilterOnlyNew(false);
+    setFilterOnlyOutOfStock(false);
+    setFilterSupplier('');
+    setCurrentPage(1);
+    setTimeout(() => {
+      const el = document.getElementById('admin-products-table');
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  };
 
   const handleFilterBySource = (sourceName) => {
     setFilterSupplier(prev => prev === sourceName ? '' : sourceName);
@@ -451,6 +477,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
 
   // Filter and sort products
   const filteredProducts = products.filter(p => {
+    if (filterOnlyToday && !isCreatedToday(p.created_at)) return false;
     if ((filterOutOfStock || filterOnlyOutOfStock) && p.stock > 0) return false;
     if (filterOnlyNew && p.is_new_arrival !== 1) return false;
     if (filterSupplier && p.merchant_name !== filterSupplier) return false;
@@ -508,9 +535,224 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [showSourceModal]);
 
+  const totalCount = products.length;
+  const todayCount = products.filter(p => isCreatedToday(p.created_at)).length;
+  const inStockCount = products.filter(p => Number(p.stock) > 0).length;
+  const outOfStockCount = products.filter(p => Number(p.stock) <= 0).length;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       
+      {/* Products Metrics Summary Cards */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+        gap: '12px'
+      }}>
+        {/* Card 1: Total Products */}
+        <div
+          onClick={() => {
+            setFilterOnlyToday(false);
+            setFilterOnlyNew(false);
+            setFilterOnlyOutOfStock(false);
+            setFilterSupplier('');
+            setFilterCategory('');
+            setSearchQuery('');
+            setCurrentPage(1);
+          }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px',
+            padding: '14px 18px',
+            borderRadius: '14px',
+            backgroundColor: (!filterOnlyToday && !filterOnlyOutOfStock && !filterOnlyNew && !filterSupplier && !filterCategory && !searchQuery) ? 'rgba(37, 99, 235, 0.08)' : 'var(--bg-primary)',
+            border: (!filterOnlyToday && !filterOnlyOutOfStock && !filterOnlyNew && !filterSupplier && !filterCategory && !searchQuery) ? '1.5px solid var(--accent-blue)' : '1px solid var(--border-color)',
+            boxShadow: 'var(--shadow-sm)',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          <div style={{
+            width: '46px',
+            height: '46px',
+            borderRadius: '12px',
+            backgroundColor: 'rgba(37, 99, 235, 0.12)',
+            color: 'var(--accent-blue)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            <Package size={24} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontWeight: '600' }}>
+              {lang === 'ar' ? 'إجمالي المنتجات الكلي' : 'Total Products'}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '2px' }}>
+              <span style={{ fontSize: '1.45rem', fontWeight: '900', color: 'var(--text-primary)', lineHeight: 1 }}>
+                {totalCount.toLocaleString()}
+              </span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                {lang === 'ar' ? 'منتج' : 'items'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 2: Added Today */}
+        <div
+          onClick={handleViewAddedToday}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px',
+            padding: '14px 18px',
+            borderRadius: '14px',
+            backgroundColor: filterOnlyToday ? 'rgba(5, 150, 105, 0.12)' : 'var(--bg-primary)',
+            border: filterOnlyToday ? '2px solid #059669' : '1px solid var(--border-color)',
+            boxShadow: filterOnlyToday ? '0 4px 14px rgba(5, 150, 105, 0.25)' : 'var(--shadow-sm)',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          <div style={{
+            width: '46px',
+            height: '46px',
+            borderRadius: '12px',
+            backgroundColor: todayCount > 0 ? 'rgba(5, 150, 105, 0.18)' : 'rgba(5, 150, 105, 0.1)',
+            color: '#059669',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            <Sparkles size={24} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontWeight: '600' }}>
+                {lang === 'ar' ? 'المضافة اليوم' : 'Added Today'}
+              </span>
+              <span style={{
+                fontSize: '0.68rem',
+                padding: '2px 7px',
+                borderRadius: '6px',
+                backgroundColor: todayCount > 0 ? '#d1fae5' : 'var(--bg-tertiary)',
+                color: todayCount > 0 ? '#065f46' : 'var(--text-muted)',
+                fontWeight: '800'
+              }}>
+                {todayCount > 0 ? (lang === 'ar' ? '🔥 مضاف اليوم' : 'Active') : (lang === 'ar' ? 'اليوم' : 'Today')}
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginTop: '2px' }}>
+              <span style={{ fontSize: '1.45rem', fontWeight: '900', color: todayCount > 0 ? '#059669' : 'var(--text-primary)', lineHeight: 1 }}>
+                +{todayCount.toLocaleString()}
+              </span>
+              <span style={{ fontSize: '0.72rem', color: todayCount > 0 ? '#059669' : 'var(--text-muted)', fontWeight: '600' }}>
+                {filterOnlyToday ? (lang === 'ar' ? '(تتم التصفية الآن)' : '(Filtering)') : (lang === 'ar' ? 'انقر للعرض' : 'Click to view')}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 3: In Stock */}
+        <div
+          onClick={() => {
+            setFilterOnlyOutOfStock(false);
+            setFilterOnlyToday(false);
+            setCurrentPage(1);
+          }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px',
+            padding: '14px 18px',
+            borderRadius: '14px',
+            backgroundColor: 'var(--bg-primary)',
+            border: '1px solid var(--border-color)',
+            boxShadow: 'var(--shadow-sm)'
+          }}
+        >
+          <div style={{
+            width: '46px',
+            height: '46px',
+            borderRadius: '12px',
+            backgroundColor: 'rgba(16, 185, 129, 0.12)',
+            color: '#10b981',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            <CheckCircle2 size={24} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontWeight: '600' }}>
+              {lang === 'ar' ? 'متوفرة للطلب' : 'In Stock'}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '2px' }}>
+              <span style={{ fontSize: '1.45rem', fontWeight: '900', color: '#10b981', lineHeight: 1 }}>
+                {inStockCount.toLocaleString()}
+              </span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                {lang === 'ar' ? 'منتج جاهز' : 'ready'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 4: Out of Stock */}
+        <div
+          onClick={() => {
+            setFilterOnlyOutOfStock(prev => !prev);
+            setFilterOnlyToday(false);
+            setFilterOnlyNew(false);
+            setCurrentPage(1);
+          }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px',
+            padding: '14px 18px',
+            borderRadius: '14px',
+            backgroundColor: filterOnlyOutOfStock ? 'rgba(217, 119, 6, 0.12)' : 'var(--bg-primary)',
+            border: filterOnlyOutOfStock ? '2px solid #d97706' : '1px solid var(--border-color)',
+            boxShadow: filterOnlyOutOfStock ? '0 4px 14px rgba(217, 119, 6, 0.25)' : 'var(--shadow-sm)',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          <div style={{
+            width: '46px',
+            height: '46px',
+            borderRadius: '12px',
+            backgroundColor: 'rgba(217, 119, 6, 0.12)',
+            color: '#d97706',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            <AlertCircle size={24} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontWeight: '600' }}>
+              {lang === 'ar' ? 'نواقص المخزون' : 'Out of Stock'}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '2px' }}>
+              <span style={{ fontSize: '1.45rem', fontWeight: '900', color: outOfStockCount > 0 ? '#d97706' : 'var(--text-primary)', lineHeight: 1 }}>
+                {outOfStockCount.toLocaleString()}
+              </span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                {outOfStockCount > 0 ? (lang === 'ar' ? 'بحاجة لتجديد' : 'needs restock') : (lang === 'ar' ? 'لا يوجد' : 'none')}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Quick Mode Switcher Tabs */}
       <div style={{
         display: 'flex',
