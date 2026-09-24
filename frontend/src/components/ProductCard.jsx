@@ -7,17 +7,18 @@ export default function ProductCard({ product, onDetailsClick }) {
   const { lang, formatPrice, t, apiHost } = useApp();
   const { addToCart } = useCart();
 
-  const name = lang === 'ar' ? product.name_ar : product.name_en;
-  const categoryName = lang === 'ar' ? product.category_name_ar : product.category_name_en;
+  const name = (lang === 'ar' ? product?.name_ar : product?.name_en) || product?.name_ar || product?.name_en || 'Product';
+  const categoryName = (lang === 'ar' ? product?.category_name_ar : product?.category_name_en) || product?.category_name_ar || product?.category_name_en;
   
   // Rating calculation
-  const rating = product.rating || 0;
+  const rating = product?.rating || 0;
 
-  const hasDiscount = product.old_price_usd && product.old_price_usd > product.price_usd;
+  const hasDiscount = product?.old_price_usd && product.old_price_usd > product.price_usd;
 
-  const imageUrl = product.image_url 
-    ? (product.image_url.startsWith('http') || product.image_url.startsWith('data:') ? product.image_url : `${apiHost}${product.image_url}`)
-    : 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=400&q=80'; // Realistic store item fallback
+  const rawImg = product?.image_url;
+  const imageUrl = (typeof rawImg === 'string' && rawImg.trim().length > 0)
+    ? (rawImg.startsWith('http') || rawImg.startsWith('data:') ? rawImg : `${apiHost}${rawImg}`)
+    : 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=400&q=80';
 
   return (
     <div 

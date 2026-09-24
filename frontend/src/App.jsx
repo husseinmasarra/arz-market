@@ -27,14 +27,15 @@ function getCategoryName(cat, currentLang) {
     ? (cat.name_ar || cat.name_en || '') 
     : (cat.name_en || cat.name_ar || '');
   if (!raw) return '';
-  const match = raw.match(/^([^(]+)\s*\(([^)]+)\)$/);
+  const str = String(raw).trim();
+  const match = str.match(/^([^(]+)\s*\(([^)]+)\)$/);
   if (match) {
     const p1 = match[1].trim();
     const p2 = match[2].trim();
     const isP1Ar = /[\u0600-\u06FF]/.test(p1);
     return currentLang === 'ar' ? (isP1Ar ? p1 : p2) : (isP1Ar ? p2 : p1);
   }
-  return raw;
+  return str;
 }
 
 export default function App() {
@@ -199,9 +200,11 @@ export default function App() {
       : 'Shop the best deals on smartphones, electronics, tablets, and accessories in Lebanon with ArzMart. Cash on delivery & fast shipping across Lebanon.';
 
     if (selectedProduct) {
-      title = `${selectedProduct.title} | ArzMart`;
-      if (selectedProduct.description) {
-        description = selectedProduct.description.substring(0, 160);
+      const prodName = (lang === 'ar' ? selectedProduct.name_ar : selectedProduct.name_en) || selectedProduct.title || 'ArzMart';
+      title = `${prodName} | ArzMart`;
+      const prodDesc = (lang === 'ar' ? selectedProduct.description_ar : selectedProduct.description_en) || selectedProduct.description || '';
+      if (prodDesc && typeof prodDesc === 'string') {
+        description = prodDesc.substring(0, 160);
       }
     } else if (selectedCategory && categories.length > 0) {
       const cat = categories.find(c => String(c.id) === String(selectedCategory));
@@ -1127,8 +1130,9 @@ export default function App() {
                     const subCount = subcategories.length;
                     
                     let bgImg = 'https://images.unsplash.com/photo-1550009158-9ebf69173e03?auto=format&fit=crop&w=500&q=80';
-                    const imageUrl = cat.image_url 
-                      ? (cat.image_url.startsWith('http') || cat.image_url.startsWith('data:') ? cat.image_url : `${apiHost}${cat.image_url}`)
+                    const catImg = cat.image_url;
+                    const imageUrl = (typeof catImg === 'string' && catImg.trim().length > 0)
+                      ? (catImg.startsWith('http') || catImg.startsWith('data:') ? catImg : `${apiHost}${catImg}`)
                       : bgImg;
 
                     return (

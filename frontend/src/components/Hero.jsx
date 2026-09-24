@@ -45,10 +45,11 @@ export default function Hero() {
 
   if (slides.length === 0) return null;
 
-  const activeSlide = slides[currentSlide];
-  const imageSource = activeSlide.image.startsWith('http') || activeSlide.image.startsWith('data:')
-    ? activeSlide.image 
-    : `${apiHost}${activeSlide.image}`;
+  const activeSlide = slides[currentSlide] || defaultBanners[0];
+  const rawImage = activeSlide?.image || defaultBanners[0].image;
+  const imageSource = (typeof rawImage === 'string' && rawImage.trim().length > 0)
+    ? (rawImage.startsWith('http') || rawImage.startsWith('data:') ? rawImage : `${apiHost}${rawImage}`)
+    : defaultBanners[0].image;
 
   return (
     <div className="no-print" style={{

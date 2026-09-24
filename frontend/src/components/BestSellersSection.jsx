@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useApp } from "../context/AppContext";
 import { Flame, ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -60,8 +60,12 @@ export default function BestSellersSection({ onProductClick }) {
       </div>
       <div ref={scrollRef} style={{ display: "flex", gap: "14px", overflowX: "auto", paddingBottom: "8px", scrollbarWidth: "none" }}>
         {products.map((p, idx) => {
-          const name = lang === "ar" ? p.name_ar : p.name_en;
-          const imageUrl = p.image_url ? (p.image_url.startsWith("http") || p.image_url.startsWith("data:") ? p.image_url : apiHost + p.image_url) : "https://images.unsplash.com/photo-1550009158-9ebf69173e03?auto=format&fit=crop&w=300&q=80";
+          if (!p) return null;
+          const name = (lang === 'ar' ? p.name_ar : p.name_en) || p.name_ar || p.name_en || 'Product';
+          const rawImg = p.image_url;
+          const imageUrl = (typeof rawImg === 'string' && rawImg.trim().length > 0)
+            ? (rawImg.startsWith('http') || rawImg.startsWith('data:') ? rawImg : `${apiHost}${rawImg}`)
+            : 'https://images.unsplash.com/photo-1550009158-9ebf69173e03?auto=format&fit=crop&w=300&q=80';
           return (
             <div key={p.id} onClick={() => onProductClick && onProductClick(p)} style={{ minWidth: "160px", maxWidth: "160px", backgroundColor: "var(--bg-secondary)", borderRadius: "14px", border: "1px solid var(--border-color)", overflow: "hidden", cursor: "pointer", transition: "transform 0.2s ease", flexShrink: 0, position: "relative" }} onMouseEnter={e => e.currentTarget.style.transform = "translateY(-4px)"} onMouseLeave={e => e.currentTarget.style.transform = "translateY(0)"}>
               <div style={{ position: "absolute", top: "8px", left: "8px", zIndex: 2, width: "24px", height: "24px", borderRadius: "50%", backgroundColor: idx === 0 ? "#f59e0b" : idx === 1 ? "#9ca3af" : idx === 2 ? "#b45309" : "rgba(239,68,68,0.85)", color: "white", fontSize: "0.7rem", fontWeight: "800", display: "flex", alignItems: "center", justifyContent: "center" }}>{idx + 1}</div>
