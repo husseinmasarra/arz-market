@@ -123,7 +123,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
 
   const fetchProducts = async () => {
     try {
-      const res = await fetch(`${apiBase}/products`);
+      const res = await fetch(`${apiBase}/products?all=true`);
       if (res.ok) {
         const data = await res.json();
         setProducts(data);
