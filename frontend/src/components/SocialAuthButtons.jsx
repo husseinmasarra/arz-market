@@ -14,10 +14,42 @@ export default function SocialAuthButtons({ onSuccess, onError }) {
   const handleGoogleClick = async () => {
     setLoadingProvider('google');
     try {
+      if (typeof window !== 'undefined' && window.firebase && window.firebase.auth) {
+        const auth = window.firebase.auth();
+        const provider = new window.firebase.auth.GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: 'select_account' });
+        
+        const result = await auth.signInWithPopup(provider);
+        const fbUser = result.user;
+        const idToken = await fbUser.getIdToken();
+
+        await loginWithGoogle({
+          email: fbUser.email,
+          name: fbUser.displayName || fbUser.email.split('@')[0],
+          google_id: fbUser.uid,
+          photo_url: fbUser.photoURL,
+          credential: idToken
+        });
+
+        if (onSuccess) onSuccess();
+        return;
+      }
+
+      // Fallback modal if firebase SDK not yet ready
       setPromptModal('google');
     } catch (err) {
       console.error('Google sign in error:', err);
+      if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+        // User closed the popup, do not show error
+        return;
+      }
+      if (err.code === 'auth/unauthorized-domain') {
+        // Domain not yet in Firebase authorized domains, fallback to quick modal
+        setPromptModal('google');
+        return;
+      }
       if (onError) onError(err.message);
+      else setPromptModal('google');
     } finally {
       setLoadingProvider(null);
     }
