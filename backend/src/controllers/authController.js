@@ -165,6 +165,60 @@ exports.getProfile = async (req, res) => {
   }
 };
 
+exports.updateProfile = async (req, res) => {
+  try {
+    const { full_name, phone, current_password, new_password } = req.body;
+    const userId = req.user.id;
+
+    const user = await db.getAsync('SELECT * FROM users WHERE id = ?', [userId]);
+    if (!user) {
+      return res.status(404).json({ error_ar: 'المستخدم غير موجود', error_en: 'User not found' });
+    }
+
+    const cleanFullName = full_name !== undefined ? full_name.trim() : user.full_name;
+    const cleanPhone = phone !== undefined ? phone.trim() : user.phone;
+
+    let hashedPassword = user.password;
+    if (new_password) {
+      if (new_password.length < 6) {
+        return res.status(400).json({ 
+          error_ar: 'كلمة المرور الجديدة يجب أن تكون من ٦ خانات على الأقل', 
+          error_en: 'New password must be at least 6 characters' 
+        });
+      }
+      if (user.password && current_password) {
+        const isMatch = bcrypt.compareSync(current_password, user.password);
+        if (!isMatch) {
+          return res.status(400).json({ 
+            error_ar: 'كلمة المرور الحالية غير صحيحة', 
+            error_en: 'Current password is incorrect' 
+          });
+        }
+      }
+      hashedPassword = bcrypt.hashSync(new_password, 10);
+    }
+
+    await db.runAsync(
+      'UPDATE users SET full_name = ?, phone = ?, password = ? WHERE id = ?',
+      [cleanFullName, cleanPhone, hashedPassword, userId]
+    );
+
+    const updated = await db.getAsync('SELECT id, username, full_name, phone, email, role, permissions, discount_used, created_at FROM users WHERE id = ?', [userId]);
+
+    res.json({
+      message_ar: 'تم تحديث بياناتك بنجاح',
+      message_en: 'Profile updated successfully',
+      user: {
+        ...updated,
+        permissions: JSON.parse(updated.permissions || '[]')
+      }
+    });
+  } catch (err) {
+    console.error('Update profile error:', err);
+    res.status(500).json({ error_ar: 'خطأ أثناء تحديث البيانات', error_en: 'Error updating profile' });
+  }
+};
+
 exports.getUsers = async (req, res) => {
   try {
     const users = await db.allAsync('SELECT id, username, role, permissions, discount_used, created_at FROM users ORDER BY id DESC');

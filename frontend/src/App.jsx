@@ -17,6 +17,7 @@ import SocialAuthButtons from './components/SocialAuthButtons';
 import PrivacyPolicyView from './components/PrivacyPolicyView';
 import TermsOfServiceView from './components/TermsOfServiceView';
 import DeleteAccountView from './components/DeleteAccountView';
+import CustomerDashboard from './components/CustomerDashboard';
 
 // Admin panel imports
 import AdminDashboard from './components/admin/AdminDashboard';
@@ -829,86 +830,19 @@ export default function App() {
           </div>
         </div>
 
-      ) : currentView === 'orders' ? (
+      ) : (currentView === 'orders' || currentView === 'customer-dashboard' || currentView === 'account') ? (
 
-        /* USER ORDER HISTORY VIEW */
-        <div className="container" style={{ flex: '1', padding: '24px 0' }}>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: '800', marginBottom: '20px' }}>{t('myOrders')}</h2>
-          {userOrders.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-light)' }}>
-              ليس لديك أي طلبات سابقة مسجلة. (No order history found.)
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {userOrders.map((o) => (
-                <div key={o.id} className="dashboard-card" style={{ padding: '20px', gap: '10px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
-                    <div>
-                      <strong>رقم الطلب: #{o.id}</strong>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '2px' }}>{o.tracking_number}</div>
-                    </div>
-                    <span style={{
-                      fontSize: '0.75rem',
-                      fontWeight: 'bold',
-                      padding: '4px 12px',
-                      borderRadius: '12px',
-                      backgroundColor: o.status === 'pending' ? 'rgba(239,68,68,0.1)' : o.status === 'processing' ? 'rgba(59,130,246,0.1)' : o.status === 'shipped' ? 'rgba(217,119,6,0.1)' : 'rgba(16,185,129,0.1)',
-                      color: o.status === 'pending' ? '#ef4444' : o.status === 'processing' ? 'var(--accent-blue)' : o.status === 'shipped' ? '#d97706' : '#10b981'
-                    }}>
-                      {t(o.status)}
-                    </span>
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-                    <div style={{ fontSize: '0.85rem' }}>
-                      {o.items.map((item, idx) => (
-                        <div key={idx} style={{ color: 'var(--text-secondary)' }}>
-                          {item.quantity}x {lang === 'ar' ? item.name_ar : item.name_en}
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{ textAlign: 'end' }}>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>{lang === 'ar' ? 'إجمالي الطلبية:' : 'Order Total:'}</span>
-                      <h4 style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--accent-red-gold)' }}>
-                        {formatPrice(o.total_usd)}
-                      </h4>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Account Security & Deletion (Google Play In-App Requirement) */}
-          <div className="dashboard-card" style={{ marginTop: '24px', padding: '20px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-            <div>
-              <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>
-                {lang === 'ar' ? 'إدارة الحساب والبيانات الشخصية' : 'Account & Personal Data'}
-              </h4>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', margin: '4px 0 0 0' }}>
-                {lang === 'ar' ? 'التحكم في بياناتك أو حذف الحساب نهائياً طبقاً لسياسات الخصوصية' : 'Manage personal information or permanently delete your account'}
-              </p>
-            </div>
-            <button
-              onClick={() => {
-                setCurrentView('delete-account');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                color: '#ef4444',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                borderRadius: '8px',
-                fontWeight: '700',
-                fontSize: '0.85rem',
-                cursor: 'pointer'
-              }}
-            >
-              {lang === 'ar' ? 'حذف الحساب والبيانات' : 'Delete Account & Data'}
-            </button>
-          </div>
-        </div>
+        /* USER DEDICATED CUSTOMER DASHBOARD */
+        <CustomerDashboard 
+          onGoToStore={() => {
+            setCurrentView('store');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onNavigate={(view) => {
+            setCurrentView(view);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        />
 
       ) : (
         

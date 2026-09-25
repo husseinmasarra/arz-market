@@ -351,16 +351,20 @@ export default function Header({ currentView, setCurrentView, searchVal, setSear
                   alignItems: 'center',
                   gap: '6px',
                   cursor: 'pointer',
-                  padding: '4px 8px',
-                  borderRadius: '6px',
-                  backgroundColor: 'var(--bg-tertiary)',
+                  padding: '5px 10px',
+                  borderRadius: '8px',
+                  backgroundColor: currentView === 'orders' ? 'rgba(37, 99, 235, 0.12)' : 'var(--bg-tertiary)',
+                  border: currentView === 'orders' ? '1px solid var(--accent-blue)' : '1px solid var(--border-color)',
                   textDecoration: 'none',
-                  color: 'inherit'
+                  color: currentView === 'orders' ? 'var(--accent-blue)' : 'inherit',
+                  transition: 'all 0.2s'
                 }}
-                title={t('myOrders')}
+                title={lang === 'ar' ? 'لوحة تحكم حسابي والطلبيات' : 'My Account & Orders'}
               >
-                <User size={14} />
-                <span style={{ fontSize: '0.85rem', fontWeight: '600' }}>{user.username}</span>
+                <User size={15} color={currentView === 'orders' ? 'var(--accent-blue)' : 'currentColor'} />
+                <span style={{ fontSize: '0.85rem', fontWeight: '700' }}>
+                  {user.full_name || user.username}
+                </span>
                 {user.role === 'admin' && (
                   <span style={{
                     fontSize: '0.68rem',
