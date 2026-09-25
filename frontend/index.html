@@ -134,6 +134,23 @@
         console.warn('Firebase init:', e);
       }
     </script>
+    <script>
+      // Clear legacy service worker caches automatically
+      try {
+        const CURRENT_APP_VER = 'arz-mart-v11';
+        if (localStorage.getItem('arz_app_ver') !== CURRENT_APP_VER) {
+          localStorage.setItem('arz_app_ver', CURRENT_APP_VER);
+          if ('caches' in window) {
+            caches.keys().then(names => names.forEach(n => caches.delete(n)));
+          }
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(regs => {
+              regs.forEach(r => r.unregister());
+            });
+          }
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
