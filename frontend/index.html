@@ -113,6 +113,7 @@
         }
       ]
     }
+    </script>
     <!-- Firebase App & Authentication SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -126,7 +127,7 @@
           messagingSenderId: "815498761618",
           appId: "1:815498761618:web:2123c74f829278e10e5d4b"
         };
-        if (typeof firebase !== 'undefined') {
+        if (typeof firebase !== 'undefined' && (!firebase.apps || firebase.apps.length === 0)) {
           firebase.initializeApp(firebaseConfig);
         }
       } catch (e) {
