@@ -402,7 +402,6 @@ export default function App() {
 
     try {
       const data = await register(username, password, fullName, phone, email);
-      await login(username, password);
       
       setWelcomeUserName(fullName || username);
       setShowWelcomeModal(true);

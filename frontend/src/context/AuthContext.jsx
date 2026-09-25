@@ -68,6 +68,12 @@ export const AuthProvider = ({ children }) => {
       throw new Error(data.error_ar || data.error_en || 'Registration failed');
     }
 
+    if (data.token) {
+      setToken(data.token);
+      setUser(data.user);
+      localStorage.setItem('token', data.token);
+    }
+
     return data;
   };
 
