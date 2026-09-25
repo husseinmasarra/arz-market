@@ -2,6 +2,51 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 
+const firebaseConfig = {
+  apiKey: "AIzaSyBEvA7fHjgtGNNOSqE8R6dZi8kgFnMuqYA",
+  authDomain: "arz-mart.firebaseapp.com",
+  projectId: "arz-mart",
+  storageBucket: "arz-mart.firebasestorage.app",
+  messagingSenderId: "815498761618",
+  appId: "1:815498761618:web:2123c74f829278e10e5d4b"
+};
+
+async function loadFirebaseSdk() {
+  if (typeof window === 'undefined') throw new Error('Window is not defined');
+  
+  if (window.firebase && window.firebase.auth && window.firebase.apps && window.firebase.apps.length > 0) {
+    return window.firebase;
+  }
+
+  // Load app SDK
+  if (!window.firebase) {
+    await new Promise((resolve, reject) => {
+      const s1 = document.createElement('script');
+      s1.src = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js';
+      s1.onload = resolve;
+      s1.onerror = () => reject(new Error('Failed to load Firebase SDK'));
+      document.head.appendChild(s1);
+    });
+  }
+
+  // Load auth SDK
+  if (!window.firebase.auth) {
+    await new Promise((resolve, reject) => {
+      const s2 = document.createElement('script');
+      s2.src = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js';
+      s2.onload = resolve;
+      s2.onerror = () => reject(new Error('Failed to load Firebase Auth'));
+      document.head.appendChild(s2);
+    });
+  }
+
+  if (!window.firebase.apps || window.firebase.apps.length === 0) {
+    window.firebase.initializeApp(firebaseConfig);
+  }
+
+  return window.firebase;
+}
+
 export default function SocialAuthButtons({ onSuccess, onError }) {
   const { lang, t } = useApp();
   const { loginWithGoogle, loginWithApple } = useAuth();
@@ -14,42 +59,37 @@ export default function SocialAuthButtons({ onSuccess, onError }) {
   const handleGoogleClick = async () => {
     setLoadingProvider('google');
     try {
-      if (typeof window !== 'undefined' && window.firebase && window.firebase.auth) {
-        const auth = window.firebase.auth();
-        const provider = new window.firebase.auth.GoogleAuthProvider();
-        provider.setCustomParameters({ prompt: 'select_account' });
-        
-        const result = await auth.signInWithPopup(provider);
-        const fbUser = result.user;
-        const idToken = await fbUser.getIdToken();
+      const fb = await loadFirebaseSdk();
+      const auth = fb.auth();
+      const provider = new fb.auth.GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
 
-        await loginWithGoogle({
-          email: fbUser.email,
-          name: fbUser.displayName || fbUser.email.split('@')[0],
-          google_id: fbUser.uid,
-          photo_url: fbUser.photoURL,
-          credential: idToken
-        });
-
-        if (onSuccess) onSuccess();
-        return;
+      // Open Google Official Account Selector Popup
+      const result = await auth.signInWithPopup(provider);
+      const fbUser = result.user;
+      if (!fbUser || !fbUser.email) {
+        throw new Error('No user data returned from Google');
       }
 
-      // Fallback modal if firebase SDK not yet ready
-      setPromptModal('google');
+      const idToken = await fbUser.getIdToken();
+
+      await loginWithGoogle({
+        email: fbUser.email,
+        name: fbUser.displayName || fbUser.email.split('@')[0],
+        google_id: fbUser.uid,
+        photo_url: fbUser.photoURL,
+        credential: idToken
+      });
+
+      if (onSuccess) onSuccess();
     } catch (err) {
       console.error('Google sign in error:', err);
       if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
-        // User closed the popup, do not show error
+        // User voluntarily closed popup
         return;
       }
-      if (err.code === 'auth/unauthorized-domain') {
-        // Domain not yet in Firebase authorized domains, fallback to quick modal
-        setPromptModal('google');
-        return;
-      }
-      if (onError) onError(err.message);
-      else setPromptModal('google');
+      if (onError) onError(err.message || 'فشل تسجيل الدخول عبر Google');
+      else alert(err.message || 'Google sign in failed');
     } finally {
       setLoadingProvider(null);
     }
