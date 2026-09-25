@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arz-mart-cache-v11';
+const CACHE_NAME = 'arz-mart-cache-v12';
 
 // Install Event - skip waiting immediately
 self.addEventListener('install', (event) => {
@@ -16,7 +16,13 @@ self.addEventListener('activate', (event) => {
           }
         })
       );
-    }).then(() => self.clients.claim())
+    }).then(() => self.clients.claim()).then(() => {
+      return self.clients.matchAll({ type: 'window' }).then(clients => {
+        clients.forEach(client => {
+          client.postMessage({ type: 'RELOAD_NEW_VERSION' });
+        });
+      });
+    })
   );
 });
 

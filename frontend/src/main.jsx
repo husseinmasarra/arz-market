@@ -135,23 +135,31 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   </React.StrictMode>
 );
 
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then(reg => {
-        reg.update();
-        reg.onupdatefound = () => {
-          const installingWorker = reg.installing;
-          if (installingWorker) {
-            installingWorker.onstatechange = () => {
-              if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                window.location.reload();
-              }
-            };
-          }
-        };
-      })
-      .catch(err => console.error('SW Reg Failed:', err));
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'RELOAD_NEW_VERSION') {
+      window.location.reload();
+    }
   });
+
+  if (import.meta.env.PROD) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => {
+          reg.update();
+          reg.onupdatefound = () => {
+            const installingWorker = reg.installing;
+            if (installingWorker) {
+              installingWorker.onstatechange = () => {
+                if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  window.location.reload();
+                }
+              };
+            }
+          };
+        })
+        .catch(err => console.error('SW Reg Failed:', err));
+    });
+  }
 }
 
