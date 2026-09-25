@@ -18,6 +18,7 @@ import PrivacyPolicyView from './components/PrivacyPolicyView';
 import TermsOfServiceView from './components/TermsOfServiceView';
 import DeleteAccountView from './components/DeleteAccountView';
 import CustomerDashboard from './components/CustomerDashboard';
+import WelcomeDiscountModal from './components/WelcomeDiscountModal';
 
 // Admin panel imports
 import AdminDashboard from './components/admin/AdminDashboard';
@@ -95,6 +96,9 @@ export default function App() {
   const [showBiometricEnrollPrompt, setShowBiometricEnrollPrompt] = useState(false);
   const [tempCredentials, setTempCredentials] = useState(null);
   
+  // First-Time Welcome 10% Discount Modal state
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [welcomeUserName, setWelcomeUserName] = useState('');
 
   // User orders history state
   const [userOrders, setUserOrders] = useState([]);
@@ -400,6 +404,9 @@ export default function App() {
       const data = await register(username, password, fullName, phone, email);
       await login(username, password);
       
+      setWelcomeUserName(fullName || username);
+      setShowWelcomeModal(true);
+
       const onNext = () => {
         setCurrentView('store');
         setUsername('');
@@ -752,8 +759,12 @@ export default function App() {
 
             {/* Google and Apple ID Sign In */}
             <SocialAuthButtons 
-              onSuccess={() => {
+              onSuccess={(authData) => {
                 setAuthError('');
+                if (authData && authData.is_new_user) {
+                  setWelcomeUserName(authData.user?.full_name || authData.user?.username || '');
+                  setShowWelcomeModal(true);
+                }
                 setCurrentView('store');
               }}
               onError={(msg) => setAuthError(msg)}
@@ -1414,6 +1425,17 @@ export default function App() {
 
       {/* 8. PWA Install Notification Banner */}
       <PwaInstallBanner />
+
+      {/* 9. First-Time Registration Welcome 10% Discount Celebration Modal */}
+      <WelcomeDiscountModal
+        isOpen={showWelcomeModal}
+        onClose={() => setShowWelcomeModal(false)}
+        userName={welcomeUserName}
+        onStartShopping={() => {
+          setShowWelcomeModal(false);
+          setCurrentView('store');
+        }}
+      />
 
     </div>
   );

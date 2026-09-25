@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart, getOptionPrice } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { X, CheckCircle, ShieldCheck, LogIn, UserPlus, MessageSquare } from 'lucide-react';
+import { X, CheckCircle, ShieldCheck, LogIn, UserPlus, MessageSquare, Gift, Tag } from 'lucide-react';
 import SocialAuthButtons from './SocialAuthButtons';
+import WelcomeDiscountModal from './WelcomeDiscountModal';
 
 export default function Checkout({ onClose }) {
   const { lang, formatPrice, settings, t, apiBase } = useApp();
@@ -24,6 +25,7 @@ export default function Checkout({ onClose }) {
   const [authEmail, setAuthEmail] = useState('');
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 
   useEffect(() => {
     if (user?.phone && !phone) {
@@ -73,6 +75,7 @@ export default function Checkout({ onClose }) {
       await register(generatedUsername, authPassword, authFullName.trim(), authPhone.trim(), authEmail.trim());
       await login(authPhone.trim(), authPassword);
       setPhone(authPhone.trim());
+      setShowWelcomeModal(true);
     } catch (err) {
       setAuthError(err.message || 'Registration failed');
     } finally {
@@ -189,7 +192,11 @@ export default function Checkout({ onClose }) {
     }
   };
 
-  const finalSubtotal = subtotal - (subtotal * (discountPercent / 100));
+  const hasWelcomeDiscount = Boolean(user && (!user.discount_used || user.discount_used === 0));
+  const effectiveDiscountPercent = Math.max(discountPercent, hasWelcomeDiscount ? 10 : 0);
+  const isUsingWelcomeDiscount = hasWelcomeDiscount && discountPercent < 10;
+
+  const finalSubtotal = subtotal - (subtotal * (effectiveDiscountPercent / 100));
   const finalTotal = finalSubtotal + deliveryFee;
 
   if (orderSuccess) {
@@ -791,12 +798,33 @@ export default function Checkout({ onClose }) {
                 <span>{t('subtotal')}</span>
                 <span>{formatPrice(subtotal)}</span>
               </div>
-              {discountPercent > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#10b981', fontWeight: '600' }}>
-                  <span>خصم {discountPercent}%</span>
-                  <span>- {formatPrice(subtotal * (discountPercent / 100))}</span>
+              
+              {isUsingWelcomeDiscount ? (
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  fontSize: '0.82rem',
+                  color: '#d97706',
+                  backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                  border: '1px dashed #f59e0b',
+                  borderRadius: '6px',
+                  padding: '6px 10px',
+                  fontWeight: '700'
+                }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Gift size={14} color="#f59e0b" />
+                    <span>{lang === 'ar' ? 'حسم ترحيبي 10% (أول طلبية)' : '10% Welcome Discount (1st order)'}</span>
+                  </span>
+                  <span>- {formatPrice(subtotal * 0.1)}</span>
                 </div>
-              )}
+              ) : effectiveDiscountPercent > 0 ? (
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#10b981', fontWeight: '600' }}>
+                  <span>خصم {effectiveDiscountPercent}% {appliedCode ? `(${appliedCode})` : ''}</span>
+                  <span>- {formatPrice(subtotal * (effectiveDiscountPercent / 100))}</span>
+                </div>
+              ) : null}
+
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                 <span>{t('delivery')}</span>
                 <span>{deliveryFee === 0 ? t('free') : formatPrice(deliveryFee)}</span>
@@ -836,6 +864,13 @@ export default function Checkout({ onClose }) {
           </div>
         </form>
       </div>
+
+      {/* Celebratory First-Time Registration Modal */}
+      <WelcomeDiscountModal
+        isOpen={showWelcomeModal}
+        onClose={() => setShowWelcomeModal(false)}
+        userName={user?.full_name || user?.username || authFullName}
+      />
     </div>
   );
 }

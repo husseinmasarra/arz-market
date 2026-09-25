@@ -99,7 +99,7 @@ export default function SocialAuthButtons({ onSuccess, onError }) {
 
         const idToken = await fbUser.getIdToken();
 
-        await loginWithGoogle({
+        const data = await loginWithGoogle({
           email: fbUser.email,
           name: fbUser.displayName || fbUser.email.split('@')[0],
           google_id: fbUser.uid,
@@ -107,7 +107,7 @@ export default function SocialAuthButtons({ onSuccess, onError }) {
           credential: idToken
         });
 
-        if (onSuccess) onSuccess();
+        if (onSuccess) onSuccess(data);
       } catch (popupErr) {
         console.warn('Popup attempt failed, checking code:', popupErr);
         if (popupErr.code === 'auth/popup-closed-by-user' || popupErr.code === 'auth/cancelled-popup-request') {
@@ -166,7 +166,7 @@ export default function SocialAuthButtons({ onSuccess, onError }) {
 
     setLoadingProvider('apple');
     try {
-      await loginWithApple({
+      const data = await loginWithApple({
         email: promptEmail.trim(),
         name: promptName.trim() || promptEmail.split('@')[0],
         apple_id: `appl_${Date.now()}`
@@ -174,7 +174,7 @@ export default function SocialAuthButtons({ onSuccess, onError }) {
       setPromptModal(null);
       setPromptEmail('');
       setPromptName('');
-      if (onSuccess) onSuccess();
+      if (onSuccess) onSuccess(data);
     } catch (err) {
       console.error('Apple login error:', err);
       if (onError) onError(err.message);

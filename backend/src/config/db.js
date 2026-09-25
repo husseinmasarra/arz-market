@@ -268,7 +268,20 @@ async function initializeDatabasePostgres() {
       await pgPool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT DEFAULT ''");
       await pgPool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT DEFAULT ''");
       await pgPool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT DEFAULT ''");
+      await pgPool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS discount_used INTEGER DEFAULT 0");
     } catch (e) {}
+
+    // 2b. Deleted Accounts Table (To prevent re-login and track permanently deleted accounts)
+    await pgPool.query(`
+      CREATE TABLE IF NOT EXISTS deleted_accounts (
+        id SERIAL PRIMARY KEY,
+        identifier TEXT NOT NULL,
+        email TEXT DEFAULT '',
+        phone TEXT DEFAULT '',
+        username TEXT DEFAULT '',
+        deleted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
     // 3. Categories Table
     await pgPool.query(`
@@ -773,7 +786,23 @@ function initializeDatabase() {
       db.run(alterPhone, [], () => {});
       db.run(alterEmail, [], () => {});
       db.run(alterFullName, [], () => {});
+      const alterDiscountUsed = isPostgres 
+        ? "ALTER TABLE users ADD COLUMN IF NOT EXISTS discount_used INTEGER DEFAULT 0" 
+        : "ALTER TABLE users ADD COLUMN discount_used INTEGER DEFAULT 0";
+      db.run(alterDiscountUsed, [], () => {});
     });
+
+    // 2b. Deleted Accounts Table
+    runInit(`
+      CREATE TABLE IF NOT EXISTS deleted_accounts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        identifier TEXT NOT NULL,
+        email TEXT DEFAULT '',
+        phone TEXT DEFAULT '',
+        username TEXT DEFAULT '',
+        deleted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
     // 3. Categories Table
     runInit(`
