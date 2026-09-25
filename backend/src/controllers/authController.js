@@ -396,3 +396,124 @@ exports.appleAuth = async (req, res) => {
     res.status(500).json({ error_ar: 'خطأ أثناء تسجيل الدخول عبر Apple ID', error_en: 'Server error during Apple authentication' });
   }
 };
+
+// --- Google Play Policy Compliant: Self-Service Account & Data Deletion ---
+exports.deleteAccount = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    if (!userId) {
+      return res.status(401).json({ error_ar: 'غير مصرح', error_en: 'Unauthorized' });
+    }
+
+    // Safety: Prevent deleting super admin
+    const user = await db.getAsync('SELECT * FROM users WHERE id = ?', [userId]);
+    if (!user) {
+      return res.status(404).json({ error_ar: 'المستخدم غير موجود', error_en: 'User not found' });
+    }
+
+    if (user.role === 'admin' && (user.username === 'husseinmassara' || user.username === 'city-hunter')) {
+      return res.status(403).json({
+        error_ar: 'لا يمكن حذف حساب المدير الرئيسي للمتجر',
+        error_en: 'Main super admin account cannot be deleted'
+      });
+    }
+
+    // 1. Delete user cart
+    try {
+      await db.runAsync('DELETE FROM user_carts WHERE user_id = ?', [userId]);
+    } catch (e) {
+      console.warn('Cart cleanup note:', e.message);
+    }
+
+    // 2. Anonymize orders (keep accounting totals intact without personal identifying info)
+    try {
+      await db.runAsync("UPDATE orders SET customer_phone = 'Deleted User', customer_name = 'Deleted Account' WHERE user_id = ?", [userId]);
+    } catch (e) {
+      console.warn('Order unlink note:', e.message);
+    }
+
+    // 3. Delete user record
+    await db.runAsync('DELETE FROM users WHERE id = ?', [userId]);
+
+    res.json({
+      success: true,
+      message_ar: 'تم حذف حسابك وجميع بياناتك الشخصية بنجاح.',
+      message_en: 'Your account and personal data have been permanently deleted.'
+    });
+  } catch (err) {
+    console.error('Delete account error:', err);
+    res.status(500).json({ error_ar: 'حدث خطأ أثناء حذف الحساب', error_en: 'Error occurred while deleting account' });
+  }
+};
+
+// Public Account Deletion Request (For web users / Google Play policy compliance)
+exports.requestAccountDeletion = async (req, res) => {
+  try {
+    const { identifier, password } = req.body || {};
+    if (!identifier) {
+      return res.status(400).json({
+        error_ar: 'يرجى إدخال اسم المستخدم، البريد الإلكتروني، أو رقم الهاتف المسجل',
+        error_en: 'Please provide your registered username, email, or phone number'
+      });
+    }
+
+    const cleanId = identifier.trim().toLowerCase();
+    const cleanDigits = identifier.replace(/[^0-9]/g, '');
+
+    let user = await db.getAsync(`
+      SELECT * FROM users 
+      WHERE LOWER(username) = ? 
+         OR LOWER(email) = ? 
+         OR phone = ?
+    `, [cleanId, cleanId, identifier.trim()]);
+
+    if (!user && cleanDigits.length >= 7) {
+      user = await db.getAsync('SELECT * FROM users WHERE phone LIKE ?', [`%${cleanDigits.slice(-7)}`]);
+    }
+
+    if (!user) {
+      return res.status(404).json({
+        error_ar: 'لم يتم العثور على أي حساب مسجل بهذه البيانات',
+        error_en: 'No registered account found with these details'
+      });
+    }
+
+    if (user.role === 'admin' && (user.username === 'husseinmassara' || user.username === 'city-hunter')) {
+      return res.status(403).json({
+        error_ar: 'لا يمكن حذف حساب المدير الرئيسي للمتجر',
+        error_en: 'Main super admin account cannot be deleted'
+      });
+    }
+
+    // If password provided, verify it
+    if (password && user.password) {
+      const isMatch = bcrypt.compareSync(password, user.password);
+      if (!isMatch) {
+        return res.status(400).json({
+          error_ar: 'كلمة المرور غير صحيحة للتأكيد',
+          error_en: 'Incorrect password for verification'
+        });
+      }
+    }
+
+    // Perform deletion
+    try {
+      await db.runAsync('DELETE FROM user_carts WHERE user_id = ?', [user.id]);
+    } catch (e) {}
+
+    try {
+      await db.runAsync("UPDATE orders SET customer_phone = 'Deleted User', customer_name = 'Deleted Account' WHERE user_id = ?", [user.id]);
+    } catch (e) {}
+
+    await db.runAsync('DELETE FROM users WHERE id = ?', [user.id]);
+
+    res.json({
+      success: true,
+      message_ar: 'تم تأكيد طلبك وحذف الحساب وكافة البيانات المرتبطة به بنجاح.',
+      message_en: 'Your account deletion request has been processed and your data has been deleted.'
+    });
+  } catch (err) {
+    console.error('Public deletion request error:', err);
+    res.status(500).json({ error_ar: 'حدث خطأ أثناء معالجة الطلب', error_en: 'Error processing deletion request' });
+  }
+};

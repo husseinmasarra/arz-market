@@ -14,6 +14,9 @@ import PwaInstallBanner from './components/PwaInstallBanner';
 import BestSellersSection from './components/BestSellersSection';
 import NewArrivalsSection from './components/NewArrivalsSection';
 import SocialAuthButtons from './components/SocialAuthButtons';
+import PrivacyPolicyView from './components/PrivacyPolicyView';
+import TermsOfServiceView from './components/TermsOfServiceView';
+import DeleteAccountView from './components/DeleteAccountView';
 
 // Admin panel imports
 import AdminDashboard from './components/admin/AdminDashboard';
@@ -46,7 +49,13 @@ export default function App() {
 
   const [currentView, setCurrentView] = useState(() => {
     const params = new URLSearchParams(window.location.search);
-    return params.get('view') || 'store';
+    const viewParam = params.get('view');
+    if (viewParam) return viewParam;
+    const path = window.location.pathname.toLowerCase();
+    if (path.includes('privacy')) return 'privacy';
+    if (path.includes('terms')) return 'terms';
+    if (path.includes('delete-account') || path.includes('account-deletion')) return 'delete-account';
+    return 'store';
   });
 
   // Catalog states
@@ -560,160 +569,11 @@ export default function App() {
       {currentView === 'admin' ? (
         <AdminDashboard setCurrentView={setCurrentView} />
       ) : currentView === 'privacy' ? (
-        /* PRIVACY POLICY VIEW */
-        <div className="container" style={{ flex: '1', padding: '40px 24px', maxWidth: '800px' }}>
-          <div className="no-print" style={{ marginBottom: '20px' }}>
-            <button
-              onClick={() => setCurrentView('store')}
-              className="input-field"
-              style={{
-                width: 'auto',
-                padding: '8px 16px',
-                backgroundColor: 'var(--bg-secondary)',
-                color: 'var(--text-primary)',
-                border: '1px solid var(--border-color)',
-                cursor: 'pointer',
-                fontWeight: '700',
-                borderRadius: '20px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              {lang === 'ar' ? '← العودة للمتجر' : '← Back to Store'}
-            </button>
-          </div>
-
-          <div className="animate-fade dashboard-card" style={{
-            padding: '30px',
-            backgroundColor: 'var(--bg-secondary)',
-            border: '1px solid var(--border-color)',
-            boxShadow: 'var(--shadow-md)',
-            borderRadius: '16px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '20px',
-            lineHeight: '1.7',
-            textAlign: lang === 'ar' ? 'right' : 'left'
-          }}>
-            <div style={{ borderBottom: '2px solid var(--border-color)', paddingBottom: '16px', textAlign: 'center' }}>
-              <h1 style={{ fontSize: '1.8rem', fontWeight: '800', color: 'var(--text-primary)' }}>
-                {lang === 'ar' ? 'سياسة الخصوصية' : 'Privacy Policy'}
-              </h1>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: '6px' }}>
-                {lang === 'ar' ? 'آخر تحديث: يونيو ٢٠٢٦' : 'Last Updated: June 2026'}
-              </p>
-            </div>
-
-            {lang === 'ar' ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <section>
-                  <h3 style={{ color: 'var(--accent-blue)', fontWeight: '700', marginBottom: '8px' }}>١. مقدمة</h3>
-                  <p>
-                    نحن في <strong>أرز مارت (Arz-Mart)</strong> نلتزم التزاماً تاماً بحماية خصوصيتك وأمان بياناتك الشخصية. توضح هذه السياسة كيفية جمع بياناتك واستخدامها وحمايتها عند استخدامك لموقعنا الإلكتروني وتطبيق الهاتف المحمول الخاص بنا.
-                  </p>
-                </section>
-
-                <section>
-                  <h3 style={{ color: 'var(--accent-blue)', fontWeight: '700', marginBottom: '8px' }}>٢. البيانات التي نجمعها</h3>
-                  <p>عند استخدامك لمنصتنا، قد نقوم بجمع المعلومات التالية:</p>
-                  <ul style={{ listStyleType: 'disc', paddingRight: '20px', marginTop: '6px' }}>
-                    <li><strong>بيانات الحساب الأساسية:</strong> اسم المستخدم وكلمات المرور المشفرة لتمكينك من تسجيل الدخول بأمان.</li>
-                    <li><strong>معلومات التوصيل:</strong> رقم الهاتف والعنوان بالتفصيل لإيصال الطلبات النقدية (الدفع عند الاستلام - COD) في السوق اللبناني.</li>
-                    <li><strong>بيانات الطلبيات:</strong> تفاصيل المنتجات والأسعار والتاريخ لإدارة سوابق المشتريات والتتبع.</li>
-                  </ul>
-                </section>
-
-                <section>
-                  <h3 style={{ color: 'var(--accent-blue)', fontWeight: '700', marginBottom: '8px' }}>٣. المصادقة البيومترية (بصمة الإصبع)</h3>
-                  <p>
-                    يتيح لك تطبيق الأندرويد خيار تفعيل تسجيل الدخول باستخدام بصمة الإصبع بشكل اختياري بالكامل. يرجى العلم بأن <strong>بيانات بصمتك الحيوية لا يتم جمعها، أو تخزينها، أو رفعها إلى خوادمنا مطلقاً</strong>. يتم إدارة وتشفير البصمة بالكامل محلياً بواسطة نظام التشغيل ومستشعرات الهاتف المدمجة لضمان خصوصية مطلقة وأمان تام.
-                  </p>
-                </section>
-
-                <section>
-                  <h3 style={{ color: 'var(--accent-blue)', fontWeight: '700', marginBottom: '8px' }}>٤. أذونات التطبيق والوصول</h3>
-                  <p>يتطلب تطبيق الأندرويد الوصول إلى:</p>
-                  <ul style={{ listStyleType: 'disc', paddingRight: '20px', marginTop: '6px' }}>
-                    <li><strong>شبكة الإنترنت:</strong> للاتصال بخوادم أرز مارت وتنزيل المنتجات وتحديث الطلبات والدردشة المباشرة.</li>
-                    <li><strong>المستشعرات البيومترية:</strong> للتحقق من هويتك عبر بصمة الإصبع عند تسجيل الدخول السريع (إذا قمت بتفعيلها اختيارياً).</li>
-                  </ul>
-                </section>
-
-                <section>
-                  <h3 style={{ color: 'var(--accent-blue)', fontWeight: '700', marginBottom: '8px' }}>٥. أمن وحماية البيانات</h3>
-                  <p>
-                    نحن نطبق معايير أمنية صارمة وتشفير كامل لكلمات المرور وقاعدة البيانات لحماية معلوماتك الشخصية من الوصول غير المصرح به أو التعديل أو الإفشاء. نحن لا نبيع بياناتك الشخصية للجهات الخارجية ولا نستخدمها لأغراض تسويقية غير مصرح بها.
-                  </p>
-                </section>
-
-                <section>
-                  <h3 style={{ color: 'var(--accent-blue)', fontWeight: '700', marginBottom: '8px' }}>٦. التغييرات على هذه السياسة</h3>
-                  <p>
-                    قد نقوم بتحديث سياسة الخصوصية هذه من وقت لآخر لتواكب التحديثات القانونية أو التقنية. سيتم نشر أي تغييرات في هذه الصفحة مع تحديث تاريخ السريان المذكور في الأعلى.
-                  </p>
-                </section>
-
-                <section style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px', marginTop: '10px' }}>
-                  <p>إذا كان لديك أي أسئلة أو استفسارات حول سياسة الخصوصية، يمكنك التواصل مع إدارة أرز مارت مباشرة عبر المحادثات الحية المدمجة في التطبيق.</p>
-                </section>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <section>
-                  <h3 style={{ color: 'var(--accent-blue)', fontWeight: '700', marginBottom: '8px' }}>1. Introduction</h3>
-                  <p>
-                    We at <strong>Arz-Mart</strong> are fully committed to protecting your privacy and securing your personal data. This Privacy Policy describes how we collect, use, and safeguard your data when using our website and mobile application.
-                  </p>
-                </section>
-
-                <section>
-                  <h3 style={{ color: 'var(--accent-blue)', fontWeight: '700', marginBottom: '8px' }}>2. Data We Collect</h3>
-                  <p>When using our platform, we may collect the following information:</p>
-                  <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '6px' }}>
-                    <li><strong>Basic Account Data:</strong> Username and encrypted password to log in securely.</li>
-                    <li><strong>Delivery Information:</strong> Phone number and detailed address to process Cash on Delivery (COD) orders in Lebanon.</li>
-                    <li><strong>Order Information:</strong> Details of products, prices, and history to manage your orders.</li>
-                  </ul>
-                </section>
-
-                <section>
-                  <h3 style={{ color: 'var(--accent-blue)', fontWeight: '700', marginBottom: '8px' }}>3. Biometric Authentication (Fingerprint)</h3>
-                  <p>
-                    The Android app offers you an option to enable fingerprint quick login. Please note that <strong>your biometric fingerprint data is never collected, stored, or uploaded to our servers</strong>. It is processed and encrypted entirely locally by the device hardware and android system to ensure total privacy and security.
-                  </p>
-                </section>
-
-                <section>
-                  <h3 style={{ color: 'var(--accent-blue)', fontWeight: '700', marginBottom: '8px' }}>4. App Permissions</h3>
-                  <p>The Android app requires access to:</p>
-                  <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '6px' }}>
-                    <li><strong>Internet Access:</strong> To connect to our servers, download products, and use live chat.</li>
-                    <li><strong>Biometric Sensors:</strong> To authenticate your identity via fingerprint (only if explicitly enabled).</li>
-                  </ul>
-                </section>
-
-                <section>
-                  <h3 style={{ color: 'var(--accent-blue)', fontWeight: '700', marginBottom: '8px' }}>5. Security and Data Protection</h3>
-                  <p>
-                    We apply strict security measures and database encryption to protect your personal information. We do not sell or share your personal data with third parties.
-                  </p>
-                </section>
-
-                <section>
-                  <h3 style={{ color: 'var(--accent-blue)', fontWeight: '700', marginBottom: '8px' }}>6. Changes to This Policy</h3>
-                  <p>
-                    We may update this Privacy Policy from time to time. Any changes will be published on this page with the updated last modified date shown above.
-                  </p>
-                </section>
-
-                <section style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px', marginTop: '10px' }}>
-                  <p>If you have any questions or feedback regarding this policy, feel free to contact Arz-Mart administration using the integrated live chat inside the app.</p>
-                </section>
-              </div>
-            )}
-          </div>
-        </div>
+        <PrivacyPolicyView setCurrentView={setCurrentView} />
+      ) : currentView === 'terms' ? (
+        <TermsOfServiceView setCurrentView={setCurrentView} />
+      ) : currentView === 'delete-account' ? (
+        <DeleteAccountView setCurrentView={setCurrentView} />
       ) : currentView === 'login' || currentView === 'register' ? (
         
         /* AUTH VIEWS (LOGIN / REGISTER) */
@@ -927,27 +787,41 @@ export default function App() {
               {lang === 'ar' ? (
                 <span>
                   بتسجيل الدخول أو التسجيل، أنت توافق على{' '}
-                  <a
-                    href="/?view=privacy"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: 'var(--accent-blue)', textDecoration: 'underline', fontWeight: '600' }}
+                  <button
+                    type="button"
+                    onClick={() => { setCurrentView('terms'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                    style={{ background: 'none', border: 'none', padding: 0, color: 'var(--accent-blue)', textDecoration: 'underline', fontWeight: '600', cursor: 'pointer' }}
+                  >
+                    شروط الاستخدام
+                  </button>
+                  {' '}و{' '}
+                  <button
+                    type="button"
+                    onClick={() => { setCurrentView('privacy'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                    style={{ background: 'none', border: 'none', padding: 0, color: 'var(--accent-blue)', textDecoration: 'underline', fontWeight: '600', cursor: 'pointer' }}
                   >
                     سياسة الخصوصية
-                  </a>{' '}
-                  الخاصة بنا.
+                  </button>
+                  .
                 </span>
               ) : (
                 <span>
                   By logging in or registering, you agree to our{' '}
-                  <a
-                    href="/?view=privacy"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: 'var(--accent-blue)', textDecoration: 'underline', fontWeight: '600' }}
+                  <button
+                    type="button"
+                    onClick={() => { setCurrentView('terms'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                    style={{ background: 'none', border: 'none', padding: 0, color: 'var(--accent-blue)', textDecoration: 'underline', fontWeight: '600', cursor: 'pointer' }}
+                  >
+                    Terms of Service
+                  </button>
+                  {' '}and{' '}
+                  <button
+                    type="button"
+                    onClick={() => { setCurrentView('privacy'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                    style={{ background: 'none', border: 'none', padding: 0, color: 'var(--accent-blue)', textDecoration: 'underline', fontWeight: '600', cursor: 'pointer' }}
                   >
                     Privacy Policy
-                  </a>
+                  </button>
                   .
                 </span>
               )}
@@ -1004,6 +878,36 @@ export default function App() {
               ))}
             </div>
           )}
+
+          {/* Account Security & Deletion (Google Play In-App Requirement) */}
+          <div className="dashboard-card" style={{ marginTop: '24px', padding: '20px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+            <div>
+              <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>
+                {lang === 'ar' ? 'إدارة الحساب والبيانات الشخصية' : 'Account & Personal Data'}
+              </h4>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', margin: '4px 0 0 0' }}>
+                {lang === 'ar' ? 'التحكم في بياناتك أو حذف الحساب نهائياً طبقاً لسياسات الخصوصية' : 'Manage personal information or permanently delete your account'}
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setCurrentView('delete-account');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                color: '#ef4444',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                borderRadius: '8px',
+                fontWeight: '700',
+                fontSize: '0.85rem',
+                cursor: 'pointer'
+              }}
+            >
+              {lang === 'ar' ? 'حذف الحساب والبيانات' : 'Delete Account & Data'}
+            </button>
+          </div>
         </div>
 
       ) : (
@@ -1496,7 +1400,7 @@ export default function App() {
               </strong>
             </div>
           )}
-          <div>
+          <div style={{ display: 'flex', gap: '14px', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', marginTop: '6px' }}>
             <button
               onClick={() => {
                 setCurrentView('privacy');
@@ -1513,6 +1417,42 @@ export default function App() {
               }}
             >
               {t('privacy_policy')}
+            </button>
+            <span style={{ color: 'var(--border-color)' }}>•</span>
+            <button
+              onClick={() => {
+                setCurrentView('terms');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              style={{
+                border: 'none',
+                backgroundColor: 'transparent',
+                color: 'var(--accent-blue)',
+                cursor: 'pointer',
+                fontWeight: '600',
+                fontSize: '0.8rem',
+                textDecoration: 'underline'
+              }}
+            >
+              {t('terms_of_service')}
+            </button>
+            <span style={{ color: 'var(--border-color)' }}>•</span>
+            <button
+              onClick={() => {
+                setCurrentView('delete-account');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              style={{
+                border: 'none',
+                backgroundColor: 'transparent',
+                color: '#ef4444',
+                cursor: 'pointer',
+                fontWeight: '600',
+                fontSize: '0.8rem',
+                textDecoration: 'underline'
+              }}
+            >
+              {t('delete_account')}
             </button>
           </div>
         </div>

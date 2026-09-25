@@ -24,6 +24,8 @@ router.post('/auth/login', authController.login);
 router.post('/auth/google', authController.googleAuth);
 router.post('/auth/apple', authController.appleAuth);
 router.get('/auth/profile', authenticateToken, authController.getProfile);
+router.delete('/auth/delete-account', authenticateToken, authController.deleteAccount);
+router.post('/auth/request-deletion', authController.requestAccountDeletion);
 
 // --- User Management (Admin Only) ---
 router.get('/admin/users', authenticateToken, requirePermission('users'), authController.getUsers);
