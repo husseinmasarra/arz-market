@@ -419,13 +419,20 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
       formData.append('product_image', selectedFile);
     }
     const colorsArray = colorsInput ? colorsInput.split(',').map(c => c.trim()).filter(Boolean) : [];
+    const baseP = parseFloat(priceUsd) || 0;
     const sizesArray = sizesList
       .filter(opt => opt && opt.name && opt.name.trim())
       .map(opt => {
+        let finalPrice = baseP;
         const val = parseFloat(opt.price);
+        if (!isNaN(val)) {
+          if (opt.type === 'relative') finalPrice = baseP + val;
+          else if (opt.type === 'negative') finalPrice = Math.max(0, baseP - val);
+          else finalPrice = val;
+        }
         return {
           name: opt.name.trim(),
-          price: !isNaN(val) ? val : (parseFloat(priceUsd) || 0)
+          price: Number(finalPrice.toFixed(2))
         };
       });
     formData.append('colors', JSON.stringify(colorsArray));
@@ -1833,105 +1840,219 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
             </div>
           </div>
           <div style={{ gridColumn: '1 / -1', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '16px', backgroundColor: 'var(--bg-secondary)', marginTop: '8px' }}>
-            <span className="input-label" style={{ display: 'block', fontWeight: '700', fontSize: '0.95rem', marginBottom: '12px', color: 'var(--text-primary)' }}>
-              {lang === 'ar' ? 'خيارات المنتج وتحديد الأسعار يدوياً (مثل الأحجام أو السعات)' : 'Product Options & Price Details (e.g. Sizes or Storage)'}
-            </span>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {sizesList.map((item, index) => (
-                <div key={index} style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-                  {/* Option Name */}
-                  <div style={{ flex: '1', minWidth: '150px' }}>
-                    <input 
-                      type="text" 
-                      placeholder={lang === 'ar' ? 'اسم الخيار (مثال: 512GB أو 5L)' : 'Option Name (e.g. 512GB or 5L)'} 
-                      className="input-field" 
-                      style={{ margin: 0 }}
-                      value={item.name} 
-                      onChange={(e) => {
-                        const newList = [...sizesList];
-                        newList[index].name = e.target.value;
-                        setSizesList(newList);
-                      }} 
-                    />
-                  </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <span className="input-label" style={{ display: 'block', fontWeight: '800', fontSize: '0.95rem', margin: 0, color: 'var(--text-primary)' }}>
+                {lang === 'ar' ? '📏 قياسات وخيارات المنتج مع الأسعار (Sizes & Options with Prices):' : '📏 Product Sizes & Options with Prices:'}
+              </span>
+              {sizesList.some(s => s.name && s.name.trim()) && (
+                <button
+                  type="button"
+                  onClick={() => setSizesList([{ name: '', price: '', type: 'absolute' }])}
+                  style={{
+                    border: 'none',
+                    background: 'transparent',
+                    color: '#dc2626',
+                    fontSize: '0.78rem',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {lang === 'ar' ? 'مسح كافة القياسات' : 'Clear All Sizes'}
+                </button>
+              )}
+            </div>
 
-                  {/* Price Type */}
-                  <div style={{ width: '160px' }}>
-                    <select 
-                      className="input-field" 
-                      style={{ margin: 0, padding: '8px' }}
-                      value={item.type} 
-                      onChange={(e) => {
-                        const newList = [...sizesList];
-                        newList[index].type = e.target.value;
-                        setSizesList(newList);
-                      }}
-                    >
-                      <option value="absolute">{lang === 'ar' ? 'سعر يدوي مباشر ($)' : 'Absolute Price ($)'}</option>
-                      <option value="relative">{lang === 'ar' ? 'زيادة نسبية (+)' : 'Price Increase (+)'}</option>
-                      <option value="negative">{lang === 'ar' ? 'خصم نسبي (-)' : 'Price Decrease (-)'}</option>
-                    </select>
-                  </div>
-
-                  {/* Price Value */}
-                  <div style={{ width: '120px' }}>
-                    <input 
-                      type="number" 
-                      step="0.01" 
-                      placeholder={lang === 'ar' ? 'السعر/الفارق' : 'Price/Offset'} 
-                      className="input-field" 
-                      style={{ margin: 0 }}
-                      value={item.price} 
-                      onChange={(e) => {
-                        const newList = [...sizesList];
-                        newList[index].price = e.target.value;
-                        setSizesList(newList);
-                      }} 
-                    />
-                  </div>
-
-                  {/* Delete Button */}
-                  <button 
-                    type="button" 
+            {/* Quick Templates Chips */}
+            <div style={{ marginBottom: '14px' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+                {lang === 'ar' ? '⚡ قوالب جاهزة سريعة للإضافة بنقرة واحدة:' : '⚡ Quick Templates:'}
+              </span>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {[
+                  { label: 'S, M, L, XL', items: ['S', 'M', 'L', 'XL', 'XXL'] },
+                  { label: '64GB, 128GB, 256GB, 512GB', items: ['64GB', '128GB', '256GB', '512GB'] },
+                  { label: '1.0m, 1.5m, 2.0m, 3.0m', items: ['طول 1.0m', 'طول 1.5m', 'طول 2.0m', 'طول 3.0m'] },
+                  { label: '40/41mm, 44/45mm, 49mm', items: ['40/41mm', '44/45mm', '49mm Ultra'] },
+                  { label: 'iPhone 16 Series', items: ['iPhone 16', 'iPhone 16 Pro', 'iPhone 16 Pro Max'] }
+                ].map((tpl, tIdx) => (
+                  <button
+                    key={tIdx}
+                    type="button"
                     onClick={() => {
-                      const newList = sizesList.filter((_, i) => i !== index);
-                      setSizesList(newList.length > 0 ? newList : [{ name: '', price: '', type: 'absolute' }]);
+                      const baseP = priceUsd || '';
+                      const newItems = tpl.items.map(name => ({
+                        name,
+                        price: baseP,
+                        type: 'absolute'
+                      }));
+                      const existingClean = sizesList.filter(s => s.name && s.name.trim());
+                      setSizesList([...existingClean, ...newItems]);
                     }}
                     style={{
-                      border: 'none',
-                      backgroundColor: '#fee2e2',
-                      color: '#ef4444',
-                      padding: '8px 12px',
-                      borderRadius: '6px',
-                      fontWeight: '600',
-                      cursor: 'pointer'
+                      padding: '4px 10px',
+                      borderRadius: '16px',
+                      backgroundColor: 'var(--bg-primary)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-primary)',
+                      fontSize: '0.75rem',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      transition: 'all 0.15s'
                     }}
                   >
-                    {lang === 'ar' ? 'حذف' : 'Delete'}
+                    <span>+</span> {tpl.label}
                   </button>
-                </div>
-              ))}
+                ))}
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {sizesList.map((item, index) => {
+                const baseP = parseFloat(priceUsd) || 0;
+                let calculatedPrice = baseP;
+                const val = parseFloat(item.price);
+                if (!isNaN(val)) {
+                  if (item.type === 'relative') calculatedPrice = baseP + val;
+                  else if (item.type === 'negative') calculatedPrice = Math.max(0, baseP - val);
+                  else calculatedPrice = val;
+                }
+
+                return (
+                  <div key={index} style={{ 
+                    display: 'flex', 
+                    gap: '10px', 
+                    alignItems: 'center', 
+                    flexWrap: 'wrap',
+                    backgroundColor: 'var(--bg-primary)',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: '1px solid var(--border-color)'
+                  }}>
+                    {/* Option Name */}
+                    <div style={{ flex: '1.2', minWidth: '160px' }}>
+                      <label style={{ fontSize: '0.72rem', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '3px' }}>
+                        {lang === 'ar' ? 'اسم القياس / الموديل' : 'Size / Option Name'}
+                      </label>
+                      <input 
+                        type="text" 
+                        placeholder={lang === 'ar' ? 'مثال: 128GB أو XL أو 2.0m' : 'e.g. 128GB or XL or 2.0m'} 
+                        className="input-field" 
+                        style={{ margin: 0, padding: '8px 12px' }}
+                        value={item.name} 
+                        onChange={(e) => {
+                          const newList = [...sizesList];
+                          newList[index].name = e.target.value;
+                          setSizesList(newList);
+                        }} 
+                      />
+                    </div>
+
+                    {/* Price Type */}
+                    <div style={{ width: '160px' }}>
+                      <label style={{ fontSize: '0.72rem', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '3px' }}>
+                        {lang === 'ar' ? 'نوع التسعير' : 'Price Type'}
+                      </label>
+                      <select 
+                        className="input-field" 
+                        style={{ margin: 0, padding: '8px 10px' }}
+                        value={item.type} 
+                        onChange={(e) => {
+                          const newList = [...sizesList];
+                          newList[index].type = e.target.value;
+                          setSizesList(newList);
+                        }}
+                      >
+                        <option value="absolute">{lang === 'ar' ? 'سعر محدد مباشر ($)' : 'Exact Price ($)'}</option>
+                        <option value="relative">{lang === 'ar' ? 'زيادة عن الأساسي (+)' : 'Add to Base (+)'}</option>
+                        <option value="negative">{lang === 'ar' ? 'خصم عن الأساسي (-)' : 'Subtract Base (-)'}</option>
+                      </select>
+                    </div>
+
+                    {/* Price Value */}
+                    <div style={{ width: '130px' }}>
+                      <label style={{ fontSize: '0.72rem', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '3px' }}>
+                        {lang === 'ar' ? 'السعر ($ USD)' : 'Price ($ USD)'}
+                      </label>
+                      <input 
+                        type="number" 
+                        step="0.01" 
+                        placeholder="0.00" 
+                        className="input-field" 
+                        style={{ margin: 0, padding: '8px 12px', fontWeight: '800', color: '#dc2626' }}
+                        value={item.price} 
+                        onChange={(e) => {
+                          const newList = [...sizesList];
+                          newList[index].price = e.target.value;
+                          setSizesList(newList);
+                        }} 
+                      />
+                    </div>
+
+                    {/* Computed Preview Badge */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '80px' }}>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: '600' }}>
+                        {lang === 'ar' ? 'السعر النهائي' : 'Final Price'}
+                      </span>
+                      <span style={{ fontSize: '0.95rem', fontWeight: '900', color: '#16a34a' }}>
+                        ${calculatedPrice.toFixed(2)}
+                      </span>
+                    </div>
+
+                    {/* Delete Button */}
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        const newList = sizesList.filter((_, i) => i !== index);
+                        setSizesList(newList.length > 0 ? newList : [{ name: '', price: '', type: 'absolute' }]);
+                      }}
+                      style={{
+                        border: 'none',
+                        backgroundColor: '#fee2e2',
+                        color: '#ef4444',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        marginTop: '16px'
+                      }}
+                      title={lang === 'ar' ? 'حذف هذا القياس' : 'Delete this size'}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Add Option Button */}
-            <button 
-              type="button" 
-              onClick={() => setSizesList([...sizesList, { name: '', price: '', type: 'absolute' }])}
-              style={{
-                marginTop: '12px',
-                padding: '6px 16px',
-                borderRadius: '6px',
-                backgroundColor: 'var(--accent-blue)',
-                color: 'white',
-                border: 'none',
-                fontWeight: '600',
-                cursor: 'pointer',
-                fontSize: '0.85rem'
-              }}
-            >
-              {lang === 'ar' ? '+ إضافة خيار جديد' : '+ Add New Option'}
-            </button>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '14px' }}>
+              <button 
+                type="button" 
+                onClick={() => {
+                  const baseP = priceUsd || '';
+                  setSizesList([...sizesList, { name: '', price: baseP, type: 'absolute' }]);
+                }}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: '8px',
+                  backgroundColor: 'var(--accent-blue)',
+                  color: 'white',
+                  border: 'none',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  fontSize: '0.85rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <Plus size={16} />
+                {lang === 'ar' ? 'إضافة قياس / خيار جديد' : 'Add New Size / Option'}
+              </button>
+            </div>
           </div>
           <div style={{ gridColumn: 'span 1' }}>
             <label className="input-label">صورة المنتج (Product Image)</label>
