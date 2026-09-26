@@ -70,6 +70,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
   const [sortBy, setSortBy] = useState('newest'); // default: newest first so newly fetched products appear at the top
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(40);
+  const [previewImageModal, setPreviewImageModal] = useState(null);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
@@ -2438,18 +2439,65 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                   return (
                     <tr key={p.id} style={{ borderBottom: '1px solid var(--border-color)', fontSize: '0.9rem' }}>
                       <td style={{ padding: '10px' }}>
-                        <img 
-                          src={imageUrl} 
-                          alt="" 
-                          style={{ 
-                            width: '44px', 
-                            height: '44px', 
-                            objectFit: 'contain', 
-                            backgroundColor: 'white', 
-                            borderRadius: '6px', 
-                            border: '1px solid var(--border-color)' 
-                          }} 
-                        />
+                        <div 
+                          onClick={() => setPreviewImageModal({ 
+                            url: imageUrl, 
+                            name: lang === 'ar' ? (p.name_ar || p.name_en) : (p.name_en || p.name_ar), 
+                            product: p 
+                          })}
+                          style={{
+                            position: 'relative',
+                            width: '46px',
+                            height: '46px',
+                            cursor: 'pointer',
+                            borderRadius: '8px',
+                            overflow: 'hidden',
+                            border: '1px solid var(--border-color)',
+                            backgroundColor: '#ffffff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.2s ease',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.06)'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = 'scale(1.1)';
+                            e.currentTarget.style.borderColor = 'var(--accent-blue)';
+                            e.currentTarget.style.boxShadow = '0 4px 10px rgba(0,0,0,0.15)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = 'scale(1)';
+                            e.currentTarget.style.borderColor = 'var(--border-color)';
+                            e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)';
+                          }}
+                          title={lang === 'ar' ? 'انقر لمعاينة الصورة بالحجم الكامل' : 'Click to preview image in full size'}
+                        >
+                          <img 
+                            src={imageUrl} 
+                            alt="" 
+                            style={{ 
+                              width: '100%', 
+                              height: '100%', 
+                              objectFit: 'contain'
+                            }} 
+                          />
+                          <div style={{
+                            position: 'absolute',
+                            inset: 0,
+                            backgroundColor: 'rgba(0,0,0,0.3)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            opacity: 0,
+                            transition: 'opacity 0.2s ease',
+                            color: '#ffffff'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                          onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
+                          >
+                            <Eye size={16} />
+                          </div>
+                        </div>
                       </td>
                       <td style={{ padding: '10px', fontWeight: '600' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
@@ -2796,6 +2844,137 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
           );
         })()}
       </div>
+
+      {/* High-Resolution Image Preview Lightbox Modal */}
+      {previewImageModal && (
+        <div 
+          onClick={() => setPreviewImageModal(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 99999,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            animation: 'fadeIn 0.2s ease'
+          }}
+        >
+          {/* Top Actions Bar */}
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: '850px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '14px',
+              color: '#ffffff'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
+              <span style={{ fontSize: '1.05rem', fontWeight: '800', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                {previewImageModal.name || (lang === 'ar' ? 'معاينة صورة المنتج' : 'Product Image Preview')}
+              </span>
+              {previewImageModal.product && (
+                <span style={{
+                  fontSize: '0.75rem',
+                  padding: '3px 10px',
+                  borderRadius: '12px',
+                  backgroundColor: 'rgba(255,255,255,0.2)',
+                  fontWeight: '700',
+                  whiteSpace: 'nowrap'
+                }}>
+                  {lang === 'ar' 
+                    ? (previewImageModal.product.category_name_ar || `قسم #${previewImageModal.product.category_id}`) 
+                    : (previewImageModal.product.category_name_en || `Cat #${previewImageModal.product.category_id}`)}
+                </span>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <a
+                href={previewImageModal.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: '#ffffff',
+                  backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                  padding: '7px 14px',
+                  borderRadius: '8px',
+                  fontSize: '0.82rem',
+                  fontWeight: '700',
+                  textDecoration: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  border: '1px solid rgba(255, 255, 255, 0.25)',
+                  transition: 'all 0.15s'
+                }}
+                title={lang === 'ar' ? 'فتح الصورة بالرابط الأصلي' : 'Open original image in new tab'}
+              >
+                <ExternalLink size={15} />
+                <span>{lang === 'ar' ? 'الرابط المباشر' : 'Open Link'}</span>
+              </a>
+
+              <button
+                onClick={() => setPreviewImageModal(null)}
+                style={{
+                  border: 'none',
+                  backgroundColor: 'rgba(239, 68, 68, 0.9)',
+                  color: '#ffffff',
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)'
+                }}
+                title={lang === 'ar' ? 'إغلاق المعاينة' : 'Close Preview'}
+              >
+                <X size={20} />
+              </button>
+            </div>
+          </div>
+
+          {/* Main Image Container */}
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'relative',
+              maxWidth: '850px',
+              width: '100%',
+              maxHeight: '82vh',
+              backgroundColor: '#ffffff',
+              borderRadius: '16px',
+              overflow: 'hidden',
+              padding: '16px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.6)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <img 
+              src={previewImageModal.url} 
+              alt={previewImageModal.name || ''} 
+              style={{
+                maxWidth: '100%',
+                maxHeight: '78vh',
+                objectFit: 'contain',
+                borderRadius: '8px'
+              }}
+            />
+          </div>
+        </div>
+      )}
 
     </div>
   );
