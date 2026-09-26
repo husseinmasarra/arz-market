@@ -1174,54 +1174,140 @@ export default function App() {
                       {availableSubCats.length > 0 && (
                         <div style={{
                           display: 'flex',
-                          gap: '8px',
-                          overflowX: 'auto',
-                          paddingBottom: '6px',
-                          scrollbarWidth: 'none'
+                          flexWrap: 'wrap',
+                          gap: '10px',
+                          alignItems: 'center',
+                          paddingTop: '4px',
+                          paddingBottom: '4px'
                         }}>
                           {/* All in Parent Pill */}
-                          <button
-                            onClick={() => handleSelectCategory(parentId)}
-                            style={{
-                              whiteSpace: 'nowrap',
-                              padding: '8px 16px',
-                              fontSize: '0.82rem',
-                              borderRadius: '20px',
-                              border: 'none',
-                              cursor: 'pointer',
-                              fontWeight: '700',
-                              backgroundColor: selectedCategory === String(parentId) ? 'var(--accent-red-gold)' : 'var(--bg-secondary)',
-                              color: selectedCategory === String(parentId) ? 'white' : 'var(--text-primary)',
-                              boxShadow: selectedCategory === String(parentId) ? 'var(--shadow-sm)' : 'none',
-                              outline: selectedCategory === String(parentId) ? 'none' : '1px solid var(--border-color)'
-                            }}
-                          >
-                            {lang === 'ar' ? 'كل الأقسام' : 'All Sub-categories'}
-                          </button>
+                          {(() => {
+                            const isParentActive = selectedCategory === String(parentId);
+                            const parentImg = parentCat?.image_url;
+                            const parentImgUrl = (typeof parentImg === 'string' && parentImg.trim().length > 0)
+                              ? (parentImg.startsWith('http') || parentImg.startsWith('data:') ? parentImg : `${apiHost}${parentImg}`)
+                              : null;
+
+                            return (
+                              <button
+                                onClick={() => handleSelectCategory(parentId)}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  paddingTop: '6px',
+                                  paddingBottom: '6px',
+                                  paddingInlineStart: '6px',
+                                  paddingInlineEnd: '14px',
+                                  fontSize: '0.86rem',
+                                  borderRadius: '24px',
+                                  border: isParentActive ? '1.5px solid transparent' : '1px solid var(--border-color)',
+                                  cursor: 'pointer',
+                                  fontWeight: isParentActive ? '700' : '600',
+                                  backgroundColor: isParentActive ? 'var(--accent-red-gold)' : 'var(--bg-secondary)',
+                                  color: isParentActive ? '#ffffff' : 'var(--text-primary)',
+                                  boxShadow: isParentActive ? '0 4px 12px rgba(217, 56, 58, 0.35)' : '0 1px 3px rgba(0,0,0,0.05)',
+                                  transition: 'all 0.2s ease',
+                                  transform: isParentActive ? 'scale(1.02)' : 'none'
+                                }}
+                              >
+                                {parentImgUrl ? (
+                                  <img
+                                    src={parentImgUrl}
+                                    alt=""
+                                    style={{
+                                      width: '30px',
+                                      height: '30px',
+                                      borderRadius: '50%',
+                                      objectFit: 'cover',
+                                      border: isParentActive ? '2px solid rgba(255,255,255,0.9)' : '1px solid var(--border-color)',
+                                      flexShrink: 0
+                                    }}
+                                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                  />
+                                ) : (
+                                  <span style={{
+                                    width: '30px',
+                                    height: '30px',
+                                    borderRadius: '50%',
+                                    backgroundColor: isParentActive ? 'rgba(255,255,255,0.2)' : 'var(--bg-tertiary)',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '0.85rem',
+                                    flexShrink: 0
+                                  }}>
+                                    🗂️
+                                  </span>
+                                )}
+                                <span>{lang === 'ar' ? 'كل الأقسام' : 'All Sub-categories'}</span>
+                              </button>
+                            );
+                          })()}
 
                           {/* Individual Subcategory Pills */}
                           {availableSubCats.map((sub) => {
                             if (!sub) return null;
                             const isSubActive = selectedCategory === String(sub.id);
+                            const subImg = sub.image_url;
+                            const subImgUrl = (typeof subImg === 'string' && subImg.trim().length > 0)
+                              ? (subImg.startsWith('http') || subImg.startsWith('data:') ? subImg : `${apiHost}${subImg}`)
+                              : null;
+
                             return (
                               <button
                                 key={sub.id}
                                 onClick={() => handleSelectCategory(sub.id)}
                                 style={{
-                                  whiteSpace: 'nowrap',
-                                  padding: '8px 16px',
-                                  fontSize: '0.82rem',
-                                  borderRadius: '20px',
-                                  border: 'none',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  paddingTop: '6px',
+                                  paddingBottom: '6px',
+                                  paddingInlineStart: '6px',
+                                  paddingInlineEnd: '14px',
+                                  fontSize: '0.86rem',
+                                  borderRadius: '24px',
+                                  border: isSubActive ? '1.5px solid transparent' : '1px solid var(--border-color)',
                                   cursor: 'pointer',
-                                  fontWeight: isSubActive ? '700' : '500',
+                                  fontWeight: isSubActive ? '700' : '600',
                                   backgroundColor: isSubActive ? 'var(--accent-blue)' : 'var(--bg-secondary)',
-                                  color: isSubActive ? 'white' : 'var(--text-secondary)',
-                                  boxShadow: isSubActive ? 'var(--shadow-sm)' : 'none',
-                                  outline: isSubActive ? 'none' : '1px solid var(--border-color)'
+                                  color: isSubActive ? '#ffffff' : 'var(--text-primary)',
+                                  boxShadow: isSubActive ? '0 4px 12px rgba(0, 86, 179, 0.35)' : '0 1px 3px rgba(0,0,0,0.05)',
+                                  transition: 'all 0.2s ease',
+                                  transform: isSubActive ? 'scale(1.02)' : 'none'
                                 }}
                               >
-                                {getCategoryName(sub, lang)}
+                                {subImgUrl ? (
+                                  <img
+                                    src={subImgUrl}
+                                    alt=""
+                                    style={{
+                                      width: '30px',
+                                      height: '30px',
+                                      borderRadius: '50%',
+                                      objectFit: 'cover',
+                                      border: isSubActive ? '2px solid rgba(255,255,255,0.9)' : '1px solid var(--border-color)',
+                                      flexShrink: 0
+                                    }}
+                                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                  />
+                                ) : (
+                                  <span style={{
+                                    width: '30px',
+                                    height: '30px',
+                                    borderRadius: '50%',
+                                    backgroundColor: isSubActive ? 'rgba(255,255,255,0.2)' : 'var(--bg-tertiary)',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '0.85rem',
+                                    flexShrink: 0
+                                  }}>
+                                    🏷️
+                                  </span>
+                                )}
+                                <span>{getCategoryName(sub, lang)}</span>
                               </button>
                             );
                           })}
