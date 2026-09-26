@@ -183,10 +183,17 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
       if (sizeMatch) {
         detectedSizes.push(sizeMatch[1].replace(/\s+/g, ''));
       }
-      if (/مفرد\s*ونص/i.test(rawLine)) detectedSizes.push('مفرد ونص');
-      else if (/مفرد/i.test(rawLine) && !detectedSizes.includes('مفرد')) detectedSizes.push('مفرد');
-      if (/مجوز|مزدوج/i.test(rawLine) && !detectedSizes.includes('مجوز')) detectedSizes.push('مجوز');
-      if (/كينغ|king/i.test(rawLine) && !detectedSizes.includes('كينغ')) detectedSizes.push('King Size');
+      if (/مفرد\s*ونصف|مفرد\s*ونص|twin|semi-double/i.test(rawLine)) {
+        if (!detectedSizes.includes('مفرد ونصف (Twin / Single & Half)')) detectedSizes.push('مفرد ونصف (Twin / Single & Half)');
+      } else if (/مفرد|single/i.test(rawLine) && !detectedSizes.includes('مفرد (Single)')) {
+        detectedSizes.push('مفرد (Single)');
+      }
+      if (/مجوز|مزدوج|double|queen/i.test(rawLine) && !detectedSizes.includes('مجوز (Double / Queen)')) {
+        detectedSizes.push('مجوز (Double / Queen)');
+      }
+      if (/كينغ|king\s*size|king/i.test(rawLine) && !detectedSizes.includes('كينغ سايز (King Size)')) {
+        detectedSizes.push('كينغ سايز (King Size)');
+      }
 
       COLOR_KEYWORDS.forEach(c => {
         if (new RegExp(`\\b${c.ar}\\b|ال${c.ar}|${c.ar}`, 'i').test(rawLine)) {

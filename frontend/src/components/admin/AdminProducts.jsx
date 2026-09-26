@@ -1869,8 +1869,13 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
               </span>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {[
+                  { label: '🛏️ أغطية (مفرد، مفرد ونصف، مجوز، كينغ سايز)', items: ['مفرد (Single)', 'مفرد ونصف (Twin / Single & Half)', 'مجوز (Double / Queen)', 'كينغ سايز (King Size)'] },
+                  { label: 'مفرد (Single)', items: ['مفرد (Single)'] },
+                  { label: 'مفرد ونصف (Twin)', items: ['مفرد ونصف (Twin / Single & Half)'] },
+                  { label: 'مجوز (Double)', items: ['مجوز (Double / Queen)'] },
+                  { label: 'كينغ سايز (King)', items: ['كينغ سايز (King Size)'] },
                   { label: 'S, M, L, XL', items: ['S', 'M', 'L', 'XL', 'XXL'] },
-                  { label: '64GB, 128GB, 256GB, 512GB', items: ['64GB', '128GB', '256GB', '512GB'] },
+                  { label: '64GB, 128GB, 256GB', items: ['64GB', '128GB', '256GB', '512GB'] },
                   { label: '1.0m, 1.5m, 2.0m, 3.0m', items: ['طول 1.0m', 'طول 1.5m', 'طول 2.0m', 'طول 3.0m'] },
                   { label: '40/41mm, 44/45mm, 49mm', items: ['40/41mm', '44/45mm', '49mm Ultra'] },
                   { label: 'iPhone 16 Series', items: ['iPhone 16', 'iPhone 16 Pro', 'iPhone 16 Pro Max'] }
