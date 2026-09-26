@@ -274,25 +274,31 @@ export default function ProductDetails({ product, onClose, onRefresh }) {
         {/* Modal Grid */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))',
           gap: '24px',
-          marginTop: '16px'
+          marginTop: '16px',
+          alignItems: 'start'
         }}>
           {/* Product Image with Zoom preview */}
           <div 
             onClick={() => setIsZoomOpen(true)}
             style={{
-              backgroundColor: 'white',
-              borderRadius: '12px',
-              padding: '16px',
+              backgroundColor: '#ffffff',
+              borderRadius: '16px',
+              padding: '12px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               border: '1px solid var(--border-color)',
-              minHeight: '260px',
+              width: '100%',
+              minHeight: '340px',
+              maxHeight: '480px',
+              height: '100%',
+              aspectRatio: '1 / 1',
               position: 'relative',
               cursor: 'zoom-in',
-              overflow: 'hidden'
+              overflow: 'hidden',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
             }}
             title={lang === 'ar' ? 'انقر لتكبير ومعاينة الصورة' : 'Click to enlarge image'}
           >
@@ -300,12 +306,14 @@ export default function ProductDetails({ product, onClose, onRefresh }) {
               src={imageUrl} 
               alt={name} 
               style={{
-                maxWidth: '100%',
-                maxHeight: '300px',
+                width: '100%',
+                height: '100%',
+                maxHeight: '450px',
                 objectFit: 'contain',
-                transition: 'transform 0.3s ease'
+                borderRadius: '10px',
+                transition: 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)'
               }}
-              onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+              onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.04)'}
               onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
             />
             {/* Zoom Badge Indicator */}

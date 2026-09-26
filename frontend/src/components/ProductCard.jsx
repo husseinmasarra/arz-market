@@ -52,10 +52,14 @@ export default function ProductCard({ product, onDetailsClick }) {
       <div 
         style={{
           width: '100%',
-          height: '200px',
+          height: '220px',
           overflow: 'hidden',
-          backgroundColor: 'white',
-          position: 'relative'
+          backgroundColor: '#ffffff',
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '8px'
         }}
       >
         <img
