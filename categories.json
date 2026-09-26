@@ -1,17 +1,5 @@
 [
   {
-    "id": 97,
-    "name_ar": "لوازم زجاجية",
-    "name_en": "Glassware",
-    "parent_id": 88,
-    "image_url": "",
-    "active": 1,
-    "sort_order": 0,
-    "code": "",
-    "parent_name_ar": "لوازم وأدوات المطبخ",
-    "parent_name_en": "Kitchen Supplies"
-  },
-  {
     "id": 19,
     "name_ar": "ماكينات حلاقة وعناية",
     "name_en": "Hair Trimmer",
@@ -130,6 +118,18 @@
     "code": "phones_accessories",
     "parent_name_ar": null,
     "parent_name_en": null
+  },
+  {
+    "id": 98,
+    "name_ar": "طناجر ومقالي وصواني طهي",
+    "name_en": "Cookware, Pots & Pans",
+    "parent_id": 88,
+    "image_url": "https://images.unsplash.com/photo-1584990347449-389f41b26829?auto=format&fit=crop&w=400&q=80",
+    "active": 1,
+    "sort_order": 1,
+    "code": "",
+    "parent_name_ar": "لوازم وأدوات المطبخ",
+    "parent_name_en": "Kitchen Supplies"
   },
   {
     "id": 18,
@@ -252,6 +252,18 @@
     "parent_name_en": null
   },
   {
+    "id": 99,
+    "name_ar": "أجهزة ومعدات المطبخ الكهربائية",
+    "name_en": "Kitchen Appliances & Cookers",
+    "parent_id": 88,
+    "image_url": "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=400&q=80",
+    "active": 1,
+    "sort_order": 2,
+    "code": "",
+    "parent_name_ar": "لوازم وأدوات المطبخ",
+    "parent_name_en": "Kitchen Supplies"
+  },
+  {
     "id": 17,
     "name_ar": "سماعات أذن سلكية",
     "name_en": "Earphone",
@@ -358,6 +370,18 @@
     "code": "gaming",
     "parent_name_ar": null,
     "parent_name_en": null
+  },
+  {
+    "id": 100,
+    "name_ar": "سكاكين وأدوات تقطيع وملاعق",
+    "name_en": "Knives, Cutlery & Utensils",
+    "parent_id": 88,
+    "image_url": "https://images.unsplash.com/photo-1593618998160-e34014e67546?auto=format&fit=crop&w=400&q=80",
+    "active": 1,
+    "sort_order": 3,
+    "code": "",
+    "parent_name_ar": "لوازم وأدوات المطبخ",
+    "parent_name_en": "Kitchen Supplies"
   },
   {
     "id": 26,
@@ -468,6 +492,18 @@
     "parent_name_en": null
   },
   {
+    "id": 97,
+    "name_ar": "أكواب ومجات وفناجين شرب",
+    "name_en": "Mugs, Cups & Drinkware",
+    "parent_id": 88,
+    "image_url": "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=400&q=80",
+    "active": 1,
+    "sort_order": 4,
+    "code": "",
+    "parent_name_ar": "لوازم وأدوات المطبخ",
+    "parent_name_en": "Kitchen Supplies"
+  },
+  {
     "id": 20,
     "name_ar": "حوامل وقواعد الهواتف والسيارات",
     "name_en": "Holder & Stand",
@@ -552,6 +588,18 @@
     "parent_name_en": null
   },
   {
+    "id": 101,
+    "name_ar": "صحون وجاطات وبورسلان ضيافة",
+    "name_en": "Plates, Bowls & Tableware",
+    "parent_id": 88,
+    "image_url": "https://images.unsplash.com/photo-1610701596007-11502861dcfa?auto=format&fit=crop&w=400&q=80",
+    "active": 1,
+    "sort_order": 5,
+    "code": "",
+    "parent_name_ar": "لوازم وأدوات المطبخ",
+    "parent_name_en": "Kitchen Supplies"
+  },
+  {
     "id": 24,
     "name_ar": "كاميرات مراقبة ذكية IP",
     "name_en": "IP Camera",
@@ -634,6 +682,18 @@
     "code": "smart_home",
     "parent_name_ar": null,
     "parent_name_en": null
+  },
+  {
+    "id": 102,
+    "name_ar": "منظمات وحوافظ طعام وتخزين",
+    "name_en": "Food Storage & Organizers",
+    "parent_id": 88,
+    "image_url": "https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?auto=format&fit=crop&w=400&q=80",
+    "active": 1,
+    "sort_order": 6,
+    "code": "",
+    "parent_name_ar": "لوازم وأدوات المطبخ",
+    "parent_name_en": "Kitchen Supplies"
   },
   {
     "id": 23,
