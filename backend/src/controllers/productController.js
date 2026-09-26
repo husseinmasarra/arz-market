@@ -156,7 +156,7 @@ exports.getProducts = async (req, res) => {
     params.push(parseFloat(max_price));
   }
 
-  try {
+    query += ' ORDER BY (CASE WHEN p.stock > 0 THEN 0 ELSE 1 END) ASC, p.id DESC';
     const products = await db.allAsync(query, params);
     
     let filteredProducts = products.map(p => {

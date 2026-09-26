@@ -23,7 +23,7 @@ exports.getCategories = async (req, res) => {
       SELECT c.*, p.name_ar as parent_name_ar, p.name_en as parent_name_en 
       FROM categories c
       LEFT JOIN categories p ON c.parent_id = p.id
-      ORDER BY COALESCE(c.sort_order, 0) ASC, c.id DESC
+      ORDER BY COALESCE(c.sort_order, 0) ASC, c.id ASC
     `);
     categoriesCache = categories;
     categoriesCacheTime = now;
