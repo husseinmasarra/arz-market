@@ -218,8 +218,8 @@ export default function App() {
       ? 'ArzMart | متجر أرز مارت - أفضل عروض الهواتف والإلكترونيات في لبنان' 
       : 'ArzMart | Online Shopping & Electronics in Lebanon';
     let description = lang === 'ar'
-      ? 'تسوق أفضل العروض على الهواتف الذكية، الأجهزة اللوحية، اللابتوبات، والإلكترونيات في لبنان مع أرز مارت ArzMart. دفع عند الاستلام وتوصيل سريع.'
-      : 'Shop the best deals on smartphones, electronics, tablets, and accessories in Lebanon with ArzMart. Cash on delivery & fast shipping across Lebanon.';
+      ? 'تسوق أفضل المنتجات والتخفيضات على الهواتف الذكية، الأجهزة اللوحية، اللابتوبات، والإلكترونيات في لبنان مع أرز مارت ArzMart. دفع عند الاستلام وتوصيل سريع.'
+      : 'Shop the best offers and prices on smartphones, electronics, tablets, and accessories in Lebanon with ArzMart. Cash on delivery & fast shipping across Lebanon.';
 
     if (selectedProduct) {
       const prodName = (lang === 'ar' ? selectedProduct.name_ar : selectedProduct.name_en) || selectedProduct.title || 'ArzMart';

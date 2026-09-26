@@ -150,7 +150,7 @@ const DEAL_CATEGORIES = [
   { id: '129', name_en: 'Party Supplies', name_ar: 'مستلزمات الحفلات' },
   { id: '134', name_en: 'Care Supplies', name_ar: 'مستلزمات العناية' },
   { id: '174', name_en: 'Home Decor', name_ar: 'ديكور منزلي' },
-  { id: '175', name_en: 'Super Deal', name_ar: 'عروض سوبر ديل' },
+  { id: '175', name_en: 'Special Offers', name_ar: 'العروض والتخفيضات الحصرية' },
   { id: '162', name_en: 'Sports & Fitness', name_ar: 'رياضة ولياقة بدنية' },
   { id: '164', name_en: 'Health Care', name_ar: 'رعاية صحية' },
   { id: '168', name_en: 'Muller Koch', name_ar: 'أدوات مطبخ مولر كوخ' },
@@ -329,7 +329,7 @@ async function syncDealLebanon({ sourceId = null, markupPercent = 18 } = {}) {
 
       for (const item of items) {
         const bilingual = splitTitleBilingual(item.title);
-        const sku = item.dealId ? `DEAL-${item.dealId}` : '';
+        const sku = item.dealId ? `ARZ-${item.dealId}` : '';
         const markupPrice = Math.round(item.originalPrice * markupMultiplier * 100) / 100;
         const oldPrice = item.oldPrice > item.originalPrice 
           ? Math.round(item.oldPrice * markupMultiplier * 100) / 100 

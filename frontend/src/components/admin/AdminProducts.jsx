@@ -1174,7 +1174,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                                 {source.sync_type === 'shopify_json' 
                                   ? 'Shopify Store' 
                                   : (source.sync_type === 'deal_scraper' 
-                                      ? (lang === 'ar' ? 'منصة Deal.com.lb' : 'Deal.com.lb') 
+                                      ? (lang === 'ar' ? 'سحب تلقائي من المورد' : 'Supplier Web Scraper') 
                                       : (lang === 'ar' ? 'بوابة جملة خاصة' : 'Wholesale Portal')
                                     )
                                 }
@@ -1473,7 +1473,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                     {lang === 'ar' ? 'موقع جملة بكلمة مرور (Wholesale Passcode Portal / DR PHONE)' : 'Wholesale Passcode Portal (DR PHONE compatible)'}
                   </option>
                   <option value="deal_scraper">
-                    {lang === 'ar' ? 'منصة الصفقات Deal.com.lb (Web Crawler / Scraper)' : 'Deal.com.lb Web Scraper'}
+                    {lang === 'ar' ? 'منصة الصفقات Supplier Web Scraper (Web Crawler / Scraper)' : 'Supplier Web Scraper Web Scraper'}
                   </option>
                   <option value="shopify_json">
                     {lang === 'ar' ? 'متجر شوبيفاي (Shopify / products.json)' : 'Shopify Store (products.json)'}
