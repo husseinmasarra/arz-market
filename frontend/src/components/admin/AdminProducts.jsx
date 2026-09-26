@@ -1869,6 +1869,19 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
               </span>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {[
+                  { label: '💧 سوائل صغيرة (50ml, 100ml, 250ml, 500ml, 750ml)', items: ['50ml (50 مل)', '100ml (100 مل)', '150ml (150 مل)', '250ml (250 مل)', '500ml (500 مل)', '750ml (750 مل)'] },
+                  { label: '🧴 عبوات لتر (1L, 1.5L, 2L, 3L, 5L)', items: ['1 لتر (1L)', '1.5 لتر (1.5L)', '2 لتر (2L)', '3 لتر (3L)', '4 لتر (4L)', '5 لتر (5L)'] },
+                  { label: '🛢️ جالونات وبراميل كبيرة (10L, 15L, 20L)', items: ['10 لتر (10L)', '15 لتر (15L)', '20 لتر (20L)'] },
+                  { label: '50ml', items: ['50ml (50 مل)'] },
+                  { label: '100ml', items: ['100ml (100 مل)'] },
+                  { label: '250ml', items: ['250ml (250 مل)'] },
+                  { label: '500ml', items: ['500ml (500 مل)'] },
+                  { label: '750ml', items: ['750ml (750 مل)'] },
+                  { label: '1L', items: ['1 لتر (1L)'] },
+                  { label: '2L', items: ['2 لتر (2L)'] },
+                  { label: '5L', items: ['5 لتر (5L)'] },
+                  { label: '10L', items: ['10 لتر (10L)'] },
+                  { label: '20L', items: ['20 لتر (20L)'] },
                   { label: '🛏️ أغطية (مفرد، مفرد ونصف، مجوز، كينغ سايز)', items: ['مفرد (Single)', 'مفرد ونصف (Twin / Single & Half)', 'مجوز (Double / Queen)', 'كينغ سايز (King Size)'] },
                   { label: 'مفرد (Single)', items: ['مفرد (Single)'] },
                   { label: 'مفرد ونصف (Twin)', items: ['مفرد ونصف (Twin / Single & Half)'] },
