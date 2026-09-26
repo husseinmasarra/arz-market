@@ -1,7 +1,55 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
-import { Trash2, Edit3, Image, RefreshCw, Sparkles, CheckCircle2, AlertCircle, Plus, Globe, ExternalLink, X, Search, Filter, Eye, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, MessageSquare, Package } from 'lucide-react';
+import { Trash2, Edit3, Image, RefreshCw, Sparkles, CheckCircle2, AlertCircle, Plus, Globe, ExternalLink, X, Search, Filter, Eye, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, MessageSquare, Package, Check } from 'lucide-react';
+
+const PRESET_COLORS = [
+  { name: 'أسود (Black)', hex: '#18181b', light: false },
+  { name: 'أبيض (White)', hex: '#ffffff', light: true },
+  { name: 'أزرق (Blue)', hex: '#2563eb', light: false },
+  { name: 'كحلي (Navy)', hex: '#1e3a8a', light: false },
+  { name: 'أحمر (Red)', hex: '#dc2626', light: false },
+  { name: 'خمري (Burgundy)', hex: '#831843', light: false },
+  { name: 'زهري (Pink)', hex: '#ec4899', light: false },
+  { name: 'أخضر (Green)', hex: '#16a34a', light: false },
+  { name: 'زيتي (Olive)', hex: '#3f6212', light: false },
+  { name: 'أصفر (Yellow)', hex: '#eab308', light: false },
+  { name: 'برتقالي (Orange)', hex: '#ea580c', light: false },
+  { name: 'بنفسجي (Purple)', hex: '#9333ea', light: false },
+  { name: 'فضي (Silver)', hex: '#9ca3af', light: false },
+  { name: 'ذهبي (Gold)', hex: '#d97706', light: false },
+  { name: 'رمادي (Gray)', hex: '#4b5563', light: false },
+  { name: 'بيج (Beige)', hex: '#f5f5dc', light: true },
+  { name: 'بني (Brown)', hex: '#78350f', light: false },
+  { name: 'خشبي (Wood)', hex: '#a16207', light: false }
+];
+
+const COLOR_HEX_MAP = {
+  'black': '#18181b', 'أسود': '#18181b', 'white': '#ffffff', 'أبيض': '#ffffff',
+  'blue': '#2563eb', 'أزرق': '#2563eb', 'navy': '#1e3a8a', 'كحلي': '#1e3a8a',
+  'red': '#dc2626', 'أحمر': '#dc2626', 'pink': '#ec4899', 'زهري': '#ec4899', 'وردي': '#f472b6',
+  'green': '#16a34a', 'أخضر': '#16a34a', 'yellow': '#eab308', 'أصفر': '#eab308',
+  'orange': '#ea580c', 'برتقالي': '#ea580c', 'purple': '#9333ea', 'بنفسجي': '#9333ea',
+  'gold': '#d97706', 'ذهبي': '#d97706', 'silver': '#9ca3af', 'فضي': '#9ca3af',
+  'gray': '#6b7280', 'grey': '#6b7280', 'رمادي': '#6b7280', 'beige': '#f5f5dc', 'بيج': '#f5f5dc',
+  'brown': '#78350f', 'بني': '#78350f', 'wood': '#a16207', 'خشبي': '#a16207'
+};
+
+function resolveColorHex(colorStr) {
+  if (!colorStr) return '#6b7280';
+  const c = String(colorStr).toLowerCase().trim();
+  if (c.startsWith('#') || c.startsWith('rgb')) return colorStr;
+  for (const [key, hex] of Object.entries(COLOR_HEX_MAP)) {
+    if (c.includes(key)) return hex;
+  }
+  return '#475569';
+}
+
+function isLightColor(hex) {
+  if (!hex || typeof hex !== 'string') return false;
+  if (hex === '#ffffff' || hex.toLowerCase().includes('white') || hex === '#fef3c7' || hex === '#f5f5dc') return true;
+  return false;
+}
 
 export default function AdminProducts({ filterOutOfStock = false, onClearFilter = null }) {
   const { lang, formatPrice, apiBase, apiHost } = useApp();
@@ -1640,9 +1688,149 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
             <label className="input-label">المخزون المتوفر (Stock)</label>
             <input type="number" required className="input-field" value={stock} onChange={(e) => setStock(e.target.value)} />
           </div>
-          <div>
-            <label className="input-label">{lang === 'ar' ? 'الألوان المتاحة (مفصولة بفاصلة)' : 'Available Colors (comma-separated)'}</label>
-            <input type="text" className="input-field" placeholder={lang === 'ar' ? 'مثال: أحمر, أزرق, أسود' : 'e.g. Red, Blue, Black'} value={colorsInput} onChange={(e) => setColorsInput(e.target.value)} />
+          <div style={{ gridColumn: '1 / -1', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '16px', backgroundColor: 'var(--bg-secondary)', marginTop: '4px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <label className="input-label" style={{ fontWeight: '800', margin: 0, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                {lang === 'ar' ? '🎨 ألوان المنتج المتاحة (انقر على الدوائر للإضافة):' : '🎨 Available Product Colors (Click circles to select):'}
+              </label>
+              {colorsInput && (
+                <button
+                  type="button"
+                  onClick={() => setColorsInput('')}
+                  style={{
+                    border: 'none',
+                    background: 'transparent',
+                    color: '#dc2626',
+                    fontSize: '0.78rem',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {lang === 'ar' ? 'مسح الألوان' : 'Clear Colors'}
+                </button>
+              )}
+            </div>
+
+            {/* Quick Preset Color Swatch Circles */}
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '14px' }}>
+              {PRESET_COLORS.map(pc => {
+                const currentArr = colorsInput ? colorsInput.split(',').map(c => c.trim()).filter(Boolean) : [];
+                const isSelected = currentArr.some(c => c.toLowerCase() === pc.name.toLowerCase() || c.toLowerCase() === pc.name.split(' ')[0].toLowerCase());
+
+                const toggleColor = () => {
+                  let updated = [...currentArr];
+                  if (isSelected) {
+                    updated = updated.filter(c => c.toLowerCase() !== pc.name.toLowerCase() && c.toLowerCase() !== pc.name.split(' ')[0].toLowerCase());
+                  } else {
+                    updated.push(pc.name);
+                  }
+                  setColorsInput(updated.join(', '));
+                };
+
+                return (
+                  <button
+                    key={pc.name}
+                    type="button"
+                    onClick={toggleColor}
+                    title={pc.name}
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '50%',
+                      backgroundColor: pc.hex,
+                      border: pc.light ? '2px solid #cbd5e1' : (isSelected ? '2px solid #ffffff' : '2px solid rgba(0,0,0,0.1)'),
+                      boxShadow: isSelected 
+                        ? '0 0 0 3px var(--accent-blue), 0 3px 8px rgba(0,0,0,0.25)' 
+                        : '0 2px 5px rgba(0,0,0,0.12)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transform: isSelected ? 'scale(1.12)' : 'scale(1)',
+                      transition: 'all 0.15s ease',
+                      padding: 0
+                    }}
+                  >
+                    {isSelected && (
+                      <Check 
+                        size={16} 
+                        strokeWidth={3} 
+                        color={pc.light ? '#0f172a' : '#ffffff'} 
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Selected Colors Tag List */}
+            {colorsInput && colorsInput.trim() && (
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '12px' }}>
+                {colorsInput.split(',').map(c => c.trim()).filter(Boolean).map((clr, idx) => {
+                  const hex = resolveColorHex(clr);
+                  const isLight = isLightColor(hex);
+
+                  return (
+                    <span 
+                      key={idx}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        backgroundColor: 'var(--bg-primary)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '20px',
+                        padding: '4px 10px 4px 6px',
+                        fontSize: '0.82rem',
+                        fontWeight: '700',
+                        color: 'var(--text-primary)',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                      }}
+                    >
+                      <span style={{
+                        width: '14px',
+                        height: '14px',
+                        borderRadius: '50%',
+                        backgroundColor: hex,
+                        border: isLight ? '1px solid #cbd5e1' : 'none',
+                        display: 'inline-block'
+                      }} />
+                      <span>{clr}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = colorsInput.split(',').map(c => c.trim()).filter(Boolean).filter((_, i) => i !== idx);
+                          setColorsInput(updated.join(', '));
+                        }}
+                        style={{
+                          border: 'none',
+                          background: 'transparent',
+                          color: '#dc2626',
+                          cursor: 'pointer',
+                          padding: '0 2px',
+                          display: 'flex',
+                          alignItems: 'center'
+                        }}
+                      >
+                        <X size={13} />
+                      </button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Custom Color Text Input */}
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <input 
+                type="text" 
+                className="input-field" 
+                style={{ margin: 0, flex: 1, fontSize: '0.85rem' }} 
+                placeholder={lang === 'ar' ? 'أو اكتب لون مخصص (مثال: أزرق سماوي, كحلي, وردي)' : 'Or type custom color (e.g. Sky Blue, Navy, Pink)'} 
+                value={colorsInput} 
+                onChange={(e) => setColorsInput(e.target.value)} 
+              />
+            </div>
           </div>
           <div style={{ gridColumn: '1 / -1', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '16px', backgroundColor: 'var(--bg-secondary)', marginTop: '8px' }}>
             <span className="input-label" style={{ display: 'block', fontWeight: '700', fontSize: '0.95rem', marginBottom: '12px', color: 'var(--text-primary)' }}>

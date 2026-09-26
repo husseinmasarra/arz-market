@@ -1,7 +1,39 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart, getOptionPrice } from '../context/CartContext';
-import { Star, ShoppingCart, X, ZoomIn, ZoomOut, RotateCcw, Move, MessageSquare } from 'lucide-react';
+import { Star, ShoppingCart, X, ZoomIn, ZoomOut, RotateCcw, Move, MessageSquare, Check } from 'lucide-react';
+
+const COLOR_HEX_MAP = {
+  'black': '#18181b', 'أسود': '#18181b', 'noir': '#18181b', 'dark': '#27272a', 'غامق': '#27272a',
+  'white': '#ffffff', 'أبيض': '#ffffff', 'blanc': '#ffffff', 'cream': '#fef3c7', 'كريمي': '#fef3c7',
+  'blue': '#2563eb', 'أزرق': '#2563eb', 'bleu': '#2563eb', 'navy': '#1e3a8a', 'كحلي': '#1e3a8a',
+  'cyan': '#06b6d4', 'سماوي': '#38bdf8', 'sky': '#38bdf8', 'royal': '#1d4ed8', 'ملكي': '#1d4ed8',
+  'red': '#dc2626', 'أحمر': '#dc2626', 'rouge': '#dc2626', 'pink': '#ec4899', 'زهري': '#ec4899',
+  'وردي': '#f472b6', 'rose': '#f472b6', 'burgundy': '#831843', 'خمري': '#831843',
+  'green': '#16a34a', 'أخضر': '#16a34a', 'vert': '#16a34a', 'mint': '#6ee7b7', 'زيتي': '#3f6212',
+  'yellow': '#eab308', 'أصفر': '#eab308', 'jaune': '#eab308', 'orange': '#ea580c', 'برتقالي': '#ea580c',
+  'purple': '#9333ea', 'بنفسجي': '#9333ea', 'violet': '#8b5cf6', 'lavender': '#c084fc',
+  'gold': '#d97706', 'golden': '#f59e0b', 'ذهبي': '#d97706', 'silver': '#9ca3af', 'فضي': '#9ca3af',
+  'gray': '#6b7280', 'grey': '#6b7280', 'رمادي': '#6b7280', 'titanium': '#71717a', 'تيتانيوم': '#71717a',
+  'brown': '#78350f', 'بني': '#78350f', 'wood': '#a16207', 'خشبي': '#a16207', 'desert': '#d4a373', 'صحراوي': '#d4a373',
+  'beige': '#f5f5dc', 'بيج': '#f5f5dc'
+};
+
+function resolveColorHex(colorStr) {
+  if (!colorStr) return '#6b7280';
+  const c = String(colorStr).toLowerCase().trim();
+  if (c.startsWith('#') || c.startsWith('rgb')) return colorStr;
+  for (const [key, hex] of Object.entries(COLOR_HEX_MAP)) {
+    if (c.includes(key)) return hex;
+  }
+  return '#475569';
+}
+
+function isLightColor(hex) {
+  if (!hex || typeof hex !== 'string') return false;
+  if (hex === '#ffffff' || hex.toLowerCase().includes('white') || hex === '#fef3c7' || hex === '#f5f5dc') return true;
+  return false;
+}
 
 function parseProductOptions(sizes, basePrice) {
   if (!sizes) return [];
@@ -358,33 +390,68 @@ export default function ProductDetails({ product, onClose, onRefresh }) {
               </span>
             </div>
 
-            {/* Color Selector */}
+            {/* Color Selector as Color Swatch Circles */}
             {product.colors && product.colors.length > 0 && (
-              <div style={{ margin: '6px 0' }}>
-                <span className="input-label" style={{ display: 'block', marginBottom: '6px', fontWeight: '700' }}>
-                  {lang === 'ar' ? 'اللون المتاح:' : 'Available Color:'}
-                </span>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {product.colors.map(color => (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => setSelectedColor(color)}
-                      style={{
-                        padding: '6px 16px',
-                        borderRadius: '20px',
-                        border: selectedColor === color ? '2px solid var(--accent-blue)' : '1px solid var(--border-color)',
-                        backgroundColor: selectedColor === color ? 'var(--accent-blue)' : 'var(--bg-secondary)',
-                        color: selectedColor === color ? 'white' : 'var(--text-primary)',
-                        fontSize: '0.85rem',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s'
-                      }}
-                    >
-                      {color}
-                    </button>
-                  ))}
+              <div style={{ margin: '8px 0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span className="input-label" style={{ fontWeight: '800', fontSize: '0.88rem', margin: 0, color: 'var(--text-primary)' }}>
+                    {lang === 'ar' ? 'اللون المتاح:' : 'Available Color:'}
+                  </span>
+                  {selectedColor && (
+                    <span style={{ 
+                      fontSize: '0.82rem', 
+                      fontWeight: '800', 
+                      color: 'var(--accent-blue)',
+                      backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                      padding: '2px 8px',
+                      borderRadius: '8px'
+                    }}>
+                      {selectedColor}
+                    </span>
+                  )}
+                </div>
+                
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', paddingTop: '4px' }}>
+                  {product.colors.map(color => {
+                    const hex = resolveColorHex(color);
+                    const isSelected = selectedColor === color;
+                    const isLight = isLightColor(hex);
+
+                    return (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => setSelectedColor(color)}
+                        title={color}
+                        style={{
+                          position: 'relative',
+                          width: '36px',
+                          height: '36px',
+                          borderRadius: '50%',
+                          backgroundColor: hex,
+                          border: isLight ? '2px solid #cbd5e1' : (isSelected ? '2px solid #ffffff' : '2px solid rgba(0,0,0,0.1)'),
+                          boxShadow: isSelected 
+                            ? `0 0 0 3px var(--accent-blue), 0 4px 10px rgba(0,0,0,0.25)` 
+                            : '0 2px 6px rgba(0,0,0,0.15)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transform: isSelected ? 'scale(1.15)' : 'scale(1)',
+                          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                          padding: 0
+                        }}
+                      >
+                        {isSelected && (
+                          <Check 
+                            size={18} 
+                            strokeWidth={3} 
+                            color={isLight ? '#0f172a' : '#ffffff'} 
+                          />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
