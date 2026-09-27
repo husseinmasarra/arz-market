@@ -4,7 +4,7 @@ import { useCart, getOptionPrice } from '../context/CartContext';
 import { X, Trash2, Plus, Minus, ShoppingBag, MessageSquare, Edit2, Check, FileText } from 'lucide-react';
 
 export default function Cart({ onCheckoutClick }) {
-  const { lang, formatPrice, settings, t, apiHost } = useApp();
+  const { lang, formatPrice, settings, t, getImageUrl, handleImageError } = useApp();
   const { 
     cartItems, 
     isCartOpen, 
@@ -131,9 +131,7 @@ export default function Cart({ onCheckoutClick }) {
               const itemKey = `${item.product.id}_${item.selectedColor || ''}_${item.selectedSize || ''}`;
               const isEditingThisNote = editingNoteKey === itemKey;
               const name = lang === 'ar' ? item.product.name_ar : item.product.name_en;
-              const imageUrl = item.product.image_url
-                ? (item.product.image_url.startsWith('http') || item.product.image_url.startsWith('data:') ? item.product.image_url : `${apiHost}${item.product.image_url}`)
-                : 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=100&q=80';
+              const imageUrl = getImageUrl(item.product.image_url, 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=100&q=80');
 
               return (
                 <div key={itemKey} style={{
@@ -152,6 +150,7 @@ export default function Cart({ onCheckoutClick }) {
                     <img
                       src={imageUrl}
                       alt={name}
+                      onError={handleImageError}
                       style={{
                         width: '64px',
                         height: '64px',

@@ -1,30 +1,40 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 
-// Create upload directories if they don't exist
-const uploadDirs = [
-  path.join(__dirname, '../../uploads'),
-  path.join(__dirname, '../../uploads/categories'),
-  path.join(__dirname, '../../uploads/products'),
-  path.join(__dirname, '../../uploads/banners')
-];
-
-uploadDirs.forEach(dir => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+// In serverless environments, store in os.tmpdir() or local uploads if writable
+let uploadRoot = path.join(__dirname, '../../uploads');
+try {
+  if (!fs.existsSync(uploadRoot)) {
+    fs.mkdirSync(uploadRoot, { recursive: true });
   }
+} catch (e) {
+  uploadRoot = path.join(os.tmpdir(), 'uploads');
+  try {
+    if (!fs.existsSync(uploadRoot)) fs.mkdirSync(uploadRoot, { recursive: true });
+  } catch (err) {}
+}
+
+const categoriesDir = path.join(uploadRoot, 'categories');
+const productsDir = path.join(uploadRoot, 'products');
+const bannersDir = path.join(uploadRoot, 'banners');
+
+[categoriesDir, productsDir, bannersDir].forEach(d => {
+  try {
+    if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
+  } catch (e) {}
 });
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    let dest = path.join(__dirname, '../../uploads');
+    let dest = uploadRoot;
     if (file.fieldname === 'category_image') {
-      dest = path.join(__dirname, '../../uploads/categories');
+      dest = categoriesDir;
     } else if (file.fieldname === 'product_image') {
-      dest = path.join(__dirname, '../../uploads/products');
+      dest = productsDir;
     } else if (file.fieldname === 'banner_image' || file.fieldname.startsWith('banner_image_')) {
-      dest = path.join(__dirname, '../../uploads/banners');
+      dest = bannersDir;
     }
     cb(null, dest);
   },

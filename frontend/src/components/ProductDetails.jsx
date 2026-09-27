@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart, getOptionPrice } from '../context/CartContext';
-import { Star, ShoppingCart, X, ZoomIn, ZoomOut, RotateCcw, Move, MessageSquare, Check } from 'lucide-react';
+import { Star, ShoppingCart, X, ZoomIn, ZoomOut, RotateCcw, Move, MessageSquare, Check, ChevronLeft, ChevronRight, Images, Share2, Copy, Send, Tag, Sparkles, Plus, Layers, ShoppingBag } from 'lucide-react';
 
 const COLOR_HEX_MAP = {
   'black': '#18181b', 'أسود': '#18181b', 'noir': '#18181b', 'dark': '#27272a', 'غامق': '#27272a',
@@ -68,13 +68,109 @@ function parseProductOptions(sizes, basePrice) {
   });
 }
 
-export default function ProductDetails({ product, onClose, onRefresh }) {
-  const { lang, formatPrice, t, apiBase, apiHost } = useApp();
+export default function ProductDetails({ product, onClose, onRefresh, onCategoryClick, onProductClick }) {
+  const { lang, formatPrice, t, apiBase, apiHost, getImageUrl, handleImageError } = useApp();
   const { addToCart } = useCart();
   const [qty, setQty] = useState(1);
   const [userRating, setUserRating] = useState(5);
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
   const [customerNote, setCustomerNote] = useState('');
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const [similarProducts, setSimilarProducts] = useState([]);
+  const [loadingSimilar, setLoadingSimilar] = useState(false);
+  const [quickAddedId, setQuickAddedId] = useState(null);
+  const [bundleAdded, setBundleAdded] = useState(false);
+  const similarScrollRef = useRef(null);
+
+  const scrollSimilar = (dir) => {
+    if (similarScrollRef.current) {
+      similarScrollRef.current.scrollBy({ left: dir === 'left' ? -260 : 260, behavior: 'smooth' });
+    }
+  };
+
+  useEffect(() => {
+    if (!product?.id) {
+      setSimilarProducts([]);
+      return;
+    }
+    let isMounted = true;
+    const fetchSimilar = async () => {
+      try {
+        setLoadingSimilar(true);
+        // Smart recommendation algorithm endpoint
+        const res = await fetch(`${apiBase}/products/${product.id}/related`);
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted && Array.isArray(data)) {
+            setSimilarProducts(data.filter(p => p && String(p.id) !== String(product.id)));
+          }
+        } else if (product.category_id) {
+          // Fallback to category endpoint if needed
+          const fallbackRes = await fetch(`${apiBase}/products?category_id=${product.category_id}&limit=12`);
+          if (fallbackRes.ok) {
+            const fallbackData = await fallbackRes.json();
+            if (isMounted && Array.isArray(fallbackData)) {
+              setSimilarProducts(fallbackData.filter(p => p && String(p.id) !== String(product.id)));
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Failed to fetch similar products:', e);
+      } finally {
+        if (isMounted) setLoadingSimilar(false);
+      }
+    };
+    fetchSimilar();
+    return () => { isMounted = false; };
+  }, [product?.id, product?.category_id, apiBase]);
+
+  const productUrl = typeof window !== 'undefined' 
+    ? `${window.location.origin}/?product_id=${product?.id}` 
+    : `https://arzmart.com/?product_id=${product?.id}`;
+
+  const handleCopyLink = async () => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(productUrl);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = productUrl;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2500);
+    } catch (e) {
+      console.error('Failed to copy product link:', e);
+    }
+  };
+
+  const handleShareWhatsApp = () => {
+    const prodName = (lang === 'ar' ? product?.name_ar : product?.name_en) || product?.name_ar || product?.name_en || product?.title || 'منتج أرز مارت';
+    const priceFormatted = formatPrice(product?.price_usd);
+    const msg = lang === 'ar'
+      ? `مرحباً، تفضل رابط ومواصفات المنتج من متجر أرز مارت:\n\n🛒 *${prodName}*\n💰 السعر: *${priceFormatted}*\n🔗 الرابط المباشر:\n${productUrl}`
+      : `Hello, here is the product details from ArzMart:\n\n🛒 *${prodName}*\n💰 Price: *${priceFormatted}*\n🔗 Direct Link:\n${productUrl}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+  };
+
+  const handleNativeShare = async () => {
+    const prodName = (lang === 'ar' ? product?.name_ar : product?.name_en) || product?.title || 'ArzMart';
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: prodName,
+          text: `${prodName} - ${formatPrice(product?.price_usd)}`,
+          url: productUrl
+        });
+      } catch (e) {}
+    } else {
+      handleCopyLink();
+    }
+  };
   
   // Image Lightbox Zoom & Pan states
   const [isZoomOpen, setIsZoomOpen] = useState(false);
@@ -196,9 +292,25 @@ export default function ProductDetails({ product, onClose, onRefresh }) {
   const hasDiscount = product.old_price_usd && product.old_price_usd > currentPrice;
   const adjustedOldPrice = product.old_price_usd;
 
-  const imageUrl = product.image_url 
-    ? (product.image_url.startsWith('http') || product.image_url.startsWith('data:') ? product.image_url : `${apiHost}${product.image_url}`)
-    : 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=600&q=80';
+  const allImages = React.useMemo(() => {
+    let list = [];
+    if (product?.images) {
+      if (Array.isArray(product.images)) list = product.images;
+      else {
+        try { list = JSON.parse(product.images); } catch (e) { list = []; }
+      }
+    }
+    if (!Array.isArray(list) || list.length === 0) {
+      if (product?.image_url) list = [product.image_url];
+    }
+    if (list.length === 0) {
+      list = ['https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=600&q=80'];
+    }
+    return list.map(img => getImageUrl(img)).filter(Boolean);
+  }, [product?.images, product?.image_url]);
+
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const imageUrl = allImages[activeImageIndex] || allImages[0] || '';
 
   const handleRatingSubmit = async () => {
     try {
@@ -274,71 +386,255 @@ export default function ProductDetails({ product, onClose, onRefresh }) {
         {/* Modal Grid */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))',
           gap: '24px',
-          marginTop: '16px'
+          marginTop: '16px',
+          alignItems: 'start'
         }}>
-          {/* Product Image with Zoom preview */}
-          <div 
-            onClick={() => setIsZoomOpen(true)}
-            style={{
-              backgroundColor: 'white',
-              borderRadius: '12px',
-              padding: '16px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: '1px solid var(--border-color)',
-              minHeight: '260px',
-              position: 'relative',
-              cursor: 'zoom-in',
-              overflow: 'hidden'
-            }}
-            title={lang === 'ar' ? 'انقر لتكبير ومعاينة الصورة' : 'Click to enlarge image'}
-          >
-            <img 
-              src={imageUrl} 
-              alt={name} 
+          {/* Product Image & Gallery Column */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
+            {/* Main Product Image with Zoom preview */}
+            <div 
+              onClick={() => setIsZoomOpen(true)}
               style={{
-                maxWidth: '100%',
-                maxHeight: '300px',
-                objectFit: 'contain',
-                transition: 'transform 0.3s ease'
+                backgroundColor: '#ffffff',
+                borderRadius: '16px',
+                padding: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '1px solid var(--border-color)',
+                width: '100%',
+                minHeight: '320px',
+                maxHeight: '460px',
+                aspectRatio: '1 / 1',
+                position: 'relative',
+                cursor: 'zoom-in',
+                overflow: 'hidden',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
               }}
-              onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-            />
-            {/* Zoom Badge Indicator */}
-            <div style={{
-              position: 'absolute',
-              bottom: '12px',
-              insetInlineEnd: '12px',
-              backgroundColor: 'rgba(15, 23, 42, 0.75)',
-              backdropFilter: 'blur(8px)',
-              color: 'white',
-              fontSize: '0.72rem',
-              fontWeight: '700',
-              padding: '4px 10px',
-              borderRadius: '20px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '5px',
-              pointerEvents: 'none',
-              border: '1px solid rgba(255, 255, 255, 0.2)'
-            }}>
-              <ZoomIn size={13} />
-              <span>{lang === 'ar' ? 'تكبير' : 'Zoom'}</span>
+              title={lang === 'ar' ? 'انقر لتكبير ومعاينة الصورة' : 'Click to enlarge image'}
+            >
+              <img 
+                src={imageUrl} 
+                alt={name} 
+                onError={handleImageError}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  maxHeight: '430px',
+                  objectFit: 'contain',
+                  borderRadius: '10px',
+                  transition: 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.04)'}
+                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+              />
+
+              {/* Multi-Image Counter Badge */}
+              {allImages.length > 1 && (
+                <div style={{
+                  position: 'absolute',
+                  top: '12px',
+                  insetInlineStart: '12px',
+                  backgroundColor: 'rgba(15, 23, 42, 0.75)',
+                  backdropFilter: 'blur(8px)',
+                  color: 'white',
+                  fontSize: '0.72rem',
+                  fontWeight: '800',
+                  padding: '3px 8px',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  pointerEvents: 'none',
+                  border: '1px solid rgba(255, 255, 255, 0.2)'
+                }}>
+                  <Images size={12} />
+                  <span>{activeImageIndex + 1} / {allImages.length}</span>
+                </div>
+              )}
+
+              {/* Navigation Arrows on Main Image */}
+              {allImages.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveImageIndex(prev => (prev === 0 ? allImages.length - 1 : prev - 1));
+                    }}
+                    style={{
+                      position: 'absolute',
+                      top: '50%',
+                      insetInlineStart: '10px',
+                      transform: 'translateY(-50%)',
+                      border: 'none',
+                      backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                      color: 'var(--text-primary)',
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    <ChevronLeft size={18} style={{ transform: lang === 'ar' ? 'rotate(180deg)' : 'none' }} />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveImageIndex(prev => (prev === allImages.length - 1 ? 0 : prev + 1));
+                    }}
+                    style={{
+                      position: 'absolute',
+                      top: '50%',
+                      insetInlineEnd: '10px',
+                      transform: 'translateY(-50%)',
+                      border: 'none',
+                      backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                      color: 'var(--text-primary)',
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    <ChevronRight size={18} style={{ transform: lang === 'ar' ? 'rotate(180deg)' : 'none' }} />
+                  </button>
+                </>
+              )}
+
+              {/* Zoom Badge Indicator */}
+              <div style={{
+                position: 'absolute',
+                bottom: '12px',
+                insetInlineEnd: '12px',
+                backgroundColor: 'rgba(15, 23, 42, 0.75)',
+                backdropFilter: 'blur(8px)',
+                color: 'white',
+                fontSize: '0.72rem',
+                fontWeight: '700',
+                padding: '4px 10px',
+                borderRadius: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                pointerEvents: 'none',
+                border: '1px solid rgba(255, 255, 255, 0.2)'
+              }}>
+                <ZoomIn size={13} />
+                <span>{lang === 'ar' ? 'تكبير' : 'Zoom'}</span>
+              </div>
             </div>
+
+            {/* Thumbnails Gallery Strip */}
+            {allImages.length > 1 && (
+              <div style={{
+                display: 'flex',
+                gap: '8px',
+                overflowX: 'auto',
+                paddingBottom: '4px',
+                scrollbarWidth: 'thin'
+              }}>
+                {allImages.map((thumbUrl, tIdx) => {
+                  const isActive = tIdx === activeImageIndex;
+                  return (
+                    <button
+                      key={tIdx}
+                      type="button"
+                      onClick={() => setActiveImageIndex(tIdx)}
+                      onMouseEnter={() => setActiveImageIndex(tIdx)}
+                      style={{
+                        position: 'relative',
+                        width: '60px',
+                        height: '60px',
+                        flexShrink: 0,
+                        borderRadius: '10px',
+                        overflow: 'hidden',
+                        backgroundColor: '#ffffff',
+                        border: isActive ? '2.5px solid var(--accent-blue)' : '1px solid var(--border-color)',
+                        padding: '2px',
+                        cursor: 'pointer',
+                        boxShadow: isActive ? '0 0 0 2px rgba(37, 99, 235, 0.2)' : 'none',
+                        transition: 'all 0.15s ease',
+                        opacity: isActive ? 1 : 0.7
+                      }}
+                    >
+                      <img 
+                        src={thumbUrl} 
+                        alt="" 
+                        onError={handleImageError}
+                        style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '6px' }} 
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Details Content */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {/* Top Category & Stock Badges */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
               {categoryName ? (
-                <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  {categoryName}
-                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onCategoryClick && product?.category_id) {
+                      onClose && onClose();
+                      onCategoryClick(product.category_id);
+                    }
+                  }}
+                  title={lang === 'ar' ? 'تصفح كل المنتجات المشابهة في هذا القسم' : 'Browse similar products in this category'}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '4px 12px',
+                    borderRadius: '20px',
+                    backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                    color: 'var(--accent-blue)',
+                    border: '1px solid rgba(37, 99, 235, 0.25)',
+                    fontSize: '0.8rem',
+                    fontWeight: '800',
+                    cursor: onCategoryClick ? 'pointer' : 'default',
+                    transition: 'all 0.2s ease',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (onCategoryClick) {
+                      e.currentTarget.style.backgroundColor = 'rgba(37, 99, 235, 0.18)';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (onCategoryClick) {
+                      e.currentTarget.style.backgroundColor = 'rgba(37, 99, 235, 0.08)';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                    }
+                  }}
+                >
+                  <Tag size={13} />
+                  <span>{categoryName}</span>
+                  {onCategoryClick && (
+                    <span style={{ fontSize: '0.72rem', opacity: 0.85, fontWeight: '600' }}>
+                      ({lang === 'ar' ? 'عرض المشابه ←' : 'View Similar →'})
+                    </span>
+                  )}
+                </button>
               ) : <div />}
 
               <span style={{
@@ -350,7 +646,7 @@ export default function ProductDetails({ product, onClose, onRefresh }) {
                 color: product.stock > 0 ? '#15803d' : '#b91c1c',
                 letterSpacing: '0.5px'
               }}>
-                {product.stock > 0 ? (lang === 'ar' ? 'متوفر بالمخزون (IN STOCK)' : 'IN STOCK') : (lang === 'ar' ? 'نفذ من المخزون' : 'OUT OF STOCK')}
+                {product.stock > 0 ? (lang === 'ar' ? 'متوفر بالمخزون' : 'IN STOCK') : (lang === 'ar' ? 'نفذ من المخزون' : 'OUT OF STOCK')}
               </span>
             </div>
 
@@ -709,8 +1005,412 @@ export default function ProductDetails({ product, onClose, onRefresh }) {
               )}
             </div>
 
+            {/* Direct Product Link & Share Section */}
+            <div style={{
+              marginTop: '16px',
+              paddingTop: '16px',
+              borderTop: '1px solid var(--border-color)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '0.88rem', fontWeight: '700', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Share2 size={16} color="var(--accent-blue)" />
+                  <span>{t('share_product')}</span>
+                </span>
+                {copiedLink && (
+                  <span style={{ fontSize: '0.78rem', color: '#10b981', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Check size={14} />
+                    <span>{t('link_copied')}</span>
+                  </span>
+                )}
+              </div>
+
+              {/* Direct Link Input Box with 1-Click Copy */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                backgroundColor: 'var(--bg-tertiary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '8px',
+                padding: '4px 6px',
+                gap: '6px'
+              }}>
+                <input 
+                  type="text" 
+                  readOnly 
+                  value={productUrl} 
+                  style={{
+                    flex: 1,
+                    background: 'transparent',
+                    border: 'none',
+                    fontSize: '0.8rem',
+                    color: 'var(--text-secondary)',
+                    outline: 'none',
+                    direction: 'ltr',
+                    textAlign: 'left',
+                    padding: '4px 6px',
+                    fontFamily: 'monospace'
+                  }}
+                  onClick={(e) => e.target.select()}
+                />
+                <button
+                  onClick={handleCopyLink}
+                  className="input-field"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '6px 12px',
+                    fontSize: '0.8rem',
+                    fontWeight: '700',
+                    backgroundColor: copiedLink ? '#10b981' : 'var(--accent-blue)',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    transition: 'all 0.2s ease'
+                  }}
+                  title={t('copy_product_link')}
+                >
+                  {copiedLink ? <Check size={14} /> : <Copy size={14} />}
+                  <span>{copiedLink ? t('link_copied') : t('copy_product_link')}</span>
+                </button>
+              </div>
+
+              {/* Social / WhatsApp Share Action Buttons */}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  onClick={handleShareWhatsApp}
+                  className="input-field"
+                  style={{
+                    flex: 1,
+                    minWidth: '130px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    padding: '8px 12px',
+                    backgroundColor: '#25D366',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '0.85rem',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(37, 211, 102, 0.25)'
+                  }}
+                >
+                  <Send size={15} />
+                  <span>{t('share_whatsapp')}</span>
+                </button>
+
+                {typeof navigator !== 'undefined' && typeof navigator.share === 'function' && (
+                  <button
+                    onClick={handleNativeShare}
+                    className="input-field"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      padding: '8px 14px',
+                      backgroundColor: 'var(--bg-tertiary)',
+                      color: 'var(--text-primary)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '8px',
+                      fontSize: '0.85rem',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Share2 size={15} />
+                    <span>{t('share_btn')}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
           </div>
         </div>
+
+        {/* Similar Products Carousel */}
+        {similarProducts.length > 0 && (
+          <div style={{
+            marginTop: '28px',
+            paddingTop: '20px',
+            borderTop: '2px dashed var(--border-color)'
+          }}>
+            {/* Top Carousel Navigation Bar */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Sparkles size={18} color="#dc2626" />
+                <h3 style={{ fontSize: '1.1rem', fontWeight: '800', margin: 0, color: 'var(--text-primary)' }}>
+                  {lang === 'ar' ? 'منتجات مشابهة وموصى بها لك' : 'Similar & Recommended Products'}
+                </h3>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {onCategoryClick && product?.category_id && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose && onClose();
+                      onCategoryClick(product.category_id);
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--accent-blue)',
+                      fontSize: '0.82rem',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    <span>{lang === 'ar' ? 'تصفح كل القسم ←' : 'Browse All in Category →'}</span>
+                  </button>
+                )}
+
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <button
+                    type="button"
+                    onClick={() => scrollSimilar('left')}
+                    style={{
+                      width: '30px',
+                      height: '30px',
+                      borderRadius: '50%',
+                      border: '1px solid var(--border-color)',
+                      backgroundColor: 'var(--bg-secondary)',
+                      color: 'var(--text-primary)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: 'var(--shadow-xs)'
+                    }}
+                    title={lang === 'ar' ? 'السابق' : 'Previous'}
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => scrollSimilar('right')}
+                    style={{
+                      width: '30px',
+                      height: '30px',
+                      borderRadius: '50%',
+                      border: '1px solid var(--border-color)',
+                      backgroundColor: 'var(--bg-secondary)',
+                      color: 'var(--text-primary)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: 'var(--shadow-xs)'
+                    }}
+                    title={lang === 'ar' ? 'التالي' : 'Next'}
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Smooth Horizontal Scrolling Cards Strip */}
+            <div 
+              ref={similarScrollRef}
+              style={{
+                display: 'flex',
+                gap: '14px',
+                overflowX: 'auto',
+                paddingBottom: '12px',
+                paddingTop: '4px',
+                scrollbarWidth: 'none',
+                scrollSnapType: 'x mandatory'
+              }}
+            >
+              {similarProducts.map((simProd) => {
+                const simName = (lang === 'ar' ? simProd.name_ar : simProd.name_en) || simProd.name_ar || simProd.name_en || 'Product';
+                const simCatName = (lang === 'ar' ? simProd.category_name_ar : simProd.category_name_en) || simProd.category_name_ar || simProd.category_name_en;
+                const simImg = getImageUrl(simProd.image_url);
+                const isQuickAdded = quickAddedId === simProd.id;
+                const hasDiscount = simProd.old_price_usd && Number(simProd.old_price_usd) > Number(simProd.price_usd);
+                const simRating = Number(simProd.rating) || 0;
+
+                const handleQuickAdd = (e) => {
+                  e.stopPropagation();
+                  addToCart({
+                    ...simProd,
+                    price_usd: simProd.price_usd
+                  }, 1);
+                  setQuickAddedId(simProd.id);
+                  setTimeout(() => setQuickAddedId(null), 1800);
+                };
+
+                return (
+                  <div
+                    key={simProd.id}
+                    onClick={() => {
+                      if (onProductClick) {
+                        onProductClick(simProd);
+                      }
+                    }}
+                    style={{
+                      minWidth: '170px',
+                      maxWidth: '170px',
+                      backgroundColor: 'var(--bg-secondary)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '14px',
+                      overflow: 'hidden',
+                      cursor: 'pointer',
+                      transition: 'all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      flexShrink: 0,
+                      scrollSnapAlign: 'start',
+                      position: 'relative',
+                      boxShadow: 'var(--shadow-xs)'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-4px)';
+                      e.currentTarget.style.boxShadow = '0 10px 20px rgba(0,0,0,0.12)';
+                      e.currentTarget.style.borderColor = 'var(--accent-blue)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = 'var(--shadow-xs)';
+                      e.currentTarget.style.borderColor = 'var(--border-color)';
+                    }}
+                  >
+                    {/* Image Area with Discount Badge */}
+                    <div style={{
+                      width: '100%',
+                      height: '130px',
+                      backgroundColor: '#ffffff',
+                      position: 'relative',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '6px'
+                    }}>
+                      <img
+                        src={simImg}
+                        alt={simName}
+                        onError={handleImageError}
+                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                      />
+                      {hasDiscount && (
+                        <span style={{
+                          position: 'absolute',
+                          top: '6px',
+                          left: '6px',
+                          backgroundColor: '#ef4444',
+                          color: '#ffffff',
+                          padding: '1px 5px',
+                          borderRadius: '4px',
+                          fontSize: '0.65rem',
+                          fontWeight: '800'
+                        }}>
+                          %{Math.round(((simProd.old_price_usd - simProd.price_usd) / simProd.old_price_usd) * 100)}-
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Content */}
+                    <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '6px', flex: '1' }}>
+                      {simCatName && (
+                        <span style={{
+                          fontSize: '0.68rem',
+                          color: 'var(--accent-blue)',
+                          fontWeight: '700',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          🏷️ {simCatName}
+                        </span>
+                      )}
+
+                      <p style={{
+                        fontSize: '0.78rem',
+                        fontWeight: '700',
+                        color: 'var(--text-primary)',
+                        margin: 0,
+                        lineHeight: '1.3',
+                        height: '32px',
+                        overflow: 'hidden',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical'
+                      }}>
+                        {simName}
+                      </p>
+
+                      {/* Rating Stars */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            size={10}
+                            fill={i < Math.round(simRating) ? '#fbbf24' : 'none'}
+                            color={i < Math.round(simRating) ? '#fbbf24' : '#d1d5db'}
+                          />
+                        ))}
+                      </div>
+
+                      {/* Price */}
+                      <div style={{ marginTop: 'auto', paddingTop: '4px' }}>
+                        <div style={{ fontSize: '0.88rem', fontWeight: '900', color: '#dc2626' }}>
+                          {formatPrice(simProd.price_usd)}
+                        </div>
+                      </div>
+
+                      {/* Quick Add To Cart Button */}
+                      <button
+                        type="button"
+                        onClick={handleQuickAdd}
+                        style={{
+                          width: '100%',
+                          padding: '6px 8px',
+                          borderRadius: '8px',
+                          backgroundColor: isQuickAdded ? '#10b981' : 'rgba(37, 99, 235, 0.08)',
+                          color: isQuickAdded ? '#ffffff' : 'var(--accent-blue)',
+                          border: isQuickAdded ? '1px solid #10b981' : '1px solid rgba(37, 99, 235, 0.25)',
+                          fontSize: '0.75rem',
+                          fontWeight: '800',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '4px',
+                          marginTop: '4px',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        {isQuickAdded ? (
+                          <>
+                            <Check size={12} />
+                            <span>{lang === 'ar' ? 'تمت الإضافة ✓' : 'Added ✓'}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Plus size={12} />
+                            <span>{lang === 'ar' ? 'أضف للسلة' : 'Add to Cart'}</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
       </div>
 
@@ -886,6 +1586,7 @@ export default function ProductDetails({ product, onClose, onRefresh }) {
             <img
               src={imageUrl}
               alt={name}
+              onError={handleImageError}
               draggable={false}
               style={{
                 maxWidth: '85vw',

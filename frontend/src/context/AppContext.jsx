@@ -1,4 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
+import { getImageUrl, handleImageError } from '../utils/imageHelper';
+import { initPixels } from '../utils/pixelTracker';
 
 const AppContext = createContext();
 
@@ -90,11 +92,15 @@ const translations = {
     print_report: 'طباعة التقرير',
     privacy_policy: 'سياسة الخصوصية',
     terms_of_service: 'الشروط والأحكام',
-    delete_account: 'حذف الحساب والبيانات',
     pwa_install_title: 'تثبيت تطبيق أرز مارت',
     pwa_install_desc: 'تسوّق أسرع وتابع طلباتك بكل سهولة من شاشتك الرئيسية!',
     pwa_install_btn: 'تثبيت التطبيق الآن',
-    pwa_install_ios_hint: 'اضغط على زر المشاركة ثم اختر "إضافة إلى الشاشة الرئيسية"'
+    pwa_install_ios_hint: 'اضغط على زر المشاركة ثم اختر "إضافة إلى الشاشة الرئيسية"',
+    share_product: 'مشاركة ورابط المنتج',
+    copy_product_link: 'نسخ الرابط',
+    link_copied: 'تم نسخ الرابط بنجاح!',
+    share_whatsapp: 'مشاركة عبر واتساب',
+    share_btn: 'مشاركة سريعة'
   },
   en: {
     appName: 'Arz-Mart',
@@ -117,6 +123,11 @@ const translations = {
     no_products: 'No products matches criteria',
     product_details: 'Product Details',
     add_to_cart: 'Add to Cart',
+    share_product: 'Share & Product Link',
+    copy_product_link: 'Copy Link',
+    link_copied: 'Link Copied!',
+    share_whatsapp: 'Share on WhatsApp',
+    share_btn: 'Quick Share',
     in_stock: 'In Stock',
     out_of_stock: 'Out of Stock',
     quantity: 'Quantity',
@@ -206,12 +217,7 @@ export const AppProvider = ({ children }) => {
     contact_email: 'info@arz-mart.com'
   });
 
-  const apiHost = import.meta.env.VITE_API_URL || (
-    typeof window !== 'undefined'
-      ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? '' : 'https://arzmart-api.onrender.com')
-      : 'https://arzmart-api.onrender.com'
-  );
-
+  const apiHost = import.meta.env.VITE_API_URL || '';
   const apiBase = apiHost ? `${apiHost}/api` : '/api';
 
   // Load store settings
@@ -221,6 +227,7 @@ export const AppProvider = ({ children }) => {
       if (res.ok) {
         const data = await res.json();
         setSettings(data);
+        initPixels(data);
       }
     } catch (err) {
       console.error('Error fetching settings:', err);
@@ -297,6 +304,8 @@ export const AppProvider = ({ children }) => {
       fetchSettings,
       t,
       formatPrice,
+      getImageUrl,
+      handleImageError,
       apiBase,
       apiHost
     }}>

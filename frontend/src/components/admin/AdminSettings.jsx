@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
-import { Settings, Image, Plus, Trash2, Save, Globe, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Settings, Image, Plus, Trash2, Save, Globe, RefreshCw, CheckCircle2, AlertCircle, Activity, Target, BarChart2 } from 'lucide-react';
 
 export default function AdminSettings() {
   const { lang, settings, fetchSettings, apiBase } = useApp();
@@ -18,6 +18,12 @@ export default function AdminSettings() {
   const [visitorBaselineCount, setVisitorBaselineCount] = useState(0);
   const [showVisitorCounter, setShowVisitorCounter] = useState(1);
   const [showOutOfStockOnHome, setShowOutOfStockOnHome] = useState(1);
+
+  // Marketing Pixels states
+  const [facebookPixelId, setFacebookPixelId] = useState('');
+  const [tiktokPixelId, setTiktokPixelId] = useState('');
+  const [snapchatPixelId, setSnapchatPixelId] = useState('');
+  const [googleAnalyticsId, setGoogleAnalyticsId] = useState('');
 
   // Supplier Catalog Sync states
   const [supplierUrl, setSupplierUrl] = useState('https://drphonewholesale.online');
@@ -61,6 +67,10 @@ export default function AdminSettings() {
       setVisitorBaselineCount(settings.visitor_baseline_count || 0);
       setShowVisitorCounter(settings.show_visitor_counter !== undefined ? settings.show_visitor_counter : 1);
       setShowOutOfStockOnHome(settings.show_out_of_stock_on_home !== undefined ? settings.show_out_of_stock_on_home : 1);
+      setFacebookPixelId(settings.facebook_pixel_id || '');
+      setTiktokPixelId(settings.tiktok_pixel_id || '');
+      setSnapchatPixelId(settings.snapchat_pixel_id || '');
+      setGoogleAnalyticsId(settings.google_analytics_id || '');
       
       // Ensure all loaded banners have unique IDs for stable editing key
       const bannersWithIds = (settings.hero_banners || []).map((b, idx) => ({
@@ -174,6 +184,10 @@ export default function AdminSettings() {
     formData.append('visitor_baseline_count', visitorBaselineCount);
     formData.append('show_visitor_counter', showVisitorCounter);
     formData.append('show_out_of_stock_on_home', showOutOfStockOnHome);
+    formData.append('facebook_pixel_id', facebookPixelId.trim());
+    formData.append('tiktok_pixel_id', tiktokPixelId.trim());
+    formData.append('snapchat_pixel_id', snapchatPixelId.trim());
+    formData.append('google_analytics_id', googleAnalyticsId.trim());
     if (logoFile) {
       formData.append('logo', logoFile);
     }
@@ -516,6 +530,155 @@ export default function AdminSettings() {
             <button type="submit" className="input-field" style={{ width: 'auto', padding: '10px 24px', backgroundColor: 'var(--accent-blue)', color: 'white', border: 'none', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Save size={16} />
               <span>حفظ الإعدادات</span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Marketing Pixels & Tracking Card */}
+      <div className="dashboard-card" style={{ padding: '24px', border: '1px solid var(--border-color)', borderRadius: '16px', background: 'linear-gradient(145deg, var(--bg-secondary) 0%, rgba(59, 130, 246, 0.04) 100%)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ width: '42px', height: '42px', borderRadius: '10px', backgroundColor: 'rgba(59, 130, 246, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)' }}>
+              <Target size={24} />
+            </div>
+            <div>
+              <h4 style={{ fontSize: '1.2rem', fontWeight: '800', margin: 0 }}>
+                {lang === 'ar' ? 'بيكسل وأدوات التتبع الإعلاني (Marketing Pixels & Analytics)' : 'Marketing Pixels & Analytics'}
+              </h4>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', margin: '4px 0 0' }}>
+                {lang === 'ar'
+                  ? 'اربط إعلانات فيسبوك، انستغرام، تيك توك، سناب شات، وجوجل لتتبع حركة الزوار والمبيعات تلقائياً'
+                  : 'Track conversions and eCommerce events automatically across Meta, TikTok, Snapchat, and GA4'}
+              </p>
+            </div>
+          </div>
+
+          {/* Quick status badges */}
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', fontSize: '0.78rem', fontWeight: '700' }}>
+            <span style={{ padding: '4px 10px', backgroundColor: facebookPixelId ? 'rgba(59, 130, 246, 0.12)' : 'var(--bg-tertiary)', color: facebookPixelId ? '#3b82f6' : 'var(--text-light)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              Meta: {facebookPixelId ? (lang === 'ar' ? 'مفعّل' : 'Active') : (lang === 'ar' ? 'غير محدد' : 'Inactive')}
+            </span>
+            <span style={{ padding: '4px 10px', backgroundColor: tiktokPixelId ? 'rgba(0, 0, 0, 0.08)' : 'var(--bg-tertiary)', color: tiktokPixelId ? 'var(--text-primary)' : 'var(--text-light)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              TikTok: {tiktokPixelId ? (lang === 'ar' ? 'مفعّل' : 'Active') : (lang === 'ar' ? 'غير محدد' : 'Inactive')}
+            </span>
+            <span style={{ padding: '4px 10px', backgroundColor: snapchatPixelId ? 'rgba(234, 179, 8, 0.12)' : 'var(--bg-tertiary)', color: snapchatPixelId ? '#ca8a04' : 'var(--text-light)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              Snapchat: {snapchatPixelId ? (lang === 'ar' ? 'مفعّل' : 'Active') : (lang === 'ar' ? 'غير محدد' : 'Inactive')}
+            </span>
+            <span style={{ padding: '4px 10px', backgroundColor: googleAnalyticsId ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-tertiary)', color: googleAnalyticsId ? '#10b981' : 'var(--text-light)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              GA4: {googleAnalyticsId ? (lang === 'ar' ? 'مفعّل' : 'Active') : (lang === 'ar' ? 'غير محدد' : 'Inactive')}
+            </span>
+          </div>
+        </div>
+
+        <form onSubmit={handleSettingsSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '18px' }}>
+          {/* 1. Meta Pixel */}
+          <div style={{ backgroundColor: 'var(--bg-primary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <label className="input-label" style={{ fontWeight: '800', margin: 0, color: '#3b82f6' }}>
+                Meta Pixel (Facebook & Instagram)
+              </label>
+              <span style={{ fontSize: '0.75rem', fontWeight: '700', padding: '2px 8px', borderRadius: '6px', backgroundColor: facebookPixelId ? 'rgba(16, 185, 129, 0.1)' : 'rgba(156, 163, 175, 0.1)', color: facebookPixelId ? '#10b981' : '#9ca3af' }}>
+                {facebookPixelId ? (lang === 'ar' ? 'نشط ومفعّل' : 'Active') : (lang === 'ar' ? 'معطّل' : 'Disabled')}
+              </span>
+            </div>
+            <input
+              type="text"
+              className="input-field"
+              placeholder="e.g. 123456789012345"
+              value={facebookPixelId}
+              onChange={(e) => setFacebookPixelId(e.target.value)}
+              style={{ direction: 'ltr', textAlign: 'left', fontWeight: '600' }}
+            />
+            <span style={{ fontSize: '0.73rem', color: 'var(--text-light)', display: 'block', marginTop: '4px' }}>
+              {lang === 'ar' ? 'ضع معرّف بيكسل فيسبوك (Pixel ID) المكون من أرقام فقط' : 'Enter your Meta Pixel ID from Events Manager'}
+            </span>
+          </div>
+
+          {/* 2. TikTok Pixel */}
+          <div style={{ backgroundColor: 'var(--bg-primary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <label className="input-label" style={{ fontWeight: '800', margin: 0, color: 'var(--text-primary)' }}>
+                TikTok Pixel ID
+              </label>
+              <span style={{ fontSize: '0.75rem', fontWeight: '700', padding: '2px 8px', borderRadius: '6px', backgroundColor: tiktokPixelId ? 'rgba(16, 185, 129, 0.1)' : 'rgba(156, 163, 175, 0.1)', color: tiktokPixelId ? '#10b981' : '#9ca3af' }}>
+                {tiktokPixelId ? (lang === 'ar' ? 'نشط ومفعّل' : 'Active') : (lang === 'ar' ? 'معطّل' : 'Disabled')}
+              </span>
+            </div>
+            <input
+              type="text"
+              className="input-field"
+              placeholder="e.g. CXXXXXXXXXXXXXXX"
+              value={tiktokPixelId}
+              onChange={(e) => setTiktokPixelId(e.target.value)}
+              style={{ direction: 'ltr', textAlign: 'left', fontWeight: '600' }}
+            />
+            <span style={{ fontSize: '0.73rem', color: 'var(--text-light)', display: 'block', marginTop: '4px' }}>
+              {lang === 'ar' ? 'ضع معرّف بيكسل تيك توك من مدير الإعلانات TikTok Ads Manager' : 'Enter your TikTok Pixel ID from TikTok Ads Manager'}
+            </span>
+          </div>
+
+          {/* 3. Snapchat Pixel */}
+          <div style={{ backgroundColor: 'var(--bg-primary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <label className="input-label" style={{ fontWeight: '800', margin: 0, color: '#ca8a04' }}>
+                Snapchat Pixel ID
+              </label>
+              <span style={{ fontSize: '0.75rem', fontWeight: '700', padding: '2px 8px', borderRadius: '6px', backgroundColor: snapchatPixelId ? 'rgba(16, 185, 129, 0.1)' : 'rgba(156, 163, 175, 0.1)', color: snapchatPixelId ? '#10b981' : '#9ca3af' }}>
+                {snapchatPixelId ? (lang === 'ar' ? 'نشط ومفعّل' : 'Active') : (lang === 'ar' ? 'معطّل' : 'Disabled')}
+              </span>
+            </div>
+            <input
+              type="text"
+              className="input-field"
+              placeholder="e.g. xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+              value={snapchatPixelId}
+              onChange={(e) => setSnapchatPixelId(e.target.value)}
+              style={{ direction: 'ltr', textAlign: 'left', fontWeight: '600' }}
+            />
+            <span style={{ fontSize: '0.73rem', color: 'var(--text-light)', display: 'block', marginTop: '4px' }}>
+              {lang === 'ar' ? 'معرّف بيكسل سناب شات من Snap Pixel Manager' : 'Enter your Snapchat Pixel ID from Snap Ads Manager'}
+            </span>
+          </div>
+
+          {/* 4. Google Analytics 4 */}
+          <div style={{ backgroundColor: 'var(--bg-primary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <label className="input-label" style={{ fontWeight: '800', margin: 0, color: '#10b981' }}>
+                Google Analytics 4 (Measurement ID)
+              </label>
+              <span style={{ fontSize: '0.75rem', fontWeight: '700', padding: '2px 8px', borderRadius: '6px', backgroundColor: googleAnalyticsId ? 'rgba(16, 185, 129, 0.1)' : 'rgba(156, 163, 175, 0.1)', color: googleAnalyticsId ? '#10b981' : '#9ca3af' }}>
+                {googleAnalyticsId ? (lang === 'ar' ? 'نشط ومفعّل' : 'Active') : (lang === 'ar' ? 'معطّل' : 'Disabled')}
+              </span>
+            </div>
+            <input
+              type="text"
+              className="input-field"
+              placeholder="e.g. G-XXXXXXXXXX"
+              value={googleAnalyticsId}
+              onChange={(e) => setGoogleAnalyticsId(e.target.value)}
+              style={{ direction: 'ltr', textAlign: 'left', fontWeight: '600' }}
+            />
+            <span style={{ fontSize: '0.73rem', color: 'var(--text-light)', display: 'block', marginTop: '4px' }}>
+              {lang === 'ar' ? 'معرّف القياس من Google Analytics (يبدأ بـ G-)' : 'Measurement ID from Google Analytics 4'}
+            </span>
+          </div>
+
+          {/* Features highlight note */}
+          <div style={{ gridColumn: '1 / -1', backgroundColor: 'rgba(59, 130, 246, 0.06)', border: '1px solid rgba(59, 130, 246, 0.2)', borderRadius: '10px', padding: '12px 16px', fontSize: '0.82rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Activity size={20} color="var(--accent-blue)" style={{ flexShrink: 0 }} />
+            <div>
+              <strong>{lang === 'ar' ? 'الأحداث التلقائية المدعومة:' : 'Supported Automatic Events:'}</strong>{' '}
+              {lang === 'ar'
+                ? 'مشاهدة الصفحات (PageView)، البحث (Search)، عرض تفاصيل المنتج (ViewContent)، إضافة للسلة (AddToCart)، فتح صفحة الدفع (InitiateCheckout)، وتأكيد الطلب والشراء (Purchase).'
+                : 'PageView, Search, ViewContent, AddToCart, InitiateCheckout, and Purchase.'}
+            </div>
+          </div>
+
+          <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '10px' }}>
+            <button type="submit" className="input-field" style={{ width: 'auto', padding: '10px 24px', backgroundColor: 'var(--accent-blue)', color: 'white', border: 'none', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Save size={16} />
+              <span>{lang === 'ar' ? 'حفظ إعدادات البيكسل والتتبع' : 'Save Pixel & Tracking Settings'}</span>
             </button>
           </div>
         </form>

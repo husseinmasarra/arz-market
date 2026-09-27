@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
-import { Trash2, Edit3, Image, RefreshCw, Sparkles, CheckCircle2, AlertCircle, Plus, Globe, ExternalLink, X, Search, Filter, Eye, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, MessageSquare, Package, Check } from 'lucide-react';
+import { Trash2, Edit3, Image, RefreshCw, Sparkles, CheckCircle2, AlertCircle, Plus, Globe, ExternalLink, X, Search, Filter, Eye, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, MessageSquare, Package, Check, Upload, ArrowUp, ArrowDown, Share2, Copy, FolderInput, ArrowRightLeft } from 'lucide-react';
 
 const PRESET_COLORS = [
   { name: 'أسود (Black)', hex: '#18181b', light: false },
@@ -52,7 +52,7 @@ function isLightColor(hex) {
 }
 
 export default function AdminProducts({ filterOutOfStock = false, onClearFilter = null }) {
-  const { lang, formatPrice, apiBase, apiHost } = useApp();
+  const { lang, formatPrice, apiBase, apiHost, getImageUrl, handleImageError } = useApp();
   const { token } = useAuth();
 
   const [activeSection, setActiveSection] = useState('suppliers'); // 'suppliers' | 'manual'
@@ -60,16 +60,199 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
   const [categories, setCategories] = useState([]);
   const [merchants, setMerchants] = useState([]);
 
+  // Staging draft category discovery
+  const stagingCategory = categories.find(c => c.code === 'ADMIN_STAGING_DRAFT' || c.id === 103 || (c.name_ar && c.name_ar.includes('مسودة الإضافة السريعة')));
+  const stagingCatId = stagingCategory ? stagingCategory.id : 103;
+
   // Filter & Search states for Products List
   const [filterSupplier, setFilterSupplier] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterOnlyNew, setFilterOnlyNew] = useState(false);
   const [filterOnlyOutOfStock, setFilterOnlyOutOfStock] = useState(false);
   const [filterOnlyToday, setFilterOnlyToday] = useState(false);
+  const [filterOnlyStaging, setFilterOnlyStaging] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('newest'); // default: newest first so newly fetched products appear at the top
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(40);
+  const [previewImageModal, setPreviewImageModal] = useState(null);
+  const [copiedProdId, setCopiedProdId] = useState(null);
+
+  // Quick Move Modal states
+  const [quickMoveModalProduct, setQuickMoveModalProduct] = useState(null);
+  const [quickMoveTargetCatId, setQuickMoveTargetCatId] = useState('');
+  const [isMovingCategory, setIsMovingCategory] = useState(false);
+
+  // Bulk Move states
+  const [selectedProductIds, setSelectedProductIds] = useState(new Set());
+  const [bulkTargetCatId, setBulkTargetCatId] = useState('');
+  const [isBulkMoving, setIsBulkMoving] = useState(false);
+  const [isAutoSorting, setIsAutoSorting] = useState(false);
+  const autoSortTriggeredRef = React.useRef(false);
+
+  const handleAutoSortDrafts = async (silent = false) => {
+    if (!silent) {
+      const confirmMsg = lang === 'ar'
+        ? 'هل تريد بدء الفرز والتصنيف الذكي لجميع المنتجات الموجودة في المسودة وتوزيعها تلقائياً على تصنيفاتها المناسبة؟'
+        : 'Start intelligent auto-categorization for all draft products?';
+      if (!window.confirm(confirmMsg)) return;
+    }
+
+    setIsAutoSorting(true);
+    try {
+      const res = await fetch(`${apiBase}/products-auto-sort-drafts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        if (!silent) {
+          alert(lang === 'ar' ? data.message_ar : data.message_en);
+        }
+        fetchProducts();
+        fetchCategories();
+      } else {
+        if (!silent) {
+          alert(data.error_ar || data.error_en || 'Failed to auto-sort drafts');
+        }
+      }
+    } catch (err) {
+      console.error('Auto-sort drafts error:', err);
+      if (!silent) {
+        alert(lang === 'ar' ? 'حدث خطأ أثناء الفرز التلقائي' : 'Error during auto-sorting');
+      }
+    } finally {
+      setIsAutoSorting(false);
+    }
+  };
+
+  const [isDeduplicating, setIsDeduplicating] = useState(false);
+
+  const handleDeduplicateProducts = async () => {
+    const confirmMsg = lang === 'ar'
+      ? 'هل تريد فحص قاعدة بيانات المتجر بالكامل ودمج/إزالة أي منتجات مكررة لضمان عدم التكرار؟'
+      : 'Scan entire store database and clean/deduplicate all duplicate products?';
+    if (!window.confirm(confirmMsg)) return;
+
+    setIsDeduplicating(true);
+    try {
+      const res = await fetch(`${apiBase}/products-deduplicate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(lang === 'ar' ? data.message_ar : data.message_en);
+        fetchProducts();
+      } else {
+        alert(data.error_ar || data.error_en || 'Failed to deduplicate products');
+      }
+    } catch (err) {
+      console.error('Deduplicate error:', err);
+      alert(lang === 'ar' ? 'حدث خطأ أثناء فحص التكرار' : 'Error during deduplication');
+    } finally {
+      setIsDeduplicating(false);
+    }
+  };
+
+  const handleCopyProductLink = (product) => {
+    if (!product || !product.id) return;
+    const productUrl = `${window.location.origin}/?product_id=${product.id}`;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(productUrl);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = productUrl;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      setCopiedProdId(product.id);
+      setTimeout(() => setCopiedProdId(null), 2000);
+    } catch (e) {
+      console.error('Failed to copy product link:', e);
+    }
+  };
+
+  const handleQuickMoveCategory = (product) => {
+    setQuickMoveModalProduct(product);
+    setQuickMoveTargetCatId(product.category_id ? String(product.category_id) : '');
+  };
+
+  const handleConfirmQuickMove = async () => {
+    if (!quickMoveModalProduct || !quickMoveTargetCatId) return;
+    setIsMovingCategory(true);
+    try {
+      const res = await fetch(`${apiBase}/products/${quickMoveModalProduct.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ category_id: quickMoveTargetCatId })
+      });
+      if (res.ok) {
+        setQuickMoveModalProduct(null);
+        setQuickMoveTargetCatId('');
+        fetchProducts();
+      } else {
+        const err = await res.json();
+        alert(err.error_ar || err.error_en || 'Error moving category');
+      }
+    } catch (e) {
+      console.error('Error moving category:', e);
+    } finally {
+      setIsMovingCategory(false);
+    }
+  };
+
+  const handleBulkMove = async () => {
+    if (selectedProductIds.size === 0 || !bulkTargetCatId) return;
+    setIsBulkMoving(true);
+    try {
+      const res = await fetch(`${apiBase}/products-bulk-category`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          product_ids: Array.from(selectedProductIds),
+          category_id: bulkTargetCatId
+        })
+      });
+      if (res.ok) {
+        setSelectedProductIds(new Set());
+        setBulkTargetCatId('');
+        fetchProducts();
+        alert(lang === 'ar' ? 'تم نقل كافة المنتجات المحددة بنجاح!' : 'Bulk move completed successfully!');
+      } else {
+        const err = await res.json();
+        alert(err.error_ar || err.error_en || 'Error moving categories');
+      }
+    } catch (e) {
+      console.error('Error bulk moving categories:', e);
+    } finally {
+      setIsBulkMoving(false);
+    }
+  };
+
+  const toggleSelectProduct = (id) => {
+    setSelectedProductIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
@@ -172,16 +355,24 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
   const [selectedFile, setSelectedFile] = useState(null);
   const [colorsInput, setColorsInput] = useState('');
   const [sizesList, setSizesList] = useState([{ name: '', price: '', type: 'absolute' }]);
+  const [productImages, setProductImages] = useState([]);
+  const [newImageUrlInput, setNewImageUrlInput] = useState('');
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
 
   const fetchProducts = async () => {
+    setIsLoadingProducts(true);
     try {
       const res = await fetch(`${apiBase}/products?all=true`);
       if (res.ok) {
         const data = await res.json();
-        setProducts(data);
+        if (Array.isArray(data)) {
+          setProducts(data);
+        }
       }
     } catch (err) {
-      console.error(err);
+      console.error('Fetch products error:', err);
+    } finally {
+      setIsLoadingProducts(false);
     }
   };
 
@@ -190,7 +381,22 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
       const res = await fetch(`${apiBase}/categories`);
       if (res.ok) {
         const data = await res.json();
-        setCategories(data);
+        if (Array.isArray(data)) {
+          const sorted = [...data].sort((a, b) => {
+            const isAStaging = a.code === 'ADMIN_STAGING_DRAFT' || a.id === 103 || (a.name_ar && a.name_ar.includes('مسودة الإضافة السريعة'));
+            const isBStaging = b.code === 'ADMIN_STAGING_DRAFT' || b.id === 103 || (b.name_ar && b.name_ar.includes('مسودة الإضافة السريعة'));
+            if (isAStaging) return -1;
+            if (isBStaging) return 1;
+            return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+          });
+          setCategories(sorted);
+          const foundStaging = sorted.find(c => c.code === 'ADMIN_STAGING_DRAFT' || c.id === 103 || (c.name_ar && c.name_ar.includes('مسودة الإضافة السريعة')));
+          if (foundStaging && !categoryId) {
+            setCategoryId(String(foundStaging.id));
+          }
+        } else {
+          setCategories([]);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -363,7 +569,14 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
         })
       });
 
-      const data = await res.json();
+      const text = await res.text();
+      let data = {};
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        data = { error: res.statusText || text || (lang === 'ar' ? 'استجابة غير متوقعة من الخادم' : 'Unexpected server response') };
+      }
+
       if (res.ok && data.success) {
         setSyncResult(data);
         fetchProducts();
@@ -371,7 +584,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
         fetchDrPhoneStatus();
         fetchSupplierSources();
       } else {
-        setSyncError(data.error || (lang === 'ar' ? 'فشلت عملية المزامنة. يرجى التأكد من الرابط والرمز السري' : 'Sync failed. Check URL and passcode'));
+        setSyncError(data.error || data.error_ar || (lang === 'ar' ? 'فشلت عملية المزامنة. يرجى التأكد من الرابط والرمز السري' : 'Sync failed. Check URL and passcode'));
       }
     } catch (err) {
       setSyncError(err.message || (lang === 'ar' ? 'حدث خطأ في الاتصال بالخادم' : 'Server connection error'));
@@ -388,12 +601,78 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
     fetchSupplierSources();
   }, [token]);
 
+  // Automatic Background Categorization for any pending staging drafts
+  useEffect(() => {
+    if (products.length > 0 && token && !autoSortTriggeredRef.current && !isAutoSorting) {
+      const hasStaging = products.some(p => p.category_id === 103 || (stagingCatId && p.category_id === stagingCatId) || p.category_id === null);
+      if (hasStaging) {
+        autoSortTriggeredRef.current = true;
+        handleAutoSortDrafts(true);
+      }
+    }
+  }, [products, token, stagingCatId, isAutoSorting]);
+
   const [isSubmittingProduct, setIsSubmittingProduct] = useState(false);
   const [productFormMsg, setProductFormMsg] = useState('');
   const [productFormError, setProductFormError] = useState('');
 
   const handleFileChange = (e) => {
     setSelectedFile(e.target.files[0]);
+  };
+
+  const handleMultiFilesChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    const newItems = files.map((file, idx) => ({
+      id: `file_${Date.now()}_${idx}_${Math.random()}`,
+      url: '',
+      preview: URL.createObjectURL(file),
+      file: file,
+      isMain: productImages.length === 0 && idx === 0
+    }));
+    setProductImages(prev => [...prev, ...newItems]);
+    e.target.value = '';
+  };
+
+  const handleAddImageUrl = () => {
+    const url = newImageUrlInput.trim();
+    if (!url) return;
+    const isFirst = productImages.length === 0;
+    const fullUrl = (url.startsWith('http') || url.startsWith('data:') ? url : `${apiHost}${url}`);
+    setProductImages(prev => [
+      ...prev,
+      {
+        id: `url_${Date.now()}_${Math.random()}`,
+        url: url,
+        preview: fullUrl,
+        file: null,
+        isMain: isFirst
+      }
+    ]);
+    setNewImageUrlInput('');
+  };
+
+  const handleSetMainImage = (index) => {
+    setProductImages(prev => {
+      const copy = [...prev];
+      const selected = copy.splice(index, 1)[0];
+      copy.unshift(selected);
+      return copy;
+    });
+  };
+
+  const handleRemoveImage = (index) => {
+    setProductImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleMoveImage = (fromIdx, toIdx) => {
+    setProductImages(prev => {
+      if (toIdx < 0 || toIdx >= prev.length) return prev;
+      const copy = [...prev];
+      const item = copy.splice(fromIdx, 1)[0];
+      copy.splice(toIdx, 0, item);
+      return copy;
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -417,6 +696,20 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
     formData.append('stock', stock);
     if (selectedFile) {
       formData.append('product_image', selectedFile);
+    }
+    
+    // Append all local files
+    productImages.forEach(img => {
+      if (img.file) {
+        formData.append('product_images', img.file);
+      }
+    });
+
+    // Append all existing / external URLs
+    const existingUrls = productImages.map(img => img.url).filter(Boolean);
+    formData.append('images', JSON.stringify(existingUrls));
+    if (existingUrls.length > 0) {
+      formData.append('image_url', existingUrls[0]);
     }
     const colorsArray = colorsInput ? colorsInput.split(',').map(c => c.trim()).filter(Boolean) : [];
     const baseP = parseFloat(priceUsd) || 0;
@@ -459,6 +752,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
           : (isEditing ? 'Product updated successfully!' : 'Product added successfully!'));
         resetForm();
         fetchProducts();
+        fetchCategories();
         setTimeout(() => setProductFormMsg(''), 5000);
       } else {
         setProductFormError((lang === 'ar' ? data.error_ar : data.error_en) || data.error || (lang === 'ar' ? 'فشل حفظ المنتج' : 'Failed to save product'));
@@ -487,6 +781,28 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
     setStock(product.stock);
     setSelectedFile(null);
     setColorsInput((product.colors || []).join(', '));
+
+    let rawImgs = [];
+    if (product.images) {
+      if (Array.isArray(product.images)) rawImgs = product.images;
+      else {
+        try { rawImgs = JSON.parse(product.images); } catch (e) { rawImgs = []; }
+      }
+    }
+    if (!Array.isArray(rawImgs) || rawImgs.length === 0) {
+      if (product.image_url) rawImgs = [product.image_url];
+    }
+    const parsedImgs = rawImgs.map((u, i) => {
+      const fullUrl = (u.startsWith('http') || u.startsWith('data:') ? u : `${apiHost}${u}`);
+      return {
+        id: `img_${i}_${Date.now()}`,
+        url: u,
+        preview: fullUrl,
+        file: null,
+        isMain: i === 0
+      };
+    });
+    setProductImages(parsedImgs);
     let parsedSizes = [];
     if (product.sizes) {
       let rawSizes = product.sizes;
@@ -545,16 +861,19 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
     setPriceUsd('');
     setCostPriceUsd('');
     setOldPriceUsd('');
-    setCategoryId('');
+    setCategoryId(stagingCatId ? String(stagingCatId) : '');
     setMerchantId('');
     setStock('10');
     setSelectedFile(null);
+    setProductImages([]);
+    setNewImageUrlInput('');
     setColorsInput('');
     setSizesList([{ name: '', price: '', type: 'absolute' }]);
   };
 
   // Filter and sort products
   const filteredProducts = products.filter(p => {
+    if (filterOnlyStaging && String(p.category_id) !== String(stagingCatId)) return false;
     if (filterOnlyToday && !isCreatedToday(p.created_at)) return false;
     if ((filterOutOfStock || filterOnlyOutOfStock) && p.stock > 0) return false;
     if (filterOnlyNew && p.is_new_arrival !== 1) return false;
@@ -617,6 +936,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
   const todayCount = products.filter(p => isCreatedToday(p.created_at)).length;
   const inStockCount = products.filter(p => Number(p.stock) > 0).length;
   const outOfStockCount = products.filter(p => Number(p.stock) <= 0).length;
+  const stagingCount = products.filter(p => String(p.category_id) === String(stagingCatId)).length;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -624,7 +944,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
       {/* Products Metrics Summary Cards */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
         gap: '12px'
       }}>
         {/* Card 1: Total Products */}
@@ -633,6 +953,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
             setFilterOnlyToday(false);
             setFilterOnlyNew(false);
             setFilterOnlyOutOfStock(false);
+            setFilterOnlyStaging(false);
             setFilterSupplier('');
             setFilterCategory('');
             setSearchQuery('');
@@ -644,8 +965,8 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
             gap: '14px',
             padding: '14px 18px',
             borderRadius: '14px',
-            backgroundColor: (!filterOnlyToday && !filterOnlyOutOfStock && !filterOnlyNew && !filterSupplier && !filterCategory && !searchQuery) ? 'rgba(37, 99, 235, 0.08)' : 'var(--bg-primary)',
-            border: (!filterOnlyToday && !filterOnlyOutOfStock && !filterOnlyNew && !filterSupplier && !filterCategory && !searchQuery) ? '1.5px solid var(--accent-blue)' : '1px solid var(--border-color)',
+            backgroundColor: (!filterOnlyToday && !filterOnlyOutOfStock && !filterOnlyNew && !filterOnlyStaging && !filterSupplier && !filterCategory && !searchQuery) ? 'rgba(37, 99, 235, 0.08)' : 'var(--bg-primary)',
+            border: (!filterOnlyToday && !filterOnlyOutOfStock && !filterOnlyNew && !filterOnlyStaging && !filterSupplier && !filterCategory && !searchQuery) ? '1.5px solid var(--accent-blue)' : '1px solid var(--border-color)',
             boxShadow: 'var(--shadow-sm)',
             cursor: 'pointer',
             transition: 'all 0.2s ease'
@@ -681,7 +1002,14 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
 
         {/* Card 2: Added Today */}
         <div
-          onClick={handleViewAddedToday}
+          onClick={() => {
+            setFilterOnlyToday(prev => !prev);
+            setFilterOnlyStaging(false);
+            setFilterOnlyNew(false);
+            setFilterOnlyOutOfStock(false);
+            setFilterSupplier('');
+            setCurrentPage(1);
+          }}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -729,17 +1057,80 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                 +{todayCount.toLocaleString()}
               </span>
               <span style={{ fontSize: '0.72rem', color: todayCount > 0 ? '#059669' : 'var(--text-muted)', fontWeight: '600' }}>
-                {filterOnlyToday ? (lang === 'ar' ? '(تتم التصفية الآن)' : '(Filtering)') : (lang === 'ar' ? 'انقر للعرض' : 'Click to view')}
+                {filterOnlyToday ? (lang === 'ar' ? '(تصفية)' : '(Filtering)') : (lang === 'ar' ? 'انقر للعرض' : 'Click to view')}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Card 3: In Stock */}
+        {/* Card 3: Quick Drafts / Staging (خاص بالإدارة) */}
+        <div
+          onClick={() => {
+            setFilterOnlyStaging(prev => !prev);
+            setFilterOnlyToday(false);
+            setFilterOnlyNew(false);
+            setFilterOnlyOutOfStock(false);
+            setCurrentPage(1);
+          }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px',
+            padding: '14px 18px',
+            borderRadius: '14px',
+            backgroundColor: filterOnlyStaging ? 'rgba(99, 102, 241, 0.15)' : 'var(--bg-primary)',
+            border: filterOnlyStaging ? '2px solid #6366f1' : '1px solid var(--border-color)',
+            boxShadow: filterOnlyStaging ? '0 4px 14px rgba(99, 102, 241, 0.25)' : 'var(--shadow-sm)',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          <div style={{
+            width: '46px',
+            height: '46px',
+            borderRadius: '12px',
+            backgroundColor: stagingCount > 0 ? 'rgba(99, 102, 241, 0.18)' : 'rgba(99, 102, 241, 0.1)',
+            color: '#6366f1',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            <FolderInput size={24} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontWeight: '600' }}>
+                {lang === 'ar' ? 'مسودة الإضافة السريعة' : 'Quick Staging Drafts'}
+              </span>
+              <span style={{
+                fontSize: '0.65rem',
+                padding: '2px 6px',
+                borderRadius: '6px',
+                backgroundColor: stagingCount > 0 ? '#ede9fe' : 'var(--bg-tertiary)',
+                color: stagingCount > 0 ? '#5b21b6' : 'var(--text-muted)',
+                fontWeight: '800'
+              }}>
+                {lang === 'ar' ? 'خاص بالإدارة' : 'Admin Only'}
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginTop: '2px' }}>
+              <span style={{ fontSize: '1.45rem', fontWeight: '900', color: stagingCount > 0 ? '#6366f1' : 'var(--text-primary)', lineHeight: 1 }}>
+                {stagingCount.toLocaleString()}
+              </span>
+              <span style={{ fontSize: '0.72rem', color: stagingCount > 0 ? '#6366f1' : 'var(--text-muted)', fontWeight: '600' }}>
+                {filterOnlyStaging ? (lang === 'ar' ? '(تصفية)' : '(Filtering)') : (lang === 'ar' ? 'بحاجة لنقل' : 'pending move')}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 4: In Stock */}
         <div
           onClick={() => {
             setFilterOnlyOutOfStock(false);
             setFilterOnlyToday(false);
+            setFilterOnlyStaging(false);
             setCurrentPage(1);
           }}
           style={{
@@ -750,7 +1141,8 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
             borderRadius: '14px',
             backgroundColor: 'var(--bg-primary)',
             border: '1px solid var(--border-color)',
-            boxShadow: 'var(--shadow-sm)'
+            boxShadow: 'var(--shadow-sm)',
+            cursor: 'pointer'
           }}
         >
           <div style={{
@@ -781,11 +1173,12 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
           </div>
         </div>
 
-        {/* Card 4: Out of Stock */}
+        {/* Card 5: Out of Stock */}
         <div
           onClick={() => {
             setFilterOnlyOutOfStock(prev => !prev);
             setFilterOnlyToday(false);
+            setFilterOnlyStaging(false);
             setFilterOnlyNew(false);
             setCurrentPage(1);
           }}
@@ -1174,7 +1567,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                                 {source.sync_type === 'shopify_json' 
                                   ? 'Shopify Store' 
                                   : (source.sync_type === 'deal_scraper' 
-                                      ? (lang === 'ar' ? 'منصة Deal.com.lb' : 'Deal.com.lb') 
+                                      ? (lang === 'ar' ? 'سحب تلقائي من المورد' : 'Supplier Web Scraper') 
                                       : (lang === 'ar' ? 'بوابة جملة خاصة' : 'Wholesale Portal')
                                     )
                                 }
@@ -1473,7 +1866,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                     {lang === 'ar' ? 'موقع جملة بكلمة مرور (Wholesale Passcode Portal / DR PHONE)' : 'Wholesale Passcode Portal (DR PHONE compatible)'}
                   </option>
                   <option value="deal_scraper">
-                    {lang === 'ar' ? 'منصة الصفقات Deal.com.lb (Web Crawler / Scraper)' : 'Deal.com.lb Web Scraper'}
+                    {lang === 'ar' ? 'منصة الصفقات Supplier Web Scraper (Web Crawler / Scraper)' : 'Supplier Web Scraper Web Scraper'}
                   </option>
                   <option value="shopify_json">
                     {lang === 'ar' ? 'متجر شوبيفاي (Shopify / products.json)' : 'Shopify Store (products.json)'}
@@ -1670,15 +2063,29 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
             <input type="number" step="0.01" className="input-field" value={oldPriceUsd} onChange={(e) => setOldPriceUsd(e.target.value)} />
           </div>
           <div>
-            <label className="input-label">التصنيف (Category)</label>
-            <select className="input-field" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-              <option value="">-- اختر التصنيف --</option>
-              {categories.map(c => (
-                <option key={c.id} value={c.id}>
-                  {lang === 'ar' ? `${c.name_ar} ${c.parent_name_ar ? `(${c.parent_name_ar})` : ''}` : `${c.name_en} ${c.parent_name_en ? `(${c.parent_name_en})` : ''}`}
-                </option>
-              ))}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label className="input-label" style={{ margin: 0 }}>{lang === 'ar' ? 'التصنيف (Category)' : 'Category'}</label>
+              <span style={{ fontSize: '0.7rem', color: '#6366f1', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                <Sparkles size={11} /> {lang === 'ar' ? 'فرز تلقائي ذكي مفعّل' : 'Smart Auto-Sort Active'}
+              </span>
+            </div>
+            <select className="input-field" value={categoryId} onChange={(e) => setCategoryId(e.target.value)} style={{ marginTop: '4px' }}>
+              <option value="">-- {lang === 'ar' ? 'اختر التصنيف (أو اترك مسودة للفرز التلقائي)' : 'Select Category (or draft for auto-sort)'} --</option>
+              {categories.map(c => {
+                const isStaging = c.code === 'ADMIN_STAGING_DRAFT' || c.id === stagingCatId || c.id === 103;
+                const label = lang === 'ar'
+                  ? `${isStaging ? '📥 [خاص بالإدارة] ' : ''}${c.name_ar} ${c.parent_name_ar ? `(${c.parent_name_ar})` : ''}`
+                  : `${isStaging ? '📥 [Admin Staging] ' : ''}${c.name_en} ${c.parent_name_en ? `(${c.parent_name_en})` : ''}`;
+                return (
+                  <option key={c.id} value={c.id} style={isStaging ? { fontWeight: 'bold', backgroundColor: '#e0e7ff', color: '#4338ca' } : {}}>
+                    {label}
+                  </option>
+                );
+              })}
             </select>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginTop: '-4px' }}>
+              {lang === 'ar' ? '💡 إذا اخترت مسودة الإضافة السريعة، سيقوم النظام بالتعرف على نوع المنتج ونقله فوراً لتصنيفه الأصلي تلقائياً.' : '💡 If Draft is selected, the system will automatically classify and assign the item to its best category.'}
+            </span>
           </div>
           <div>
             <label className="input-label">التاجر / المورد (Supplier Merchant)</label>
@@ -1869,6 +2276,19 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
               </span>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {[
+                  { label: '💧 سوائل صغيرة (50ml, 100ml, 250ml, 500ml, 750ml)', items: ['50ml (50 مل)', '100ml (100 مل)', '150ml (150 مل)', '250ml (250 مل)', '500ml (500 مل)', '750ml (750 مل)'] },
+                  { label: '🧴 عبوات لتر (1L, 1.5L, 2L, 3L, 5L)', items: ['1 لتر (1L)', '1.5 لتر (1.5L)', '2 لتر (2L)', '3 لتر (3L)', '4 لتر (4L)', '5 لتر (5L)'] },
+                  { label: '🛢️ جالونات وبراميل كبيرة (10L, 15L, 20L)', items: ['10 لتر (10L)', '15 لتر (15L)', '20 لتر (20L)'] },
+                  { label: '50ml', items: ['50ml (50 مل)'] },
+                  { label: '100ml', items: ['100ml (100 مل)'] },
+                  { label: '250ml', items: ['250ml (250 مل)'] },
+                  { label: '500ml', items: ['500ml (500 مل)'] },
+                  { label: '750ml', items: ['750ml (750 مل)'] },
+                  { label: '1L', items: ['1 لتر (1L)'] },
+                  { label: '2L', items: ['2 لتر (2L)'] },
+                  { label: '5L', items: ['5 لتر (5L)'] },
+                  { label: '10L', items: ['10 لتر (10L)'] },
+                  { label: '20L', items: ['20 لتر (20L)'] },
                   { label: '🛏️ أغطية (مفرد، مفرد ونصف، مجوز، كينغ سايز)', items: ['مفرد (Single)', 'مفرد ونصف (Twin / Single & Half)', 'مجوز (Double / Queen)', 'كينغ سايز (King Size)'] },
                   { label: 'مفرد (Single)', items: ['مفرد (Single)'] },
                   { label: 'مفرد ونصف (Twin)', items: ['مفرد ونصف (Twin / Single & Half)'] },
@@ -2059,9 +2479,242 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
               </button>
             </div>
           </div>
-          <div style={{ gridColumn: 'span 1' }}>
-            <label className="input-label">صورة المنتج (Product Image)</label>
-            <input type="file" accept="image/*" onChange={handleFileChange} className="input-field" style={{ padding: '6px' }} />
+          {/* Multi-Image Management Section */}
+          <div style={{
+            gridColumn: '1 / -1',
+            backgroundColor: 'var(--bg-secondary)',
+            padding: '16px',
+            borderRadius: '12px',
+            border: '1px solid var(--border-color)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+              <label style={{ fontSize: '0.88rem', fontWeight: '800', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px', margin: 0 }}>
+                <Image size={18} color="var(--accent-blue)" />
+                {lang === 'ar' ? 'معرض صور المنتج (يمكنك رفع أكثر من صورة):' : 'Product Images Gallery (Multiple Images Support):'}
+              </label>
+              <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)' }}>
+                {productImages.length} {lang === 'ar' ? 'صور محددة' : 'images added'}
+              </span>
+            </div>
+
+            {/* Upload Files & Add URL Controls */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
+              {/* File Upload Button */}
+              <label style={{
+                border: '2px dashed var(--accent-blue)',
+                backgroundColor: 'rgba(37, 99, 235, 0.04)',
+                borderRadius: '10px',
+                padding: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                color: 'var(--accent-blue)',
+                fontWeight: '700',
+                fontSize: '0.85rem'
+              }}>
+                <Upload size={18} />
+                <span>{lang === 'ar' ? 'رفع صور من الجهاز (تحديد متعدد)' : 'Upload images from device (Multiple)'}</span>
+                <input 
+                  type="file" 
+                  multiple 
+                  accept="image/*" 
+                  onChange={handleMultiFilesChange} 
+                  style={{ display: 'none' }} 
+                />
+              </label>
+
+              {/* Add Image by URL */}
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <input
+                  type="text"
+                  placeholder={lang === 'ar' ? 'أو الصق رابط صورة خارجية https://...' : 'Or paste image URL https://...'}
+                  value={newImageUrlInput}
+                  onChange={(e) => setNewImageUrlInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddImageUrl(); } }}
+                  className="input-field"
+                  style={{ margin: 0, fontSize: '0.85rem' }}
+                />
+                <button
+                  type="button"
+                  onClick={handleAddImageUrl}
+                  style={{
+                    padding: '8px 14px',
+                    backgroundColor: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-primary)',
+                    borderRadius: '8px',
+                    fontWeight: '700',
+                    fontSize: '0.82rem',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {lang === 'ar' ? '+ إضافة رابط' : '+ Add URL'}
+                </button>
+              </div>
+            </div>
+
+            {/* Image Thumbnails Grid */}
+            {productImages.length > 0 ? (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))',
+                gap: '10px',
+                marginTop: '6px'
+              }}>
+                {productImages.map((img, idx) => {
+                  const isMain = idx === 0;
+                  return (
+                    <div
+                      key={img.id || idx}
+                      style={{
+                        position: 'relative',
+                        borderRadius: '10px',
+                        overflow: 'hidden',
+                        border: isMain ? '2.5px solid #10b981' : '1px solid var(--border-color)',
+                        backgroundColor: '#ffffff',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        boxShadow: isMain ? '0 4px 12px rgba(16, 185, 129, 0.2)' : '0 1px 3px rgba(0,0,0,0.05)',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      {/* Image Preview Box */}
+                      <div style={{ width: '100%', height: '90px', position: 'relative', backgroundColor: '#f8fafc' }}>
+                        <img
+                          src={img.preview}
+                          alt=""
+                          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                        />
+                        {/* Main Badge */}
+                        {isMain ? (
+                          <span style={{
+                            position: 'absolute',
+                            top: '4px',
+                            insetInlineStart: '4px',
+                            backgroundColor: '#10b981',
+                            color: '#ffffff',
+                            fontSize: '0.62rem',
+                            fontWeight: '900',
+                            padding: '1px 5px',
+                            borderRadius: '4px'
+                          }}>
+                            {lang === 'ar' ? '★ رئيسية' : '★ Main'}
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleSetMainImage(idx)}
+                            style={{
+                              position: 'absolute',
+                              top: '4px',
+                              insetInlineStart: '4px',
+                              backgroundColor: 'rgba(15, 23, 42, 0.75)',
+                              color: '#ffffff',
+                              border: 'none',
+                              fontSize: '0.62rem',
+                              fontWeight: '700',
+                              padding: '1px 5px',
+                              borderRadius: '4px',
+                              cursor: 'pointer'
+                            }}
+                            title={lang === 'ar' ? 'تعيين كصورة رئيسية للمنتج' : 'Set as main product image'}
+                          >
+                            {lang === 'ar' ? 'تعيين كرئيسية' : 'Set Main'}
+                          </button>
+                        )}
+
+                        {/* Delete Button */}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveImage(idx)}
+                          style={{
+                            position: 'absolute',
+                            top: '4px',
+                            insetInlineEnd: '4px',
+                            backgroundColor: 'rgba(239, 68, 68, 0.9)',
+                            color: '#ffffff',
+                            border: 'none',
+                            width: '20px',
+                            height: '20px',
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer'
+                          }}
+                          title={lang === 'ar' ? 'حذف هذه الصورة' : 'Remove image'}
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+
+                      {/* Order Controls */}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '4px 6px',
+                        backgroundColor: 'var(--bg-tertiary)',
+                        borderTop: '1px solid var(--border-color)',
+                        fontSize: '0.7rem'
+                      }}>
+                        <span style={{ fontWeight: '700', color: 'var(--text-muted)' }}>#{idx + 1}</span>
+                        <div style={{ display: 'flex', gap: '2px' }}>
+                          <button
+                            type="button"
+                            disabled={idx === 0}
+                            onClick={() => handleMoveImage(idx, idx - 1)}
+                            style={{
+                              border: 'none',
+                              background: 'transparent',
+                              color: idx === 0 ? '#cbd5e1' : 'var(--text-primary)',
+                              cursor: idx === 0 ? 'default' : 'pointer',
+                              padding: '1px'
+                            }}
+                            title={lang === 'ar' ? 'تحريك للأمام' : 'Move up'}
+                          >
+                            <ArrowUp size={12} />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={idx === productImages.length - 1}
+                            onClick={() => handleMoveImage(idx, idx + 1)}
+                            style={{
+                              border: 'none',
+                              background: 'transparent',
+                              color: idx === productImages.length - 1 ? '#cbd5e1' : 'var(--text-primary)',
+                              cursor: idx === productImages.length - 1 ? 'default' : 'pointer',
+                              padding: '1px'
+                            }}
+                            title={lang === 'ar' ? 'تحريك للخلف' : 'Move down'}
+                          >
+                            <ArrowDown size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{
+                textAlign: 'center',
+                padding: '16px',
+                color: 'var(--text-muted)',
+                fontSize: '0.8rem'
+              }}>
+                {lang === 'ar' 
+                  ? 'لم يتم إضافة أي صور بعد. يمكنك سحب الصور أو الضغط على زر الرفع أعلاه.' 
+                  : 'No images added yet. Click upload button above to add multiple images.'}
+              </div>
+            )}
           </div>
 
           <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '10px', marginTop: '10px' }}>
@@ -2187,10 +2840,10 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
         </div>
 
         {/* Active Filter Banner */}
-        {(filterSupplier || filterOnlyNew || filterOnlyOutOfStock) && (
+        {(filterSupplier || filterOnlyNew || filterOnlyOutOfStock || filterOnlyStaging) && (
           <div style={{
-            backgroundColor: filterOnlyOutOfStock ? 'rgba(239, 68, 68, 0.08)' : filterOnlyNew ? 'rgba(22, 163, 74, 0.08)' : 'rgba(37, 99, 235, 0.08)',
-            border: `1px solid ${filterOnlyOutOfStock ? '#ef4444' : filterOnlyNew ? '#16a34a' : '#3b82f6'}`,
+            backgroundColor: filterOnlyOutOfStock ? 'rgba(239, 68, 68, 0.08)' : filterOnlyStaging ? 'rgba(99, 102, 241, 0.08)' : filterOnlyNew ? 'rgba(22, 163, 74, 0.08)' : 'rgba(37, 99, 235, 0.08)',
+            border: `1px solid ${filterOnlyOutOfStock ? '#ef4444' : filterOnlyStaging ? '#6366f1' : filterOnlyNew ? '#16a34a' : '#3b82f6'}`,
             borderRadius: '10px',
             padding: '12px 18px',
             marginBottom: '18px',
@@ -2201,17 +2854,19 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
             gap: '12px'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Sparkles size={20} color={filterOnlyOutOfStock ? '#dc2626' : filterOnlyNew ? '#16a34a' : '#2563eb'} />
+              <Sparkles size={20} color={filterOnlyOutOfStock ? '#dc2626' : filterOnlyStaging ? '#6366f1' : filterOnlyNew ? '#16a34a' : '#2563eb'} />
               <div>
-                <span style={{ fontWeight: '800', color: filterOnlyOutOfStock ? '#b91c1c' : filterOnlyNew ? '#15803d' : '#1d4ed8', fontSize: '0.95rem' }}>
-                  {filterOnlyNew
+                <span style={{ fontWeight: '800', color: filterOnlyOutOfStock ? '#b91c1c' : filterOnlyStaging ? '#4338ca' : filterOnlyNew ? '#15803d' : '#1d4ed8', fontSize: '0.95rem' }}>
+                  {filterOnlyStaging
+                    ? (lang === 'ar' ? 'تصفية نشطة: عرض مسودة الإضافة السريعة (منتجات خاصة بالإدارة بحاجة لفرز ونقل لتصنيفاتها)' : 'Active Filter: Showing Quick Drafts / Staging Products (Pending Category Assignment)')
+                    : filterOnlyNew
                     ? (lang === 'ar' ? `تصفية نشطة: عرض الأصناف الجديدة المسحوبة بعد التحديث ${filterSupplier ? `لموقع [ ${filterSupplier} ]` : ''}` : `Active Filter: Showing New Products pulled after sync ${filterSupplier ? `from [ ${filterSupplier} ]` : ''}`)
                     : filterOnlyOutOfStock
                     ? (lang === 'ar' ? `تصفية نشطة: عرض المنتجات المنتهية من المخزون (Out of Stock / أُزيلت من المورد) ${filterSupplier ? `لـ [ ${filterSupplier} ]` : ''}` : `Active Filter: Showing Out of Stock / Removed items ${filterSupplier ? `from [ ${filterSupplier} ]` : ''}`)
                     : (lang === 'ar' ? `تصفية نشطة: عرض منتجات المورد [ ${filterSupplier} ]` : `Active Filter: Showing products from [ ${filterSupplier} ]`)}
                 </span>
                 <span style={{ 
-                  backgroundColor: filterOnlyOutOfStock ? '#dc2626' : filterOnlyNew ? '#16a34a' : '#2563eb', 
+                  backgroundColor: filterOnlyOutOfStock ? '#dc2626' : filterOnlyStaging ? '#6366f1' : filterOnlyNew ? '#16a34a' : '#2563eb', 
                   color: 'white', 
                   padding: '2px 10px', 
                   borderRadius: '12px', 
@@ -2225,26 +2880,54 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => { setFilterSupplier(''); setFilterOnlyNew(false); setFilterOnlyOutOfStock(false); setCurrentPage(1); }}
-              style={{
-                backgroundColor: filterOnlyOutOfStock ? '#dc2626' : filterOnlyNew ? '#16a34a' : '#2563eb',
-                color: 'white',
-                border: 'none',
-                padding: '6px 14px',
-                borderRadius: '8px',
-                fontWeight: '700',
-                fontSize: '0.82rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              <X size={14} />
-              <span>{lang === 'ar' ? 'عرض جميع المنتجات' : 'Show All Products'}</span>
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              {filterOnlyStaging && stagingCount > 0 && (
+                <button
+                  type="button"
+                  disabled={isAutoSorting}
+                  onClick={handleAutoSortDrafts}
+                  style={{
+                    backgroundColor: '#4f46e5',
+                    color: 'white',
+                    border: 'none',
+                    padding: '7px 16px',
+                    borderRadius: '8px',
+                    fontWeight: '800',
+                    fontSize: '0.85rem',
+                    cursor: isAutoSorting ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 4px 12px rgba(79, 70, 229, 0.35)',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <Sparkles size={16} />
+                  <span>{isAutoSorting ? (lang === 'ar' ? 'جاري الفرز الذكي...' : 'Auto-Sorting...') : (lang === 'ar' ? '⚡ فرز وتصنيف ذكي للمسودات الآن' : '⚡ Auto-Sort Drafts Now')}</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => { setFilterSupplier(''); setFilterOnlyNew(false); setFilterOnlyOutOfStock(false); setFilterOnlyStaging(false); setCurrentPage(1); }}
+                style={{
+                  backgroundColor: filterOnlyOutOfStock ? '#dc2626' : filterOnlyStaging ? '#6366f1' : filterOnlyNew ? '#16a34a' : '#2563eb',
+                  color: 'white',
+                  border: 'none',
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  fontWeight: '700',
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <X size={14} />
+                <span>{lang === 'ar' ? 'عرض جميع المنتجات' : 'Show All Products'}</span>
+              </button>
+            </div>
           </div>
         )}
 
@@ -2334,10 +3017,76 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
 
         {/* Quick Filter Badges */}
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px' }}>
+          {/* Quick Drafts Badge */}
+          <button
+            type="button"
+            onClick={() => {
+              setFilterOnlyStaging(prev => !prev);
+              setFilterOnlyNew(false);
+              setFilterOnlyOutOfStock(false);
+              setCurrentPage(1);
+            }}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '20px',
+              border: filterOnlyStaging ? '2px solid #6366f1' : '1px solid var(--border-color)',
+              backgroundColor: filterOnlyStaging ? '#e0e7ff' : 'var(--bg-secondary)',
+              color: filterOnlyStaging ? '#4338ca' : 'var(--text-primary)',
+              fontWeight: '800',
+              fontSize: '0.82rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.2s'
+            }}
+          >
+            <FolderInput size={14} color={filterOnlyStaging ? '#4338ca' : '#6366f1'} />
+            <span>{lang === 'ar' ? 'مسودة الإضافة السريعة (خاص بالإدارة)' : 'Quick Drafts / Staging'}</span>
+            <span style={{ 
+              backgroundColor: stagingCount > 0 ? '#4f46e5' : 'var(--bg-tertiary)', 
+              color: stagingCount > 0 ? '#ffffff' : 'var(--text-muted)',
+              padding: '1px 7px',
+              borderRadius: '10px',
+              fontSize: '0.75rem',
+              fontWeight: '800'
+            }}>
+              {stagingCount}
+            </span>
+          </button>
+
+          {stagingCount > 0 && (
+            <button
+              type="button"
+              disabled={isAutoSorting}
+              onClick={handleAutoSortDrafts}
+              style={{
+                padding: '6px 14px',
+                borderRadius: '20px',
+                border: '1.5px solid #6366f1',
+                backgroundColor: '#4f46e5',
+                color: '#ffffff',
+                fontWeight: '800',
+                fontSize: '0.82rem',
+                cursor: isAutoSorting ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 10px rgba(79, 70, 229, 0.35)',
+                transition: 'all 0.2s'
+              }}
+              title={lang === 'ar' ? 'تحليل وتوزيع منتجات المسودة على تصنيفاتها تلقائياً' : 'Auto-classify draft products to target categories'}
+            >
+              <Sparkles size={14} />
+              <span>{isAutoSorting ? (lang === 'ar' ? 'جاري الفرز الذكي...' : 'Auto-Sorting...') : (lang === 'ar' ? '⚡ فرز وتصنيف ذكي للمسودات' : '⚡ Auto-Sort Drafts')}</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => {
               setFilterOnlyNew(prev => !prev);
+              setFilterOnlyStaging(false);
               setFilterOnlyOutOfStock(false);
               setCurrentPage(1);
             }}
@@ -2365,6 +3114,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
             type="button"
             onClick={() => {
               setFilterOnlyOutOfStock(prev => !prev);
+              setFilterOnlyStaging(false);
               setFilterOnlyNew(false);
               setCurrentPage(1);
             }}
@@ -2387,6 +3137,30 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
             <span>{lang === 'ar' ? 'المنتجات المنتهية من المخزون (Out of Stock)' : 'Out of Stock Items'}</span>
             <span style={{ opacity: 0.8 }}>({products.filter(p => p.stock <= 0).length})</span>
           </button>
+
+          <button
+            type="button"
+            disabled={isDeduplicating}
+            onClick={handleDeduplicateProducts}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '20px',
+              border: '1.5px solid #059669',
+              backgroundColor: 'rgba(5, 150, 105, 0.1)',
+              color: '#059669',
+              fontWeight: '800',
+              fontSize: '0.82rem',
+              cursor: isDeduplicating ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.2s'
+            }}
+            title={lang === 'ar' ? 'فحص المتجر وإزالة أي منتجات مكررة' : 'Scan store and clean duplicate products'}
+          >
+            <RefreshCw size={14} className={isDeduplicating ? 'spin-anim' : ''} />
+            <span>{isDeduplicating ? (lang === 'ar' ? 'جاري فحص وإزالة التكرار...' : 'Deduplicating...') : (lang === 'ar' ? '🧹 تنظيف وإزالة المنتجات المكررة' : '🧹 Clean Duplicate Products')}</span>
+          </button>
         </div>
 
         {/* Products Table */}
@@ -2394,6 +3168,25 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'start' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-light)', fontSize: '0.85rem' }}>
+                <th style={{ padding: '10px', textAlign: 'center', width: '38px' }}>
+                  <input
+                    type="checkbox"
+                    checked={paginatedProducts.length > 0 && paginatedProducts.every(p => selectedProductIds.has(p.id))}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        const newSet = new Set(selectedProductIds);
+                        paginatedProducts.forEach(p => newSet.add(p.id));
+                        setSelectedProductIds(newSet);
+                      } else {
+                        const newSet = new Set(selectedProductIds);
+                        paginatedProducts.forEach(p => newSet.delete(p.id));
+                        setSelectedProductIds(newSet);
+                      }
+                    }}
+                    style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                    title={lang === 'ar' ? 'تحديد كل منتجات هذه الصفحة' : 'Select all on this page'}
+                  />
+                </th>
                 <th style={{ padding: '10px', textAlign: 'start' }}>{lang === 'ar' ? 'الصورة' : 'Image'}</th>
                 <th style={{ padding: '10px', textAlign: 'start' }}>{lang === 'ar' ? 'الاسم' : 'Name'}</th>
                 <th style={{ padding: '10px', textAlign: 'start' }}>{lang === 'ar' ? 'التصنيف' : 'Category'}</th>
@@ -2407,37 +3200,137 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
               </tr>
             </thead>
             <tbody>
-              {paginatedProducts.length === 0 ? (
+              {isLoadingProducts ? (
                 <tr>
-                  <td colSpan="10" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                  <td colSpan="11" style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
+                    <RefreshCw size={28} className="spin-anim" style={{ margin: '0 auto 12px', display: 'block', color: 'var(--accent-blue)' }} />
+                    <div style={{ fontWeight: '800', fontSize: '1rem', color: 'var(--text-primary)' }}>
+                      {lang === 'ar' ? 'جاري تحميل قائمة المنتجات...' : 'Loading products directory...'}
+                    </div>
+                  </td>
+                </tr>
+              ) : paginatedProducts.length === 0 ? (
+                <tr>
+                  <td colSpan="11" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                     <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}></div>
-                    <div style={{ fontWeight: '700' }}>
+                    <div style={{ fontWeight: '700', marginBottom: '12px' }}>
                       {lang === 'ar' ? 'لا توجد منتجات مطابقة لخيارات التصفية الحالية' : 'No products found matching filters'}
                     </div>
+                    {products.length === 0 && (
+                      <button
+                        type="button"
+                        onClick={fetchProducts}
+                        style={{
+                          padding: '6px 16px',
+                          backgroundColor: '#2563eb',
+                          color: '#ffffff',
+                          border: 'none',
+                          borderRadius: '8px',
+                          fontWeight: '800',
+                          fontSize: '0.85rem',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <RefreshCw size={14} />
+                        <span>{lang === 'ar' ? 'إعادة تحميل المنتجات' : 'Reload Products'}</span>
+                      </button>
+                    )}
                   </td>
                 </tr>
               ) : (
                 paginatedProducts.map((p) => {
-                  const imageUrl = p.image_url 
-                    ? (p.image_url.startsWith('http') || p.image_url.startsWith('data:') ? p.image_url : `${apiHost}${p.image_url}`)
-                    : 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=50&q=80';
-                  
+                  const imageUrl = getImageUrl(p.image_url, 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=50&q=80');
+                  const isSelected = selectedProductIds.has(p.id);
+                  const isStaging = String(p.category_id) === String(stagingCatId) || p.category_id === 103;
+
                   return (
-                    <tr key={p.id} style={{ borderBottom: '1px solid var(--border-color)', fontSize: '0.9rem' }}>
-                      <td style={{ padding: '10px' }}>
-                        <img 
-                          src={imageUrl} 
-                          alt="" 
-                          style={{ 
-                            width: '44px', 
-                            height: '44px', 
-                            objectFit: 'contain', 
-                            backgroundColor: 'white', 
-                            borderRadius: '6px', 
-                            border: '1px solid var(--border-color)' 
-                          }} 
+                    <tr 
+                      key={p.id} 
+                      style={{ 
+                        borderBottom: '1px solid var(--border-color)', 
+                        fontSize: '0.9rem',
+                        backgroundColor: isSelected ? 'rgba(99, 102, 241, 0.08)' : 'transparent',
+                        transition: 'background-color 0.15s'
+                      }}
+                    >
+                      {/* Selection Checkbox */}
+                      <td style={{ padding: '10px', textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelectProduct(p.id)}
+                          style={{ cursor: 'pointer', width: '16px', height: '16px' }}
                         />
                       </td>
+
+                      {/* Image Thumbnail */}
+                      <td style={{ padding: '10px' }}>
+                        <div 
+                          onClick={() => setPreviewImageModal({ 
+                            url: imageUrl, 
+                            name: lang === 'ar' ? (p.name_ar || p.name_en) : (p.name_en || p.name_ar), 
+                            product: p 
+                          })}
+                          style={{
+                            position: 'relative',
+                            width: '46px',
+                            height: '46px',
+                            cursor: 'pointer',
+                            borderRadius: '8px',
+                            overflow: 'hidden',
+                            border: '1px solid var(--border-color)',
+                            backgroundColor: '#ffffff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.2s ease',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.06)'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = 'scale(1.1)';
+                            e.currentTarget.style.borderColor = 'var(--accent-blue)';
+                            e.currentTarget.style.boxShadow = '0 4px 10px rgba(0,0,0,0.15)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = 'scale(1)';
+                            e.currentTarget.style.borderColor = 'var(--border-color)';
+                            e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)';
+                          }}
+                          title={lang === 'ar' ? 'انقر لمعاينة الصورة بالحجم الكامل' : 'Click to preview image in full size'}
+                        >
+                          <img 
+                            src={imageUrl} 
+                            alt="" 
+                            onError={handleImageError}
+                            style={{ 
+                              width: '100%', 
+                              height: '100%', 
+                              objectFit: 'contain'
+                            }} 
+                          />
+                          <div style={{
+                            position: 'absolute',
+                            inset: 0,
+                            backgroundColor: 'rgba(0,0,0,0.3)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            opacity: 0,
+                            transition: 'opacity 0.2s ease',
+                            color: '#ffffff'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                          onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
+                          >
+                            <Eye size={16} />
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Product Name & Badges */}
                       <td style={{ padding: '10px', fontWeight: '600' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                           <span>{lang === 'ar' ? p.name_ar : p.name_en}</span>
@@ -2489,9 +3382,58 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                           </div>
                         )}
                       </td>
-                      <td style={{ padding: '10px', color: 'var(--text-light)' }}>
-                        {lang === 'ar' ? p.category_name_ar : p.category_name_en}
+
+                      {/* Category Column with Quick Move Action */}
+                      <td style={{ padding: '10px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', alignItems: 'flex-start' }}>
+                          {isStaging ? (
+                            <span style={{
+                              fontSize: '0.72rem',
+                              padding: '3px 8px',
+                              borderRadius: '6px',
+                              backgroundColor: '#ede9fe',
+                              color: '#5b21b6',
+                              fontWeight: '800',
+                              border: '1px solid #c4b5fd',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}>
+                              <FolderInput size={12} />
+                              <span>{lang === 'ar' ? 'مسودة سريعة (خاص بالإدارة)' : 'Quick Draft (Admin)'}</span>
+                            </span>
+                          ) : (
+                            <span style={{ color: 'var(--text-primary)', fontWeight: '600', fontSize: '0.85rem' }}>
+                              {lang === 'ar' ? (p.category_name_ar || '-') : (p.category_name_en || '-')}
+                            </span>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => handleQuickMoveCategory(p)}
+                            style={{
+                              border: isStaging ? '1.5px solid #6366f1' : '1px solid var(--border-color)',
+                              backgroundColor: isStaging ? '#6366f1' : 'var(--bg-secondary)',
+                              color: isStaging ? '#ffffff' : 'var(--text-secondary)',
+                              padding: '3px 9px',
+                              borderRadius: '6px',
+                              fontSize: '0.72rem',
+                              fontWeight: '800',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              transition: 'all 0.15s',
+                              boxShadow: isStaging ? '0 2px 6px rgba(99, 102, 241, 0.3)' : 'none'
+                            }}
+                            title={lang === 'ar' ? 'نقل المنتج لتصنيف آخر' : 'Move to another category'}
+                          >
+                            <ArrowRightLeft size={11} />
+                            <span>{lang === 'ar' ? 'نقل التصنيف' : 'Move Category'}</span>
+                          </button>
+                        </div>
                       </td>
+
                       <td style={{ padding: '10px', color: 'var(--text-light)' }}>
                         {p.merchant_name || '-'}
                       </td>
@@ -2515,7 +3457,25 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                         ) : p.stock}
                       </td>
                       <td style={{ padding: '10px', textAlign: 'center' }}>
-                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
+                          <button 
+                            onClick={() => handleCopyProductLink(p)} 
+                            title={copiedProdId === p.id ? (lang === 'ar' ? 'تم نسخ رابط المنتج!' : 'Link Copied!') : (lang === 'ar' ? 'نسخ رابط المنتج المباشر للزبائن' : 'Copy Direct Customer Link')} 
+                            style={{ 
+                              border: 'none', 
+                              backgroundColor: copiedProdId === p.id ? 'rgba(16, 185, 129, 0.15)' : 'transparent', 
+                              color: copiedProdId === p.id ? '#10b981' : 'var(--accent-blue)', 
+                              padding: '4px',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.2s ease'
+                            }}
+                          >
+                            {copiedProdId === p.id ? <Check size={16} color="#10b981" /> : <Share2 size={16} />}
+                          </button>
                           <button onClick={() => handleEdit(p)} title={lang === 'ar' ? 'تعديل المنتج' : 'Edit Product'} style={{ border: 'none', backgroundColor: 'transparent', color: 'var(--accent-blue)', cursor: 'pointer' }}>
                             <Edit3 size={16} />
                           </button>
@@ -2783,6 +3743,400 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
           );
         })()}
       </div>
+
+      {/* High-Resolution Image Preview Lightbox Modal */}
+      {previewImageModal && (
+        <div 
+          onClick={() => setPreviewImageModal(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 99999,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            animation: 'fadeIn 0.2s ease'
+          }}
+        >
+          {/* Top Actions Bar */}
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: '850px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '14px',
+              color: '#ffffff'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
+              <span style={{ fontSize: '1.05rem', fontWeight: '800', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                {previewImageModal.name || (lang === 'ar' ? 'معاينة صورة المنتج' : 'Product Image Preview')}
+              </span>
+              {previewImageModal.product && (
+                <span style={{
+                  fontSize: '0.75rem',
+                  padding: '3px 10px',
+                  borderRadius: '12px',
+                  backgroundColor: 'rgba(255,255,255,0.2)',
+                  fontWeight: '700',
+                  whiteSpace: 'nowrap'
+                }}>
+                  {lang === 'ar' 
+                    ? (previewImageModal.product.category_name_ar || `قسم #${previewImageModal.product.category_id}`) 
+                    : (previewImageModal.product.category_name_en || `Cat #${previewImageModal.product.category_id}`)}
+                </span>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <a
+                href={previewImageModal.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: '#ffffff',
+                  backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                  padding: '7px 14px',
+                  borderRadius: '8px',
+                  fontSize: '0.82rem',
+                  fontWeight: '700',
+                  textDecoration: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  border: '1px solid rgba(255, 255, 255, 0.25)',
+                  transition: 'all 0.15s'
+                }}
+                title={lang === 'ar' ? 'فتح الصورة بالرابط الأصلي' : 'Open original image in new tab'}
+              >
+                <ExternalLink size={15} />
+                <span>{lang === 'ar' ? 'الرابط المباشر' : 'Open Link'}</span>
+              </a>
+
+              <button
+                onClick={() => setPreviewImageModal(null)}
+                style={{
+                  border: 'none',
+                  backgroundColor: 'rgba(239, 68, 68, 0.9)',
+                  color: '#ffffff',
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)'
+                }}
+                title={lang === 'ar' ? 'إغلاق المعاينة' : 'Close Preview'}
+              >
+                <X size={20} />
+              </button>
+            </div>
+          </div>
+
+          {/* Main Image Container */}
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'relative',
+              maxWidth: '850px',
+              width: '100%',
+              maxHeight: '82vh',
+              backgroundColor: '#ffffff',
+              borderRadius: '16px',
+              overflow: 'hidden',
+              padding: '16px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.6)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <img 
+              src={previewImageModal.url} 
+              alt={previewImageModal.name || ''} 
+              style={{
+                maxWidth: '100%',
+                maxHeight: '78vh',
+                objectFit: 'contain',
+                borderRadius: '8px'
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Floating Bulk Move Bar (Appears when products are selected via checkboxes) */}
+      {selectedProductIds.size > 0 && (
+        <div style={{
+          position: 'fixed',
+          bottom: '24px',
+          insetInlineStart: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 9999,
+          backgroundColor: '#1e293b',
+          color: '#ffffff',
+          borderRadius: '16px',
+          padding: '14px 22px',
+          boxShadow: '0 12px 36px rgba(0, 0, 0, 0.45)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '16px',
+          flexWrap: 'wrap',
+          maxWidth: '92vw',
+          border: '1.5px solid #475569',
+          animation: 'slideUp 0.2s ease'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <FolderInput size={22} color="#818cf8" />
+            <span style={{ fontWeight: '800', fontSize: '0.95rem', whiteSpace: 'nowrap' }}>
+              {lang === 'ar' 
+                ? `تم تحديد (${selectedProductIds.size}) منتج`
+                : `Selected (${selectedProductIds.size}) items`}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '260px' }}>
+            <select
+              value={bulkTargetCatId}
+              onChange={(e) => setBulkTargetCatId(e.target.value)}
+              style={{
+                padding: '9px 12px',
+                borderRadius: '10px',
+                backgroundColor: '#0f172a',
+                color: '#ffffff',
+                border: '1px solid #64748b',
+                fontSize: '0.88rem',
+                fontWeight: '600',
+                flex: 1,
+                cursor: 'pointer'
+              }}
+            >
+              <option value="">-- {lang === 'ar' ? 'اختر التصنيف الجديد للنقل الجماعي' : 'Choose Target Category for Bulk Move'} --</option>
+              {categories.map(c => {
+                const isStaging = c.code === 'ADMIN_STAGING_DRAFT' || c.id === stagingCatId || c.id === 103;
+                return (
+                  <option key={c.id} value={c.id}>
+                    {lang === 'ar' ? `${isStaging ? '📥 ' : ''}${c.name_ar} ${c.parent_name_ar ? `(${c.parent_name_ar})` : ''}` : `${isStaging ? '📥 ' : ''}${c.name_en} ${c.parent_name_en ? `(${c.parent_name_en})` : ''}`}
+                  </option>
+                );
+              })}
+            </select>
+
+            <button
+              type="button"
+              disabled={!bulkTargetCatId || isBulkMoving}
+              onClick={handleBulkMove}
+              style={{
+                padding: '9px 20px',
+                backgroundColor: !bulkTargetCatId || isBulkMoving ? '#475569' : '#10b981',
+                color: 'white',
+                border: 'none',
+                borderRadius: '10px',
+                fontWeight: '800',
+                cursor: !bulkTargetCatId || isBulkMoving ? 'not-allowed' : 'pointer',
+                fontSize: '0.88rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                whiteSpace: 'nowrap',
+                boxShadow: bulkTargetCatId && !isBulkMoving ? '0 4px 12px rgba(16, 185, 129, 0.35)' : 'none',
+                transition: 'all 0.2s'
+              }}
+            >
+              <ArrowRightLeft size={15} />
+              <span>{isBulkMoving ? (lang === 'ar' ? 'جاري النقل...' : 'Moving...') : (lang === 'ar' ? 'نقل الآن' : 'Move Now')}</span>
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setSelectedProductIds(new Set())}
+            style={{
+              backgroundColor: 'transparent',
+              border: '1px solid #64748b',
+              color: '#cbd5e1',
+              padding: '7px 14px',
+              borderRadius: '8px',
+              fontSize: '0.8rem',
+              fontWeight: '700',
+              cursor: 'pointer'
+            }}
+          >
+            {lang === 'ar' ? 'إلغاء التحديد' : 'Deselect All'}
+          </button>
+        </div>
+      )}
+
+      {/* Quick Move Modal (Single Product) */}
+      {quickMoveModalProduct && (
+        <div 
+          onClick={() => setQuickMoveModalProduct(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(5px)',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            animation: 'fadeIn 0.2s ease'
+          }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: 'var(--bg-primary)',
+              borderRadius: '18px',
+              maxWidth: '500px',
+              width: '100%',
+              padding: '26px',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
+              border: '1px solid var(--border-color)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '18px'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '10px',
+                  backgroundColor: 'rgba(99, 102, 241, 0.15)',
+                  color: '#6366f1',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <FolderInput size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-primary)' }}>
+                    {lang === 'ar' ? 'نقل المنتج إلى تصنيف آخر' : 'Move Product to Category'}
+                  </h3>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    {lang === 'ar' ? 'اختر التصنيف الفعلي الذي ينتمي إليه هذا المنتج' : 'Choose target category for this item'}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setQuickMoveModalProduct(null)}
+                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Target Product Summary Box */}
+            <div style={{
+              padding: '12px 16px',
+              backgroundColor: 'var(--bg-secondary)',
+              borderRadius: '12px',
+              border: '1px solid var(--border-color)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px'
+            }}>
+              {quickMoveModalProduct.image_url && (
+                <img
+                  src={getImageUrl(quickMoveModalProduct.image_url)}
+                  alt=""
+                  onError={handleImageError}
+                  style={{ width: '42px', height: '42px', objectFit: 'contain', borderRadius: '6px', backgroundColor: '#ffffff', border: '1px solid var(--border-color)' }}
+                />
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <strong style={{ fontSize: '0.92rem', color: 'var(--text-primary)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {lang === 'ar' ? quickMoveModalProduct.name_ar : quickMoveModalProduct.name_en}
+                </strong>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  {lang === 'ar' ? 'التصنيف الحالي:' : 'Current Category:'} <span style={{ fontWeight: '700', color: '#6366f1' }}>{lang === 'ar' ? (quickMoveModalProduct.category_name_ar || 'مسودة سريعة') : (quickMoveModalProduct.category_name_en || 'Quick Draft')}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Category Select Dropdown */}
+            <div>
+              <label className="input-label" style={{ fontWeight: '800', marginBottom: '8px', color: 'var(--text-primary)' }}>
+                {lang === 'ar' ? 'اختر التصنيف المستهدف:' : 'Select Target Category:'}
+              </label>
+              <select
+                className="input-field"
+                value={quickMoveTargetCatId}
+                onChange={(e) => setQuickMoveTargetCatId(e.target.value)}
+                style={{ width: '100%', padding: '12px 14px', fontSize: '0.92rem' }}
+              >
+                <option value="">-- {lang === 'ar' ? 'اختر التصنيف الجديد' : 'Select Target Category'} --</option>
+                {categories.map(c => {
+                  const isStaging = c.code === 'ADMIN_STAGING_DRAFT' || c.id === stagingCatId || c.id === 103;
+                  return (
+                    <option key={c.id} value={c.id}>
+                      {lang === 'ar' ? `${isStaging ? '📥 [خاص بالإدارة] ' : ''}${c.name_ar} ${c.parent_name_ar ? `(${c.parent_name_ar})` : ''}` : `${isStaging ? '📥 [Admin Staging] ' : ''}${c.name_en} ${c.parent_name_en ? `(${c.parent_name_en})` : ''}`}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
+              <button
+                type="button"
+                disabled={!quickMoveTargetCatId || isMovingCategory}
+                onClick={handleConfirmQuickMove}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  backgroundColor: !quickMoveTargetCatId || isMovingCategory ? '#94a3b8' : '#6366f1',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '12px',
+                  fontWeight: '800',
+                  fontSize: '0.95rem',
+                  cursor: !quickMoveTargetCatId || isMovingCategory ? 'not-allowed' : 'pointer',
+                  boxShadow: quickMoveTargetCatId && !isMovingCategory ? '0 4px 14px rgba(99, 102, 241, 0.35)' : 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <ArrowRightLeft size={16} />
+                <span>{isMovingCategory ? (lang === 'ar' ? 'جاري الحفظ...' : 'Saving...') : (lang === 'ar' ? 'حفظ ونقل التصنيف الآن' : 'Save & Move Now')}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuickMoveModalProduct(null)}
+                style={{
+                  padding: '12px 20px',
+                  backgroundColor: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '12px',
+                  fontWeight: '700',
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer'
+                }}
+              >
+                {lang === 'ar' ? 'إلغاء' : 'Cancel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

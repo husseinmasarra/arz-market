@@ -183,6 +183,20 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
       if (sizeMatch) {
         detectedSizes.push(sizeMatch[1].replace(/\s+/g, ''));
       }
+
+      // Liquid / Volume sizes detection (ml, L, liter, مل, لتر)
+      const liquidMatch = rawLine.match(/(?:سعة|حجم|قياس|size|capacity)?\s*[:=\-]?\s*([0-9]+(?:\.[0-9]+)?)\s*(ml|مل|ملم|لتر|ليتر|liter|liters|litre|litres|l\b)/i);
+      if (liquidMatch) {
+        const num = liquidMatch[1];
+        const unit = liquidMatch[2].toLowerCase();
+        if (/ml|مل|ملم/i.test(unit)) {
+          const lStr = `${num}ml (${num} مل)`;
+          if (!detectedSizes.includes(lStr)) detectedSizes.push(lStr);
+        } else if (/لتر|ليتر|liter|liters|litre|litres|l/i.test(unit)) {
+          const lStr = `${num} لتر (${num}L)`;
+          if (!detectedSizes.includes(lStr)) detectedSizes.push(lStr);
+        }
+      }
       if (/مفرد\s*ونصف|مفرد\s*ونص|twin|semi-double/i.test(rawLine)) {
         if (!detectedSizes.includes('مفرد ونصف (Twin / Single & Half)')) detectedSizes.push('مفرد ونصف (Twin / Single & Half)');
       } else if (/مفرد|single/i.test(rawLine) && !detectedSizes.includes('مفرد (Single)')) {

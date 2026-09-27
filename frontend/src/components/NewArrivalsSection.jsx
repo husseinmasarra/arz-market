@@ -3,7 +3,7 @@ import { useApp } from "../context/AppContext";
 import { Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function NewArrivalsSection({ onProductClick }) {
-  const { lang, apiBase, apiHost, formatPrice } = useApp();
+  const { lang, apiBase, formatPrice, getImageUrl, handleImageError } = useApp();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const scrollRef = useRef(null);
@@ -62,10 +62,7 @@ export default function NewArrivalsSection({ onProductClick }) {
         {products.map((p) => {
           if (!p) return null;
           const name = (lang === 'ar' ? p.name_ar : p.name_en) || p.name_ar || p.name_en || 'Product';
-          const rawImg = p.image_url;
-          const imageUrl = (typeof rawImg === 'string' && rawImg.trim().length > 0)
-            ? (rawImg.startsWith('http') || rawImg.startsWith('data:') ? rawImg : `${apiHost}${rawImg}`)
-            : 'https://images.unsplash.com/photo-1550009158-9ebf69173e03?auto=format&fit=crop&w=300&q=80';
+          const imageUrl = getImageUrl(p.image_url);
           const hasDiscount = p.old_price_usd && p.old_price_usd > p.price_usd;
           return (
             <div key={p.id} onClick={() => onProductClick && onProductClick(p)} style={{ minWidth: "160px", maxWidth: "160px", backgroundColor: "var(--bg-secondary)", borderRadius: "14px", border: "1px solid var(--border-color)", overflow: "hidden", cursor: "pointer", transition: "transform 0.2s ease", flexShrink: 0, position: "relative" }} onMouseEnter={e => e.currentTarget.style.transform = "translateY(-4px)"} onMouseLeave={e => e.currentTarget.style.transform = "translateY(0)"}>
@@ -74,7 +71,7 @@ export default function NewArrivalsSection({ onProductClick }) {
               </div>
               {hasDiscount && <div style={{ position: "absolute", top: "8px", right: "8px", zIndex: 2, backgroundColor: "rgba(16,185,129,0.9)", color: "white", fontSize: "0.62rem", fontWeight: "800", padding: "2px 6px", borderRadius: "8px" }}>خصم</div>}
               <div style={{ width: "100%", height: "130px", overflow: "hidden", backgroundColor: "var(--bg-primary)" }}>
-                <img src={imageUrl} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <img src={imageUrl} alt={name} onError={handleImageError} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               </div>
               <div style={{ padding: "10px" }}>
                 <p style={{ fontSize: "0.78rem", fontWeight: "600", color: "var(--text-primary)", margin: "0 0 6px", lineHeight: "1.3", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{name}</p>

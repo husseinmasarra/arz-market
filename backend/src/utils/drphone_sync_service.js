@@ -11,10 +11,17 @@ const path = require('path');
 const db = require('../config/db');
 
 const BASE_URL = 'https://drphonewholesale.online';
-const UPLOADS_DIR = path.join(__dirname, '../../uploads/products');
-
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+let UPLOADS_DIR = path.join(__dirname, '../../uploads/products');
+try {
+  if (!fs.existsSync(UPLOADS_DIR)) {
+    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  }
+} catch (e) {
+  const os = require('os');
+  UPLOADS_DIR = path.join(os.tmpdir(), 'uploads/products');
+  try {
+    if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  } catch (err) {}
 }
 
 // Arabic category translations mapping
@@ -104,7 +111,7 @@ function separateCategoryNames(rawEn, rawAr) {
 function applyMarkup(price, markupPercent = 45) {
   if (price === undefined || price === null || isNaN(price)) return 2.5;
   const num = Number(price);
-  if (num <= 0) return 2.5; // Avoid $0.00 products in store
+  if (num <= 0) return 2.5;
   const factor = 1 + (markupPercent / 100);
   return Math.round(num * factor * 100) / 100;
 }
@@ -404,7 +411,7 @@ async function syncDrPhoneToArzMart(options = {}) {
   const passcode = (options.passcode || (settings && settings.supplier_catalog_passcode) || 'Drphone123').trim();
   const markupPercent = options.markupPercent !== undefined 
     ? Number(options.markupPercent) 
-    : (settings && settings.supplier_markup_percent ? Number(settings.supplier_markup_percent) : 45);
+    : (settings && settings.supplier_markup_percent !== undefined && settings.supplier_markup_percent !== null ? Number(settings.supplier_markup_percent) : 45);
 
   console.log(`[DR PHONE Sync Service] Starting synchronization from ${targetUrl} (Markup: +${markupPercent}%)...`);
 
@@ -451,14 +458,19 @@ async function syncDrPhoneToArzMart(options = {}) {
   }
 
   // Step 3: Cache existing categories in Arz-Mart
-  const existingCats = await db.allAsync("SELECT id, name_en, name_ar FROM categories");
+  const existingCats = await db.allAsync("SELECT id, name_en, name_ar, image_url FROM categories");
   const categoryMap = new Map(); // name_en -> id
+  const categoryDataMap = new Map();
 
   existingCats.forEach(c => {
-    categoryMap.set(c.name_en.toLowerCase().trim(), c.id);
+    const key = c.name_en.toLowerCase().trim();
+    categoryMap.set(key, c.id);
+    categoryDataMap.set(key, c);
   });
 
-  // Step 4: Sync categories into Arz-Mart
+  // Step 4: Sync categories into Arz-Mart only if missing or changed
+  const catInserts = [];
+  const catUpdates = [];
   for (const cat of rawCategories) {
     const { en: catNameEn, ar: catNameAr } = separateCategoryNames(cat.name, cat.name_ar);
     const catKey = catNameEn.toLowerCase();
@@ -471,30 +483,30 @@ async function syncDrPhoneToArzMart(options = {}) {
         : `/uploads/products/${firstItem.image.split('?')[0].split('/').pop()}`;
     }
 
-    if (!categoryMap.has(catKey)) {
-      const res = await db.runAsync(
-        "INSERT INTO categories (name_ar, name_en, image_url) VALUES (?, ?, ?)",
-        [catNameAr, catNameEn, sampleImg]
-      );
-      categoryMap.set(catKey, res.lastID);
-      console.log(`[Sync Service] Added Category '${catNameEn}' -> ID: ${res.lastID}`);
-    } else {
-      const existingCatId = categoryMap.get(catKey);
-      if (sampleImg && sampleImg.startsWith('http')) {
-        await db.runAsync(
-          "UPDATE categories SET name_ar = ?, name_en = ?, image_url = ? WHERE id = ?",
-          [catNameAr, catNameEn, sampleImg, existingCatId]
-        );
-      } else {
-        await db.runAsync(
-          "UPDATE categories SET name_ar = ?, name_en = ? WHERE id = ?",
-          [catNameAr, catNameEn, existingCatId]
-        );
-      }
+    const existing = categoryDataMap.get(catKey);
+    if (!existing) {
+      catInserts.push({ name_ar: catNameAr, name_en: catNameEn, image_url: sampleImg, key: catKey });
+    } else if (sampleImg && sampleImg.startsWith('http') && existing.image_url !== sampleImg) {
+      catUpdates.push({ id: existing.id, name_ar: catNameAr, name_en: catNameEn, image_url: sampleImg });
     }
   }
 
-  // Step 5: Sync products into Arz-Mart
+  for (const ci of catInserts) {
+    const res = await db.runAsync(
+      "INSERT INTO categories (name_ar, name_en, image_url) VALUES (?, ?, ?)",
+      [ci.name_ar, ci.name_en, ci.image_url]
+    );
+    categoryMap.set(ci.key, res.lastID);
+    console.log(`[Sync Service] Added Category '${ci.name_en}' -> ID: ${res.lastID}`);
+  }
+  for (const cu of catUpdates) {
+    await db.runAsync(
+      "UPDATE categories SET name_ar = ?, name_en = ?, image_url = ? WHERE id = ?",
+      [cu.name_ar, cu.name_en, cu.image_url, cu.id]
+    );
+  }
+
+  // Step 5: Sync products into Arz-Mart using high-speed in-memory map & batch writes
   let totalProcessed = 0;
   let insertedCount = 0;
   let updatedCount = 0;
@@ -502,14 +514,19 @@ async function syncDrPhoneToArzMart(options = {}) {
   const seenProductIds = new Set();
   const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
-  // Clear previous is_new_arrival flags for this merchant so only newly added in this run will be marked
-  if (merchantId) {
-    try {
-      await db.runAsync("UPDATE products SET is_new_arrival = 0 WHERE merchant_id = ?", [merchantId]);
-    } catch (e) {
-      console.warn('[Sync Service] Reset new arrivals warning:', e.message);
-    }
-  }
+  // Fast pre-fetch existing products for this merchant and DR SKUs
+  const allExistingProducts = await db.allAsync(
+    "SELECT id, sku, name_en, name_ar, price_usd, cost_price_usd, stock, image_url, category_id, merchant_id, sizes FROM products WHERE merchant_id = ? OR sku LIKE 'DR-%'",
+    [merchantId]
+  );
+  const skuMap = new Map();
+  const nameMap = new Map();
+  allExistingProducts.forEach(p => {
+    if (p.sku) skuMap.set(p.sku.trim().toLowerCase(), p);
+    if (p.name_en) nameMap.set(p.name_en.trim().toLowerCase(), p);
+  });
+
+  const operations = [];
 
   for (const cat of rawCategories) {
     const catId = categoryMap.get(cat.name.trim().toLowerCase()) || null;
@@ -517,6 +534,7 @@ async function syncDrPhoneToArzMart(options = {}) {
 
     for (const p of items) {
       totalProcessed++;
+      const productSku = (p.sku || (p.id ? `DR-${String(p.id).padStart(6, '0')}` : '')).trim();
       const isScreenProtector = cat.name.trim().toLowerCase() === 'screen protector' || 
                                 cat.name.trim().toLowerCase() === 'screen protectors';
 
@@ -539,15 +557,24 @@ async function syncDrPhoneToArzMart(options = {}) {
           const cleanImg = p.image.split('?')[0];
           const imageFilename = cleanImg.split('/').pop();
           finalImageUrl = imageFilename ? `/uploads/products/${imageFilename}` : '';
-          // Check if image needs downloading locally
-          if (imageFilename && !fs.existsSync(path.join(UPLOADS_DIR, imageFilename))) {
-            downloadImageLocally(`${targetUrl}/uploads/products/${imageFilename}`, imageFilename, targetUrl).catch(() => {});
-          }
         }
       }
 
-      const nameEn = p.name.trim();
-      const nameAr = p.name_ar ? p.name_ar.trim() : nameEn;
+      let nameEn = p.name.trim();
+      let nameAr = p.name_ar ? p.name_ar.trim() : generateArabicProductTitle(nameEn);
+
+      // Handle specific known disambiguations from supplier (e.g. Fuji Film accessories vs Camera)
+      if (productSku === 'DR-000978' || (nameEn.toLowerCase().includes('instax mini 12') && wholesalePrice < 25 && (p.image || '').includes('34-007-004'))) {
+        nameEn = 'Fuji Film – Instax Mini 12 Instant Film (20 Sheets)';
+        nameAr = 'أفلام تصوير فورية فوجي فيلم - Instax Mini 12 Film (20 Sheets)';
+      } else if (productSku === 'DR-000979') {
+        nameEn = 'Fuji Film – Instax Mini 12 Instant Camera';
+        nameAr = 'كاميرا تصوير فورية فوجي فيلم - Instax Mini 12 Instant Camera';
+      } else if (productSku === 'DR-000977') {
+        nameEn = 'Fuji Film – Instax Mini 12 Instant Camera Gift Box';
+        nameAr = 'بكج هدايا كاميرا فوجي فيلم الفورية - Instax Mini 12 Gift Box';
+      }
+
       const descEn = p.description || `${nameEn} - Authentic high quality product with warranty.`;
       const descAr = p.description_ar || `${nameEn} - منتج أصلي عالي الجودة مع ضمان.`;
       let stock = 50;
@@ -558,97 +585,114 @@ async function syncDrPhoneToArzMart(options = {}) {
       // Map options / variants / sizes
       const sizesJson = JSON.stringify((p.options || []).map(o => {
         const oPrice = Number(o.price) || 0;
-        let finalPrice;
-        if (isScreenProtector) {
-          finalPrice = 2.50;
-        } else if (oPrice > 0) {
-          finalPrice = applyMarkup(oPrice, markupPercent);
-        } else {
-          finalPrice = retailPrice;
-        }
+        let finalPrice = oPrice > 0 ? applyMarkup(oPrice, markupPercent) : retailPrice;
         return { name: o.name, price: finalPrice };
       }));
       const colorsJson = '[]';
 
-      // Check if product already exists for THIS merchant by exact name_en
-      let existing = null;
-      if (merchantId) {
-        existing = await db.getAsync(
-          "SELECT id, price_usd, cost_price_usd, stock, image_url FROM products WHERE merchant_id = ? AND name_en = ?",
-          [merchantId, nameEn]
-        );
-      } else {
-        existing = await db.getAsync(
-          "SELECT id, price_usd, cost_price_usd, stock, image_url FROM products WHERE name_en = ?",
-          [nameEn]
-        );
-      }
+      // Match product: first by SKU, then by unique name if existing product has no SKU
+      const existing = (productSku ? skuMap.get(productSku.toLowerCase()) : null) || 
+                       (!productSku ? nameMap.get(nameEn.toLowerCase()) : null);
 
       if (existing) {
-        // If existing has no image or a local /uploads image and new one is a valid CDN URL, use finalImageUrl
         const shouldReplaceImage = finalImageUrl.startsWith('http') || !existing.image_url;
         const targetImg = shouldReplaceImage && finalImageUrl ? finalImageUrl : (existing.image_url || finalImageUrl);
-
-        await db.runAsync(
-          `UPDATE products SET 
-            name_ar = ?,
-            name_en = ?,
-            description_ar = ?,
-            description_en = ?,
-            price_usd = ?, 
-            cost_price_usd = ?, 
-            old_price_usd = ?, 
-            stock = ?,
-            image_url = ?,
-            category_id = ?,
-            sizes = ?,
-            sync_batch_time = ?
-          WHERE id = ?`,
-          [nameAr, nameEn, descAr, descEn, retailPrice, wholesalePrice, oldPrice, stock, targetImg, catId, sizesJson, now, existing.id]
+        const isUnchanged = (
+          (existing.sku || '').trim().toLowerCase() === productSku.toLowerCase() &&
+          Math.abs(Number(existing.price_usd) - Number(retailPrice)) < 0.01 &&
+          Math.abs(Number(existing.cost_price_usd) - Number(wholesalePrice)) < 0.01 &&
+          existing.image_url === targetImg &&
+          Number(existing.category_id) === Number(catId) &&
+          Number(existing.stock) === Number(stock)
         );
-        updatedCount++;
+
+        if (isUnchanged) {
+          unchangedCount++;
+        } else {
+          operations.push({
+            type: 'update',
+            run: () => db.runAsync(
+              `UPDATE products SET 
+                sku = ?,
+                name_ar = ?,
+                name_en = ?,
+                description_ar = ?,
+                description_en = ?,
+                price_usd = ?, 
+                cost_price_usd = ?, 
+                old_price_usd = ?, 
+                stock = ?,
+                image_url = ?,
+                category_id = ?,
+                sizes = ?,
+                sync_batch_time = ?
+              WHERE id = ?`,
+              [productSku, nameAr, nameEn, descAr, descEn, retailPrice, wholesalePrice, oldPrice, stock, targetImg, catId, sizesJson, now, existing.id]
+            )
+          });
+        }
         seenProductIds.add(existing.id);
       } else {
-        // Product is new - insert into database with is_new_arrival = 1
-        const insertRes = await db.runAsync(
-          `INSERT INTO products (
-            name_ar, name_en, description_ar, description_en,
-            price_usd, cost_price_usd, old_price_usd,
-            category_id, merchant_id, image_url, stock,
-            rating_sum, rating_count, colors, sizes,
-            is_new_arrival, sync_batch_time
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
-          [
-            nameAr, nameEn, descAr, descEn,
-            retailPrice, wholesalePrice, oldPrice,
-            catId, merchantId, finalImageUrl, stock,
-            24, 5, colorsJson, sizesJson,
-            now
-          ]
-        );
-        insertedCount++;
-        if (insertRes && insertRes.lastID) {
-          seenProductIds.add(insertRes.lastID);
-        }
+        operations.push({
+          type: 'insert',
+          run: async () => {
+            const insertRes = await db.runAsync(
+              `INSERT INTO products (
+                sku, name_ar, name_en, description_ar, description_en,
+                price_usd, cost_price_usd, old_price_usd,
+                category_id, merchant_id, image_url, stock,
+                rating_sum, rating_count, colors, sizes,
+                is_new_arrival, sync_batch_time
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+              [
+                productSku,
+                nameAr, nameEn, descAr, descEn,
+                retailPrice, wholesalePrice, oldPrice,
+                catId, merchantId, finalImageUrl, stock,
+                24, 5, colorsJson, sizesJson,
+                now
+              ]
+            );
+            if (insertRes && insertRes.lastID) {
+              seenProductIds.add(insertRes.lastID);
+              if (productSku) skuMap.set(productSku.toLowerCase(), { id: insertRes.lastID, sku: productSku });
+            }
+          }
+        });
       }
     }
   }
 
-  // Detect removed / out of stock items (products previously in database from this supplier but not returned in current feed)
+  // Execute operations in parallel batches matching DB pool capacity
+  const CHUNK_SIZE = 25;
+  for (let i = 0; i < operations.length; i += CHUNK_SIZE) {
+    const chunk = operations.slice(i, i + CHUNK_SIZE);
+    await Promise.all(chunk.map(async op => {
+      try {
+        if (op.type === 'update') updatedCount++;
+        else insertedCount++;
+        await op.run();
+      } catch (err) {
+        console.error(`[Sync Service] Operation error (${op.type}):`, err.message);
+      }
+    }));
+  }
+
+  try {
+    const { invalidateProductsCache } = require('../controllers/productController');
+    invalidateProductsCache();
+  } catch (e) {}
+
+  // Detect removed / out of stock items directly from in-memory pre-fetched list
   let outOfStockCount = 0;
   if (merchantId && seenProductIds.size > 0) {
     try {
-      const existingProducts = await db.allAsync(
-        "SELECT id, stock FROM products WHERE merchant_id = ?",
-        [merchantId]
-      );
-      for (const ep of existingProducts) {
-        if (!seenProductIds.has(ep.id)) {
-          if (ep.stock > 0) {
-            await db.runAsync("UPDATE products SET stock = 0 WHERE id = ?", [ep.id]);
-            outOfStockCount++;
-          }
-        }
+      const unSeenIds = allExistingProducts
+        .filter(ep => Number(ep.merchant_id) === Number(merchantId) && !seenProductIds.has(ep.id) && ep.stock > 0)
+        .map(ep => ep.id);
+      if (unSeenIds.length > 0) {
+        outOfStockCount = unSeenIds.length;
+        await db.runAsync(`UPDATE products SET stock = 0 WHERE id IN (${unSeenIds.join(',')})`);
       }
     } catch (err) {
       console.error('[Sync Service] Out-of-stock detection error:', err);

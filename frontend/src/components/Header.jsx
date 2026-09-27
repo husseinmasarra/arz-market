@@ -1,15 +1,40 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useChat } from '../context/ChatContext';
-import { ShoppingCart, Moon, Sun, Globe, DollarSign, LogOut, User, Shield, MessageSquare, Fingerprint, Smartphone, Search, X } from 'lucide-react';
+import { ShoppingCart, Moon, Sun, Globe, DollarSign, LogOut, User, Shield, MessageSquare, Fingerprint, Smartphone, Search, X, Tag, Sparkles } from 'lucide-react';
 
-export default function Header({ currentView, setCurrentView, searchVal, setSearchVal, onLogoClick }) {
+export default function Header({ currentView, setCurrentView, searchVal, setSearchVal, onLogoClick, categories, onSelectCategory }) {
   const { lang, setLang, theme, setTheme, currency, toggleCurrency, settings, t, apiHost } = useApp();
   const { user, logout } = useAuth();
   const { cartItems, setIsCartOpen } = useCart();
   const { setIsChatOpen, unreadCount } = useChat();
+
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchContainerRef = useRef(null);
+
+  // Filter categories matching search query
+  const matchedCategories = React.useMemo(() => {
+    if (!searchVal || searchVal.trim().length < 1 || !Array.isArray(categories)) return [];
+    const query = searchVal.trim().toLowerCase();
+    return categories.filter(c => {
+      if (!c || c.active === 0) return false;
+      const nameAr = (c.name_ar || '').toLowerCase();
+      const nameEn = (c.name_en || '').toLowerCase();
+      return nameAr.includes(query) || nameEn.includes(query);
+    }).slice(0, 5);
+  }, [searchVal, categories]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleLanguageToggle = () => {
     setLang(lang === 'ar' ? 'en' : 'ar');
@@ -54,24 +79,12 @@ export default function Header({ currentView, setCurrentView, searchVal, setSear
           }}
           style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', textDecoration: 'none' }}
         >
-          {settings?.logo_url ? (
-            <img src={settings.logo_url.startsWith('http') || settings.logo_url.startsWith('data:') ? settings.logo_url : `${apiHost}${settings.logo_url}`} alt="Logo" style={{ height: '40px', objectFit: 'contain' }} />
-          ) : (
-            <div style={{
-              width: '40px',
-              height: '40px',
-              borderRadius: '50%',
-              backgroundColor: 'var(--accent-blue)',
-              color: 'white',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 'bold',
-              fontSize: '1.2rem'
-            }}>
-              {settings?.app_name ? settings.app_name[0] : 'A'}
-            </div>
-          )}
+          <img 
+            src={settings?.logo_url && (settings.logo_url.startsWith('http') || settings.logo_url.startsWith('data:') || settings.logo_url.startsWith('/')) ? settings.logo_url : '/logo.png'} 
+            alt="Arz-Mart Logo" 
+            onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/logo.png'; }}
+            style={{ height: '40px', maxWidth: '140px', objectFit: 'contain' }} 
+          />
           <span style={{ fontSize: '1.4rem', fontWeight: '700', color: 'var(--text-primary)' }}>
             {settings?.app_name || t('appName')}
           </span>
@@ -79,13 +92,17 @@ export default function Header({ currentView, setCurrentView, searchVal, setSear
 
         {/* Search Bar */}
         {currentView === 'store' && (
-          <div style={{ flex: '1', maxWidth: '400px', minWidth: '200px', position: 'relative' }}>
+          <div ref={searchContainerRef} style={{ flex: '1', maxWidth: '400px', minWidth: '200px', position: 'relative' }}>
             <input
               type="text"
               className="input-field"
               placeholder={t('search_placeholder')}
               value={searchVal}
-              onChange={(e) => setSearchVal(e.target.value)}
+              onChange={(e) => {
+                setSearchVal(e.target.value);
+                setShowSuggestions(true);
+              }}
+              onFocus={() => setShowSuggestions(true)}
               style={{
                 borderRadius: '24px',
                 paddingInlineStart: '38px',
@@ -108,7 +125,10 @@ export default function Header({ currentView, setCurrentView, searchVal, setSear
             {searchVal && (
               <button
                 type="button"
-                onClick={() => setSearchVal('')}
+                onClick={() => {
+                  setSearchVal('');
+                  setShowSuggestions(false);
+                }}
                 style={{
                   position: 'absolute',
                   top: '50%',
@@ -126,6 +146,76 @@ export default function Header({ currentView, setCurrentView, searchVal, setSear
               >
                 <X size={14} />
               </button>
+            )}
+
+            {/* Live Search Suggestions Dropdown */}
+            {showSuggestions && searchVal && matchedCategories.length > 0 && (
+              <div style={{
+                position: 'absolute',
+                top: 'calc(100% + 8px)',
+                left: 0,
+                right: 0,
+                backgroundColor: 'var(--bg-secondary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '14px',
+                boxShadow: 'var(--shadow-md)',
+                zIndex: 300,
+                padding: '8px',
+                overflow: 'hidden',
+                animation: 'fadeIn 0.15s ease'
+              }}>
+                <div style={{
+                  fontSize: '0.74rem',
+                  fontWeight: '800',
+                  color: 'var(--text-light)',
+                  padding: '4px 8px 6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  borderBottom: '1px solid var(--border-color)',
+                  marginBottom: '4px'
+                }}>
+                  <Tag size={12} color="var(--accent-blue)" />
+                  <span>{lang === 'ar' ? 'أقسام مقترحة لبحثك (انقر لتصفح المشابه):' : 'Suggested Categories (Click to explore similar):'}</span>
+                </div>
+                {matchedCategories.map(cat => {
+                  const catName = (lang === 'ar' ? cat.name_ar : cat.name_en) || cat.name_ar || cat.name_en;
+                  return (
+                    <div
+                      key={cat.id}
+                      onClick={() => {
+                        if (onSelectCategory) {
+                          onSelectCategory(cat.id);
+                        }
+                        setShowSuggestions(false);
+                      }}
+                      style={{
+                        padding: '8px 10px',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '8px',
+                        transition: 'background 0.15s ease',
+                        fontSize: '0.84rem',
+                        fontWeight: '700',
+                        color: 'var(--text-primary)'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>🏷️</span>
+                        <span>{catName}</span>
+                      </div>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--accent-blue)', fontWeight: '600' }}>
+                        {lang === 'ar' ? 'تصفح القسم ←' : 'Browse →'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         )}

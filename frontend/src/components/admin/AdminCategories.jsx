@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
-import { Trash2, Edit3, Image, GripVertical, Save, ChevronRight, ChevronDown, FolderOpen, Folder } from 'lucide-react';
+import { Trash2, Edit3, Image, GripVertical, Save, ChevronRight, ChevronDown, FolderOpen, Folder, Shield, Lock } from 'lucide-react';
 
 export default function AdminCategories() {
-  const { lang, apiBase, apiHost } = useApp();
+  const { lang, apiBase, apiHost, getImageUrl, handleImageError } = useApp();
   const { token } = useAuth();
 
   const [categories, setCategories] = useState([]);
@@ -143,9 +143,7 @@ export default function AdminCategories() {
   const toggleExpanded = (id) => setExpandedParents(prev => ({ ...prev, [id]: !prev[id] }));
 
   const renderRow = (c, isChild = false, dragIndex = null) => {
-    const imageUrl = c.image_url
-      ? (c.image_url.startsWith('http') || c.image_url.startsWith('data:') ? c.image_url : `${apiHost}${c.image_url}`)
-      : 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=50&q=80';
+    const imageUrl = getImageUrl(c.image_url, 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=50&q=80');
     const hasChildren = !isChild && childMap[c.id]?.length > 0;
     const isExpanded = expandedParents[c.id];
     const childCount = childMap[c.id]?.length || 0;
@@ -171,34 +169,59 @@ export default function AdminCategories() {
               : <GripVertical size={16} style={{ color: 'var(--text-light)' }} />}
           </td>
           <td style={{ padding: '8px' }}>
-            <img src={imageUrl} alt="" style={{ width: '32px', height: '32px', objectFit: 'contain', backgroundColor: 'white', borderRadius: '6px', border: '1px solid var(--border-color)' }} />
+            <img src={imageUrl} alt="" onError={handleImageError} style={{ width: '32px', height: '32px', objectFit: 'contain', backgroundColor: 'white', borderRadius: '6px', border: '1px solid var(--border-color)' }} />
           </td>
           <td style={{ padding: '8px', fontWeight: isChild ? '500' : '700' }}>
-            {hasChildren ? (
-              <button onClick={() => toggleExpanded(c.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-primary)', fontWeight: '700', padding: 0 }}>
-                {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                {isExpanded ? <FolderOpen size={14} color="#2563eb" /> : <Folder size={14} color="#2563eb" />}
-                {lang === 'ar' ? c.name_ar : c.name_en}
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', fontWeight: '400' }}>({childCount})</span>
-              </button>
-            ) : (
-              <span style={{ paddingInlineStart: isChild ? '8px' : '20px' }}>
-                {lang === 'ar' ? c.name_ar : c.name_en}
-              </span>
-            )}
+            {(() => {
+              const isStaging = c.code === 'ADMIN_STAGING_DRAFT' || c.id === 103 || (c.name_ar && c.name_ar.includes('مسودة الإضافة السريعة'));
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                  {hasChildren ? (
+                    <button onClick={() => toggleExpanded(c.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-primary)', fontWeight: '700', padding: 0 }}>
+                      {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                      {isExpanded ? <FolderOpen size={14} color="#2563eb" /> : <Folder size={14} color="#2563eb" />}
+                      {lang === 'ar' ? c.name_ar : c.name_en}
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-light)', fontWeight: '400' }}>({childCount})</span>
+                    </button>
+                  ) : (
+                    <span style={{ paddingInlineStart: isChild ? '8px' : '20px' }}>
+                      {lang === 'ar' ? c.name_ar : c.name_en}
+                    </span>
+                  )}
+                  {isStaging && (
+                    <span style={{ fontSize: '0.7rem', fontWeight: '800', backgroundColor: '#fef3c7', color: '#92400e', border: '1px solid #fde68a', padding: '1px 6px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                      <Lock size={11} />
+                      <span>{lang === 'ar' ? 'خاص بالإدارة (مخفي عن الزبائن)' : 'Admin Only (Hidden from Store)'}</span>
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
           </td>
           <td style={{ padding: '8px', fontSize: '0.8rem' }}>
-            {c.parent_id
-              ? <span style={{ color: 'var(--text-light)' }}>{lang === 'ar' ? c.parent_name_ar : c.parent_name_en}</span>
-              : <span style={{ color: '#10b981', fontWeight: '600', fontSize: '0.75rem' }}> رئيسي</span>}
+            {(() => {
+              const isStaging = c.code === 'ADMIN_STAGING_DRAFT' || c.id === 103 || (c.name_ar && c.name_ar.includes('مسودة الإضافة السريعة'));
+              if (isStaging) {
+                return <span style={{ color: '#d97706', fontWeight: '700', fontSize: '0.75rem' }}>🔒 مسودة سريعة</span>;
+              }
+              return c.parent_id
+                ? <span style={{ color: 'var(--text-light)' }}>{lang === 'ar' ? c.parent_name_ar : c.parent_name_en}</span>
+                : <span style={{ color: '#10b981', fontWeight: '600', fontSize: '0.75rem' }}> رئيسي</span>;
+            })()}
           </td>
           <td style={{ padding: '8px', textAlign: 'center', color: 'var(--text-light)', fontSize: '0.8rem' }}>
             {c.sort_order ?? '-'}
           </td>
           <td style={{ padding: '8px', textAlign: 'center' }}>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-              <button onClick={() => handleEdit(c)} style={{ border: 'none', backgroundColor: 'transparent', color: 'var(--accent-blue)', cursor: 'pointer', padding: '4px' }}><Edit3 size={16} /></button>
-              <button onClick={() => handleDelete(c.id)} style={{ border: 'none', backgroundColor: 'transparent', color: '#ef4444', cursor: 'pointer', padding: '4px' }}><Trash2 size={16} /></button>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
+              <button onClick={() => handleEdit(c)} title={lang === 'ar' ? 'تعديل' : 'Edit'} style={{ border: 'none', backgroundColor: 'transparent', color: 'var(--accent-blue)', cursor: 'pointer', padding: '4px' }}><Edit3 size={16} /></button>
+              {(c.code === 'ADMIN_STAGING_DRAFT' || c.id === 103 || (c.name_ar && c.name_ar.includes('مسودة الإضافة السريعة'))) ? (
+                <span title={lang === 'ar' ? 'تصنيف محمي لا يمكن حذفه' : 'Protected system category'} style={{ color: '#d97706', padding: '4px', display: 'inline-flex', alignItems: 'center' }}>
+                  <Shield size={16} />
+                </span>
+              ) : (
+                <button onClick={() => handleDelete(c.id)} title={lang === 'ar' ? 'حذف' : 'Delete'} style={{ border: 'none', backgroundColor: 'transparent', color: '#ef4444', cursor: 'pointer', padding: '4px' }}><Trash2 size={16} /></button>
+              )}
             </div>
           </td>
         </tr>

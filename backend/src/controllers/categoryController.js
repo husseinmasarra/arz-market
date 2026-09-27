@@ -161,6 +161,13 @@ exports.deleteCategory = async (req, res) => {
       return res.status(404).json({ error_ar: 'التصنيف غير موجود', error_en: 'Category not found' });
     }
 
+    if (category.code === 'ADMIN_STAGING_DRAFT' || category.id === 103) {
+      return res.status(400).json({
+        error_ar: 'لا يمكن حذف تصنيف المسودة السريعة الخاص بالإدارة لأنه أساسي لإضافة وترتيب المنتجات',
+        error_en: 'Cannot delete the admin staging category as it is essential for quick product drafting'
+      });
+    }
+
     // Delete category
     await db.runAsync('DELETE FROM categories WHERE id = ?', [id]);
     // Set parent_id to null for sub-categories

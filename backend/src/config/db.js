@@ -1,9 +1,18 @@
-const sqlite3 = require('sqlite3').verbose();
+let sqlite3 = null;
 const { Pool } = require('pg');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 
-const isPostgres = process.env.DB_TYPE === 'postgres' || !!process.env.DATABASE_URL;
+const defaultPgUrl = 'postgresql://arzmart_db_user:mJ6iK7YbfltDcXqcHU8xHJ1kNml3flkM@dpg-damrvbrm8hqs73f4b85g-a.oregon-postgres.render.com/arzmart_db';
+const isPostgres = process.env.DB_TYPE === 'sqlite' ? false : true;
+
+if (!isPostgres) {
+  try {
+    sqlite3 = require('sqlite3').verbose();
+  } catch (e) {
+    console.warn('sqlite3 optional require skipped:', e.message);
+  }
+}
 
 let pgPool = null;
 let sqliteDb = null;
@@ -29,8 +38,8 @@ function adaptSchema(sql) {
 }
 
 if (isPostgres) {
-  const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/arz_mart';
-  console.log(`[Database] Connecting to PostgreSQL: ${connectionString}`);
+  const connectionString = process.env.DATABASE_URL || defaultPgUrl;
+  console.log(`[Database] Connecting to PostgreSQL: ${connectionString.split('@')[1] || 'Postgres'}`);
   pgPool = new Pool({
     connectionString,
     max: 20,
@@ -211,6 +220,9 @@ db.close = function(cb) {
   }
 };
 
+let isPgInitialized = false;
+let isInitializingPg = false;
+
 // Initialize database schema and seed data
 if (isPostgres) {
   initializeDatabasePostgres();
@@ -219,7 +231,17 @@ if (isPostgres) {
 }
 
 async function initializeDatabasePostgres() {
+  if (isPgInitialized || isInitializingPg) return;
+  isInitializingPg = true;
   try {
+    const tableCheck = await pgPool.query("SELECT 1 FROM information_schema.tables WHERE table_name = 'settings' LIMIT 1");
+    if (tableCheck && tableCheck.rows && tableCheck.rows.length > 0) {
+      console.log('[Database] PostgreSQL schema already initialized. Ready immediately.');
+      isPgInitialized = true;
+      isInitializingPg = false;
+      return;
+    }
+
     console.log('[Database] Initializing PostgreSQL schema sequentially...');
     
     // 1. Settings Table
@@ -241,7 +263,7 @@ async function initializeDatabasePostgres() {
       await pgPool.query("ALTER TABLE settings ADD COLUMN IF NOT EXISTS contact_email TEXT DEFAULT 'info@arz-mart.com'");
       await pgPool.query("ALTER TABLE settings ADD COLUMN IF NOT EXISTS supplier_catalog_url TEXT DEFAULT 'https://drphonewholesale.online'");
       await pgPool.query("ALTER TABLE settings ADD COLUMN IF NOT EXISTS supplier_catalog_passcode TEXT DEFAULT 'Drphone123'");
-      await pgPool.query("ALTER TABLE settings ADD COLUMN IF NOT EXISTS supplier_markup_percent DOUBLE PRECISION DEFAULT 45");
+      await pgPool.query("ALTER TABLE settings ADD COLUMN IF NOT EXISTS supplier_markup_percent DOUBLE PRECISION DEFAULT 0");
       await pgPool.query("ALTER TABLE settings ADD COLUMN IF NOT EXISTS last_sync_time TEXT DEFAULT ''");
       await pgPool.query("ALTER TABLE settings ADD COLUMN IF NOT EXISTS last_sync_status TEXT DEFAULT ''");
       await pgPool.query("ALTER TABLE settings ADD COLUMN IF NOT EXISTS visitor_baseline_count INTEGER DEFAULT 0");
@@ -299,6 +321,14 @@ async function initializeDatabasePostgres() {
       await pgPool.query("ALTER TABLE categories ADD COLUMN IF NOT EXISTS active INTEGER DEFAULT 1");
       await pgPool.query("ALTER TABLE categories ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0");
       await pgPool.query("ALTER TABLE categories ADD COLUMN IF NOT EXISTS code TEXT DEFAULT ''");
+
+      const draftCat = await pgPool.query("SELECT id FROM categories WHERE code = 'ADMIN_STAGING_DRAFT' OR name_ar LIKE '%مسودة الإضافة السريعة%' LIMIT 1");
+      if (draftCat.rows.length === 0) {
+        await pgPool.query(
+          "INSERT INTO categories (name_ar, name_en, parent_id, active, sort_order, code) VALUES ($1, $2, NULL, 0, -9999, 'ADMIN_STAGING_DRAFT')",
+          ['📥 مسودة الإضافة السريعة (خاص بالإدارة)', '📥 Quick Drafts & Staging (Admin Only)']
+        );
+      }
     } catch (e) {
       console.log('[PostgreSQL] Categories column check note:', e.message);
     }
@@ -334,6 +364,7 @@ async function initializeDatabasePostgres() {
         rating_count INTEGER DEFAULT 0,
         colors TEXT DEFAULT '[]',
         sizes TEXT DEFAULT '[]',
+        images TEXT DEFAULT '[]',
         FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE SET NULL,
         FOREIGN KEY (merchant_id) REFERENCES merchants (id) ON DELETE SET NULL
       )
@@ -344,6 +375,12 @@ async function initializeDatabasePostgres() {
     } catch (e) {}
     try {
       await pgPool.query("ALTER TABLE products ADD COLUMN IF NOT EXISTS sizes TEXT DEFAULT '[]'");
+    } catch (e) {}
+    try {
+      await pgPool.query("ALTER TABLE products ADD COLUMN IF NOT EXISTS images TEXT DEFAULT '[]'");
+    } catch (e) {}
+    try {
+      await pgPool.query("ALTER TABLE products ADD COLUMN IF NOT EXISTS sku TEXT DEFAULT NULL");
     } catch (e) {}
 
     // 6. Orders Table
@@ -862,6 +899,7 @@ function initializeDatabase() {
         rating_count INTEGER DEFAULT 0,
         colors TEXT DEFAULT '[]',
         sizes TEXT DEFAULT '[]',
+        images TEXT DEFAULT '[]',
         FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE SET NULL,
         FOREIGN KEY (merchant_id) REFERENCES merchants (id) ON DELETE SET NULL
       )
@@ -878,6 +916,10 @@ function initializeDatabase() {
       db.run(alterSizes, [], (err) => {
         // Ignore error
       });
+      const alterImages = isPostgres 
+        ? "ALTER TABLE products ADD COLUMN IF NOT EXISTS images TEXT DEFAULT '[]'" 
+        : "ALTER TABLE products ADD COLUMN images TEXT DEFAULT '[]'";
+      db.run(alterImages, [], () => {});
       const alterCreatedAt = isPostgres
         ? "ALTER TABLE products ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
         : "ALTER TABLE products ADD COLUMN created_at TEXT DEFAULT NULL";
@@ -1237,29 +1279,5 @@ function initializeDatabase() {
     });
   });
 }
-
-// Clean up any demo data permanently to ensure only DR PHONE products & categories remain
-async function cleanupDemoData() {
-  try {
-    const sqlProd = "DELETE FROM products WHERE id < 38 OR category_id <= 16 OR merchant_id IS NULL";
-    const sqlCat = "DELETE FROM categories WHERE id <= 16";
-    const sqlMerchants = "DELETE FROM merchants WHERE id IN (1, 2, 3) AND name NOT IN ('بهاء', 'DR PHONE Wholesale')";
-    if (isPostgres && pgPool) {
-      await pgPool.query(sqlProd);
-      await pgPool.query(sqlCat);
-      await pgPool.query(sqlMerchants);
-      console.log('[Database] Cleaned up demo products and categories from PostgreSQL.');
-    } else if (sqliteDb) {
-      sqliteDb.run(sqlProd, [], () => {});
-      sqliteDb.run(sqlCat, [], () => {});
-      sqliteDb.run(sqlMerchants, [], () => {});
-      console.log('[Database] Cleaned up demo products and categories from SQLite.');
-    }
-  } catch (err) {
-    console.error('[Database] Cleanup note:', err.message);
-  }
-}
-
-setTimeout(cleanupDemoData, 2000);
 
 module.exports = db;

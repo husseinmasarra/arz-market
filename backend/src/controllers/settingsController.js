@@ -76,7 +76,11 @@ exports.getSettings = async (req, res) => {
       views_today: viewsToday,
       visitor_baseline_count: baseline,
       show_visitor_counter: settings.show_visitor_counter !== 0 ? 1 : 0,
-      show_out_of_stock_on_home: settings.show_out_of_stock_on_home !== 0 ? 1 : 0
+      show_out_of_stock_on_home: settings.show_out_of_stock_on_home !== 0 ? 1 : 0,
+      facebook_pixel_id: settings.facebook_pixel_id || '',
+      tiktok_pixel_id: settings.tiktok_pixel_id || '',
+      snapchat_pixel_id: settings.snapchat_pixel_id || '',
+      google_analytics_id: settings.google_analytics_id || ''
     };
 
     settingsCache = responsePayload;
@@ -102,7 +106,11 @@ exports.updateSettings = async (req, res) => {
     supplier_markup_percent,
     visitor_baseline_count,
     show_visitor_counter,
-    show_out_of_stock_on_home
+    show_out_of_stock_on_home,
+    facebook_pixel_id,
+    tiktok_pixel_id,
+    snapchat_pixel_id,
+    google_analytics_id
   } = req.body;
 
   try {
@@ -126,20 +134,25 @@ exports.updateSettings = async (req, res) => {
     const baselineCount = visitor_baseline_count !== undefined ? parseInt(visitor_baseline_count, 10) : (settings?.visitor_baseline_count || 0);
     const showCounter = show_visitor_counter !== undefined ? parseInt(show_visitor_counter, 10) : (settings?.show_visitor_counter !== undefined ? settings.show_visitor_counter : 1);
     const showOutOfStock = show_out_of_stock_on_home !== undefined ? parseInt(show_out_of_stock_on_home, 10) : (settings?.show_out_of_stock_on_home !== undefined ? settings.show_out_of_stock_on_home : 1);
+    const fbPixel = facebook_pixel_id !== undefined ? facebook_pixel_id.trim() : (settings?.facebook_pixel_id || '');
+    const ttPixel = tiktok_pixel_id !== undefined ? tiktok_pixel_id.trim() : (settings?.tiktok_pixel_id || '');
+    const scPixel = snapchat_pixel_id !== undefined ? snapchat_pixel_id.trim() : (settings?.snapchat_pixel_id || '');
+    const gaId = google_analytics_id !== undefined ? google_analytics_id.trim() : (settings?.google_analytics_id || '');
 
     if (settings) {
       await db.runAsync(`
         UPDATE settings 
         SET app_name = ?, logo_url = ?, exchange_rate = ?, free_delivery_threshold = ?, delivery_fee = ?, online_payment_enabled = ?, contact_email = ?,
             supplier_catalog_url = ?, supplier_catalog_passcode = ?, supplier_markup_percent = ?,
-            visitor_baseline_count = ?, show_visitor_counter = ?, show_out_of_stock_on_home = ?
+            visitor_baseline_count = ?, show_visitor_counter = ?, show_out_of_stock_on_home = ?,
+            facebook_pixel_id = ?, tiktok_pixel_id = ?, snapchat_pixel_id = ?, google_analytics_id = ?
         WHERE id = ?
-      `, [appName, logoUrl, exRate, freeThreshold, delFee, payEnabled, contactEmail, supplierUrl, supplierPass, supplierMarkup, baselineCount, showCounter, showOutOfStock, id]);
+      `, [appName, logoUrl, exRate, freeThreshold, delFee, payEnabled, contactEmail, supplierUrl, supplierPass, supplierMarkup, baselineCount, showCounter, showOutOfStock, fbPixel, ttPixel, scPixel, gaId, id]);
     } else {
       await db.runAsync(`
-        INSERT INTO settings (app_name, logo_url, exchange_rate, free_delivery_threshold, delivery_fee, online_payment_enabled, contact_email, hero_banners, supplier_catalog_url, supplier_catalog_passcode, supplier_markup_percent, visitor_baseline_count, show_visitor_counter, show_out_of_stock_on_home)
-        VALUES (?, ?, ?, ?, ?, ?, ?, '[]', ?, ?, ?, ?, ?, ?)
-      `, [appName, logoUrl, exRate, freeThreshold, delFee, payEnabled, contactEmail, supplierUrl, supplierPass, supplierMarkup, baselineCount, showCounter, showOutOfStock]);
+        INSERT INTO settings (app_name, logo_url, exchange_rate, free_delivery_threshold, delivery_fee, online_payment_enabled, contact_email, hero_banners, supplier_catalog_url, supplier_catalog_passcode, supplier_markup_percent, visitor_baseline_count, show_visitor_counter, show_out_of_stock_on_home, facebook_pixel_id, tiktok_pixel_id, snapchat_pixel_id, google_analytics_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, '[]', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [appName, logoUrl, exRate, freeThreshold, delFee, payEnabled, contactEmail, supplierUrl, supplierPass, supplierMarkup, baselineCount, showCounter, showOutOfStock, fbPixel, ttPixel, scPixel, gaId]);
     }
 
     invalidateSettingsCache();
@@ -159,7 +172,12 @@ exports.updateSettings = async (req, res) => {
         supplier_catalog_passcode: supplierPass,
         supplier_markup_percent: supplierMarkup,
         visitor_baseline_count: baselineCount,
-        show_visitor_counter: showCounter
+        show_visitor_counter: showCounter,
+        show_out_of_stock_on_home: showOutOfStock,
+        facebook_pixel_id: fbPixel,
+        tiktok_pixel_id: ttPixel,
+        snapchat_pixel_id: scPixel,
+        google_analytics_id: gaId
       }
     });
   } catch (err) {

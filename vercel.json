@@ -2,14 +2,20 @@
   "version": 2,
   "buildCommand": "cd frontend && npm install && npm run build",
   "outputDirectory": "frontend/dist",
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "backend/src/**",
+      "maxDuration": 60
+    }
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/backend/src/index.js"
+      "destination": "/api/index.js"
     },
     {
       "source": "/uploads/(.*)",
-      "destination": "/backend/uploads/$1"
+      "destination": "https://raw.githubusercontent.com/husseinmasarra/arz-market/main/backend/uploads/$1"
     },
     {
       "source": "/(.*)",

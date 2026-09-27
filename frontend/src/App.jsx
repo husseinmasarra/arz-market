@@ -19,11 +19,12 @@ import TermsOfServiceView from './components/TermsOfServiceView';
 import DeleteAccountView from './components/DeleteAccountView';
 import CustomerDashboard from './components/CustomerDashboard';
 import WelcomeDiscountModal from './components/WelcomeDiscountModal';
+import { trackPageView, trackViewContent, trackSearch } from './utils/pixelTracker';
 
 // Admin panel imports
 import AdminDashboard from './components/admin/AdminDashboard';
 
-import { Key, User, FileText, ChevronDown, Check, Star, RefreshCw, Fingerprint, Smartphone, Globe } from 'lucide-react';
+import { Key, User, FileText, ChevronDown, Check, Star, RefreshCw, Fingerprint, Smartphone, Globe, Tag, Sparkles, X } from 'lucide-react';
 
 // Clean category names strictly separating Arabic and English
 function getCategoryName(cat, currentLang) {
@@ -44,7 +45,7 @@ function getCategoryName(cat, currentLang) {
 }
 
 export default function App() {
-  const { lang, formatPrice, t, apiBase, settings, currency, apiHost } = useApp();
+  const { lang, formatPrice, t, apiBase, settings, currency, apiHost, getImageUrl, handleImageError } = useApp();
   const { user, login, register, token } = useAuth();
   const { setIsCartOpen, cartItems } = useCart();
   const { isChatOpen, setIsChatOpen } = useChat();
@@ -68,6 +69,7 @@ export default function App() {
 
   // Search & Filter states
   const [searchVal, setSearchVal] = useState('');
+  const [searchCategoryFilter, setSearchCategoryFilter] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get('category_id') || params.get('category') || '';
@@ -108,8 +110,14 @@ export default function App() {
     try {
       setLoadingProducts(true);
       let url = `${apiBase}/products?`;
-      if (selectedCategory) url += `category_id=${encodeURIComponent(selectedCategory)}&`;
-      if (searchVal) url += `search=${encodeURIComponent(searchVal)}&`;
+      if (searchVal) {
+        url += `search=${encodeURIComponent(searchVal)}&`;
+        if (searchCategoryFilter) {
+          url += `category_id=${encodeURIComponent(searchCategoryFilter)}&`;
+        }
+      } else if (selectedCategory) {
+        url += `category_id=${encodeURIComponent(selectedCategory)}&`;
+      }
       if (minPrice) url += `min_price=${encodeURIComponent(minPrice)}&`;
       if (maxPrice) url += `max_price=${encodeURIComponent(maxPrice)}&`;
       if (minRating) url += `min_rating=${encodeURIComponent(minRating)}&`;
@@ -161,20 +169,42 @@ export default function App() {
     }
   };
 
+  // Compute unique categories and product counts matching current search query
+  const searchMatchedCategories = React.useMemo(() => {
+    if (!searchVal || !Array.isArray(products) || products.length === 0) return [];
+    const catMap = new Map();
+    products.forEach(p => {
+      if (p && p.category_id) {
+        const catId = String(p.category_id);
+        const catName = (lang === 'ar' ? p.category_name_ar : p.category_name_en) || p.category_name_ar || p.category_name_en;
+        if (catName) {
+          if (!catMap.has(catId)) {
+            catMap.set(catId, { id: p.category_id, name: catName, count: 0 });
+          }
+          catMap.get(catId).count += 1;
+        }
+      }
+    });
+    return Array.from(catMap.values());
+  }, [searchVal, products, lang]);
+
   useEffect(() => {
     // Smooth debounced fetch when user is typing in search bar
     const delay = searchVal ? 220 : 0;
     const timer = setTimeout(() => {
-      if (selectedCategory || searchVal || minPrice || maxPrice || minRating) {
+      if (searchVal && searchVal.trim().length >= 2) {
+        trackSearch(searchVal.trim());
+      }
+      if (selectedCategory || searchVal || searchCategoryFilter || minPrice || maxPrice || minRating) {
         fetchProducts();
       } else {
         setProducts([]);
       }
     }, delay);
     return () => clearTimeout(timer);
-  }, [selectedCategory, searchVal, minPrice, maxPrice, minRating]);
+  }, [selectedCategory, searchVal, searchCategoryFilter, minPrice, maxPrice, minRating]);
 
-  // Analytics: Track visitor page views
+  // Analytics: Track visitor page views and marketing pixels
   useEffect(() => {
     // Generate a unique visitor ID if it doesn't exist yet
     let visitorId = localStorage.getItem('arz_mart_visitor_id');
@@ -200,6 +230,7 @@ export default function App() {
     };
 
     trackPageHit();
+    trackPageView(document.title, window.location.pathname);
   }, [currentView]);
 
   useEffect(() => {
@@ -218,8 +249,8 @@ export default function App() {
       ? 'ArzMart | متجر أرز مارت - أفضل عروض الهواتف والإلكترونيات في لبنان' 
       : 'ArzMart | Online Shopping & Electronics in Lebanon';
     let description = lang === 'ar'
-      ? 'تسوق أفضل العروض على الهواتف الذكية، الأجهزة اللوحية، اللابتوبات، والإلكترونيات في لبنان مع أرز مارت ArzMart. دفع عند الاستلام وتوصيل سريع.'
-      : 'Shop the best deals on smartphones, electronics, tablets, and accessories in Lebanon with ArzMart. Cash on delivery & fast shipping across Lebanon.';
+      ? 'تسوق أفضل المنتجات والتخفيضات على الهواتف الذكية، الأجهزة اللوحية، اللابتوبات، والإلكترونيات في لبنان مع أرز مارت ArzMart. دفع عند الاستلام وتوصيل سريع.'
+      : 'Shop the best offers and prices on smartphones, electronics, tablets, and accessories in Lebanon with ArzMart. Cash on delivery & fast shipping across Lebanon.';
 
     if (selectedProduct) {
       const prodName = (lang === 'ar' ? selectedProduct.name_ar : selectedProduct.name_en) || selectedProduct.title || 'ArzMart';
@@ -256,16 +287,61 @@ export default function App() {
     if (ogDesc) ogDesc.setAttribute('content', description);
   }, [selectedProduct, selectedCategory, categories, currentView, lang]);
 
+  // Helper to open product and sync URL
+  const handleOpenProduct = (prod) => {
+    if (!prod) return;
+    setSelectedProduct(prod);
+    trackViewContent(prod);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('product_id', prod.id);
+      window.history.pushState({ productId: prod.id }, '', url.toString());
+    } catch (e) {}
+  };
+
+  // Helper to close product and remove product_id from URL
+  const handleCloseProduct = () => {
+    setSelectedProduct(null);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('product_id');
+      url.searchParams.delete('product');
+      url.searchParams.delete('p');
+      window.history.pushState({}, '', url.toString());
+    } catch (e) {}
+  };
+
+  // Initial Deep Link Check on Mount (?product_id=, ?product=, ?p=)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const prodId = params.get('product_id') || params.get('product') || params.get('p');
+    if (prodId) {
+      fetch(`${apiBase}/products/${prodId}`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data && data.id) {
+            setSelectedProduct(data);
+            trackViewContent(data);
+          }
+        })
+        .catch(err => console.error('Error fetching deep linked product:', err));
+    }
+  }, [apiBase]);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const viewParam = params.get('view') || 'store';
     const tabParam = params.get('tab');
+    const prodIdParam = params.get('product_id') || params.get('product') || params.get('p');
     
     if (currentView !== viewParam) {
       let url = `/?view=${currentView}`;
       if (currentView === 'admin') {
         const tab = tabParam || 'products';
         url += `&tab=${tab}`;
+      }
+      if (prodIdParam && currentView === 'store') {
+        url += `&product_id=${prodIdParam}`;
       }
       window.history.pushState(null, '', url);
     }
@@ -289,8 +365,22 @@ export default function App() {
       const params = new URLSearchParams(window.location.search);
       const view = params.get('view') || 'store';
       const cat = params.get('category_id') || params.get('category') || '';
+      const prodId = params.get('product_id') || params.get('product') || params.get('p');
+
       setCurrentView(view);
       setSelectedCategory(cat);
+
+      if (prodId) {
+        fetch(`${apiBase}/products/${prodId}`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => {
+            if (data && data.id) setSelectedProduct(data);
+          })
+          .catch(() => {});
+      } else {
+        setSelectedProduct(null);
+      }
+
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     };
 
@@ -298,7 +388,7 @@ export default function App() {
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
-  }, []);
+  }, [apiBase]);
 
   // Handle Biometric Login authentication
   const handleBiometricLogin = async () => {
@@ -444,6 +534,7 @@ export default function App() {
 
   const clearFilters = () => {
     setSelectedCategory('');
+    setSearchCategoryFilter('');
     setMinPrice('');
     setMaxPrice('');
     setMinRating('');
@@ -463,12 +554,18 @@ export default function App() {
         currentView={currentView} 
         setCurrentView={setCurrentView} 
         searchVal={searchVal} 
-        setSearchVal={setSearchVal} 
+        setSearchVal={(val) => {
+          setSearchVal(val);
+          setSearchCategoryFilter('');
+        }} 
+        categories={categories}
+        onSelectCategory={handleSelectCategory}
         onLogoClick={() => {
           setCurrentView('store');
           setSelectedProduct(null);
           setShowCheckout(false);
           setSelectedCategory('');
+          setSearchCategoryFilter('');
           setSearchVal('');
           setMinPrice('');
           setMaxPrice('');
@@ -982,10 +1079,10 @@ export default function App() {
               <div className="animate-fade" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
                 {/* Best Sellers Strip */}
-                <BestSellersSection onProductClick={(p) => setSelectedProduct(p)} />
+                <BestSellersSection onProductClick={(p) => handleOpenProduct(p)} />
 
                 {/* New Arrivals Strip */}
-                <NewArrivalsSection onProductClick={(p) => setSelectedProduct(p)} />
+                <NewArrivalsSection onProductClick={(p) => handleOpenProduct(p)} />
 
                 <h2 style={{ fontSize: '1.6rem', fontWeight: '800', borderBottom: '2px solid var(--border-color)', paddingBottom: '10px', marginBottom: '16px' }}>
                   {lang === 'ar' ? 'تصفح أقسام المتجر الرئيسية' : 'Browse Main Categories'}
@@ -1001,11 +1098,7 @@ export default function App() {
                     const subcategories = (Array.isArray(categories) ? categories : []).filter(c => c && String(c.parent_id) === String(cat.id));
                     const subCount = subcategories.length;
                     
-                    let bgImg = 'https://images.unsplash.com/photo-1550009158-9ebf69173e03?auto=format&fit=crop&w=500&q=80';
-                    const catImg = cat.image_url;
-                    const imageUrl = (typeof catImg === 'string' && catImg.trim().length > 0)
-                      ? (catImg.startsWith('http') || catImg.startsWith('data:') ? catImg : `${apiHost}${catImg}`)
-                      : bgImg;
+                    const imageUrl = getImageUrl(cat.image_url, 'https://images.unsplash.com/photo-1550009158-9ebf69173e03?auto=format&fit=crop&w=500&q=80');
 
                     return (
                       <div
@@ -1154,7 +1247,16 @@ export default function App() {
                           </button>
                           
                           <h2 style={{ fontSize: '1.4rem', fontWeight: '800' }}>
-                            {parentCat ? (
+                            {searchVal ? (
+                              <span>
+                                {lang === 'ar' ? `نتائج البحث عن "${searchVal}"` : `Search Results for "${searchVal}"`}
+                                {currentCat && (
+                                  <span style={{ fontSize: '1.05rem', color: 'var(--accent-blue)', marginInlineStart: '8px', fontWeight: '600' }}>
+                                    / {getCategoryName(currentCat, lang)}
+                                  </span>
+                                )}
+                              </span>
+                            ) : parentCat ? (
                               <span>
                                 {getCategoryName(parentCat, lang)}
                                 {currentCat && currentCat.parent_id && String(currentCat.parent_id) !== String(currentCat.id) ? (
@@ -1170,58 +1272,234 @@ export default function App() {
                         </div>
                       </div>
 
+                      {/* Search Matched Categories Exploration Strip */}
+                      {searchVal && searchMatchedCategories.length > 0 && (
+                        <div style={{
+                          backgroundColor: 'var(--bg-secondary)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '14px',
+                          padding: '14px 16px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '10px',
+                          boxShadow: 'var(--shadow-xs)'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.88rem', fontWeight: '800', color: 'var(--text-primary)' }}>
+                              <Tag size={16} color="var(--accent-blue)" />
+                              <span>{lang === 'ar' ? 'التصنيفات المرتبطة ببحثك (انقر لتصفح منتجات مشابهة):' : 'Related Categories (Click to explore similar products):'}</span>
+                            </div>
+                            {searchCategoryFilter && (
+                              <button
+                                onClick={() => setSearchCategoryFilter('')}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  color: '#ef4444',
+                                  fontSize: '0.8rem',
+                                  fontWeight: '700',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                              >
+                                <X size={13} />
+                                <span>{lang === 'ar' ? 'عرض كل نتائج البحث' : 'Show All Results'}</span>
+                              </button>
+                            )}
+                          </div>
+
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+                            {searchMatchedCategories.map(cat => {
+                              const isCatActive = String(searchCategoryFilter) === String(cat.id);
+                              return (
+                                <button
+                                  key={cat.id}
+                                  onClick={() => {
+                                    if (isCatActive) {
+                                      setSearchCategoryFilter('');
+                                    } else {
+                                      setSearchCategoryFilter(String(cat.id));
+                                    }
+                                  }}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    padding: '6px 14px',
+                                    borderRadius: '20px',
+                                    backgroundColor: isCatActive ? 'var(--accent-blue)' : 'var(--bg-tertiary)',
+                                    color: isCatActive ? '#ffffff' : 'var(--text-primary)',
+                                    border: isCatActive ? '1px solid transparent' : '1px solid var(--border-color)',
+                                    fontSize: '0.84rem',
+                                    fontWeight: '700',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease',
+                                    boxShadow: isCatActive ? '0 4px 10px rgba(37,99,235,0.3)' : '0 1px 3px rgba(0,0,0,0.05)'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    if (!isCatActive) {
+                                      e.currentTarget.style.borderColor = 'var(--accent-blue)';
+                                      e.currentTarget.style.transform = 'translateY(-1px)';
+                                    }
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    if (!isCatActive) {
+                                      e.currentTarget.style.borderColor = 'var(--border-color)';
+                                      e.currentTarget.style.transform = 'translateY(0)';
+                                    }
+                                  }}
+                                >
+                                  <span>🏷️ {cat.name}</span>
+                                  <span style={{
+                                    backgroundColor: isCatActive ? 'rgba(255,255,255,0.25)' : 'rgba(37, 99, 235, 0.1)',
+                                    color: isCatActive ? '#ffffff' : 'var(--accent-blue)',
+                                    padding: '1px 6px',
+                                    borderRadius: '10px',
+                                    fontSize: '0.74rem'
+                                  }}>
+                                    {cat.count} {lang === 'ar' ? 'منتج' : 'items'}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
                       {/* Sub-categories Pills Strip */}
                       {availableSubCats.length > 0 && (
                         <div style={{
                           display: 'flex',
-                          gap: '8px',
-                          overflowX: 'auto',
-                          paddingBottom: '6px',
-                          scrollbarWidth: 'none'
+                          flexWrap: 'wrap',
+                          gap: '10px',
+                          alignItems: 'center',
+                          paddingTop: '4px',
+                          paddingBottom: '4px'
                         }}>
                           {/* All in Parent Pill */}
-                          <button
-                            onClick={() => handleSelectCategory(parentId)}
-                            style={{
-                              whiteSpace: 'nowrap',
-                              padding: '8px 16px',
-                              fontSize: '0.82rem',
-                              borderRadius: '20px',
-                              border: 'none',
-                              cursor: 'pointer',
-                              fontWeight: '700',
-                              backgroundColor: selectedCategory === String(parentId) ? 'var(--accent-red-gold)' : 'var(--bg-secondary)',
-                              color: selectedCategory === String(parentId) ? 'white' : 'var(--text-primary)',
-                              boxShadow: selectedCategory === String(parentId) ? 'var(--shadow-sm)' : 'none',
-                              outline: selectedCategory === String(parentId) ? 'none' : '1px solid var(--border-color)'
-                            }}
-                          >
-                            {lang === 'ar' ? 'كل الأقسام' : 'All Sub-categories'}
-                          </button>
+                          {(() => {
+                            const isParentActive = selectedCategory === String(parentId);
+                            const parentImgUrl = parentCat?.image_url ? getImageUrl(parentCat.image_url) : null;
+
+                            return (
+                              <button
+                                onClick={() => handleSelectCategory(parentId)}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  paddingTop: '6px',
+                                  paddingBottom: '6px',
+                                  paddingInlineStart: '6px',
+                                  paddingInlineEnd: '14px',
+                                  fontSize: '0.86rem',
+                                  borderRadius: '24px',
+                                  border: isParentActive ? '1.5px solid transparent' : '1px solid var(--border-color)',
+                                  cursor: 'pointer',
+                                  fontWeight: isParentActive ? '700' : '600',
+                                  backgroundColor: isParentActive ? 'var(--accent-red-gold)' : 'var(--bg-secondary)',
+                                  color: isParentActive ? '#ffffff' : 'var(--text-primary)',
+                                  boxShadow: isParentActive ? '0 4px 12px rgba(217, 56, 58, 0.35)' : '0 1px 3px rgba(0,0,0,0.05)',
+                                  transition: 'all 0.2s ease',
+                                  transform: isParentActive ? 'scale(1.02)' : 'none'
+                                }}
+                              >
+                                {parentImgUrl ? (
+                                  <img
+                                    src={parentImgUrl}
+                                    alt=""
+                                    onError={handleImageError}
+                                    style={{
+                                      width: '30px',
+                                      height: '30px',
+                                      borderRadius: '50%',
+                                      objectFit: 'cover',
+                                      border: isParentActive ? '2px solid rgba(255,255,255,0.9)' : '1px solid var(--border-color)',
+                                      flexShrink: 0
+                                    }}
+                                  />
+                                ) : (
+                                  <span style={{
+                                    width: '30px',
+                                    height: '30px',
+                                    borderRadius: '50%',
+                                    backgroundColor: isParentActive ? 'rgba(255,255,255,0.2)' : 'var(--bg-tertiary)',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '0.85rem',
+                                    flexShrink: 0
+                                  }}>
+                                    🗂️
+                                  </span>
+                                )}
+                                <span>{lang === 'ar' ? 'كل الأقسام' : 'All Sub-categories'}</span>
+                              </button>
+                            );
+                          })()}
 
                           {/* Individual Subcategory Pills */}
                           {availableSubCats.map((sub) => {
                             if (!sub) return null;
                             const isSubActive = selectedCategory === String(sub.id);
+                            const subImgUrl = sub?.image_url ? getImageUrl(sub.image_url) : null;
+
                             return (
                               <button
                                 key={sub.id}
                                 onClick={() => handleSelectCategory(sub.id)}
                                 style={{
-                                  whiteSpace: 'nowrap',
-                                  padding: '8px 16px',
-                                  fontSize: '0.82rem',
-                                  borderRadius: '20px',
-                                  border: 'none',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  paddingTop: '6px',
+                                  paddingBottom: '6px',
+                                  paddingInlineStart: '6px',
+                                  paddingInlineEnd: '14px',
+                                  fontSize: '0.86rem',
+                                  borderRadius: '24px',
+                                  border: isSubActive ? '1.5px solid transparent' : '1px solid var(--border-color)',
                                   cursor: 'pointer',
-                                  fontWeight: isSubActive ? '700' : '500',
+                                  fontWeight: isSubActive ? '700' : '600',
                                   backgroundColor: isSubActive ? 'var(--accent-blue)' : 'var(--bg-secondary)',
-                                  color: isSubActive ? 'white' : 'var(--text-secondary)',
-                                  boxShadow: isSubActive ? 'var(--shadow-sm)' : 'none',
-                                  outline: isSubActive ? 'none' : '1px solid var(--border-color)'
+                                  color: isSubActive ? '#ffffff' : 'var(--text-primary)',
+                                  boxShadow: isSubActive ? '0 4px 12px rgba(0, 86, 179, 0.35)' : '0 1px 3px rgba(0,0,0,0.05)',
+                                  transition: 'all 0.2s ease',
+                                  transform: isSubActive ? 'scale(1.02)' : 'none'
                                 }}
                               >
-                                {getCategoryName(sub, lang)}
+                                {subImgUrl ? (
+                                  <img
+                                    src={subImgUrl}
+                                    alt=""
+                                    style={{
+                                      width: '30px',
+                                      height: '30px',
+                                      borderRadius: '50%',
+                                      objectFit: 'cover',
+                                      border: isSubActive ? '2px solid rgba(255,255,255,0.9)' : '1px solid var(--border-color)',
+                                      flexShrink: 0
+                                    }}
+                                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                  />
+                                ) : (
+                                  <span style={{
+                                    width: '30px',
+                                    height: '30px',
+                                    borderRadius: '50%',
+                                    backgroundColor: isSubActive ? 'rgba(255,255,255,0.2)' : 'var(--bg-tertiary)',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '0.85rem',
+                                    flexShrink: 0
+                                  }}>
+                                    🏷️
+                                  </span>
+                                )}
+                                <span>{getCategoryName(sub, lang)}</span>
                               </button>
                             );
                           })}
@@ -1265,7 +1543,8 @@ export default function App() {
                         <ProductCard 
                           key={p.id || Math.random()} 
                           product={p} 
-                          onDetailsClick={setSelectedProduct} 
+                          onDetailsClick={handleOpenProduct} 
+                          onCategoryClick={handleSelectCategory}
                         />
                       ))}
                     </div>
@@ -1406,8 +1685,10 @@ export default function App() {
       {selectedProduct && (
         <ProductDetails 
           product={selectedProduct} 
-          onClose={() => setSelectedProduct(null)} 
+          onClose={handleCloseProduct} 
           onRefresh={fetchProducts}
+          onCategoryClick={handleSelectCategory}
+          onProductClick={handleOpenProduct}
         />
       )}
 

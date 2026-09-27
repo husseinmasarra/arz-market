@@ -42,10 +42,15 @@ router.delete('/categories/:id', authenticateToken, requirePermission('categorie
 // --- Product Routes ---
 router.get('/products/best-sellers', productController.getBestSellers);
 router.get('/products/new-arrivals-home', productController.getNewArrivalsHome);
+router.get('/products/:id/image', productController.getProductImage);
+router.get('/products/:id/related', productController.getRelatedProducts);
 router.get('/products', productController.getProducts);
 router.get('/products/:id', productController.getProductById);
-router.post('/products', authenticateToken, requirePermission('products'), upload.single('product_image'), productController.createProduct);
-router.put('/products/:id', authenticateToken, requirePermission('products'), upload.single('product_image'), productController.updateProduct);
+router.put('/products-bulk-category', authenticateToken, requirePermission('products'), productController.bulkUpdateCategory);
+router.post('/products-auto-sort-drafts', authenticateToken, requirePermission('products'), productController.autoSortDrafts);
+router.post('/products-deduplicate', authenticateToken, requirePermission('products'), productController.deduplicateProducts);
+router.post('/products', authenticateToken, requirePermission('products'), upload.any(), productController.createProduct);
+router.put('/products/:id', authenticateToken, requirePermission('products'), upload.any(), productController.updateProduct);
 router.delete('/products/:id', authenticateToken, requirePermission('products'), productController.deleteProduct);
 router.post('/products/:id/rate', productController.rateProduct);
 

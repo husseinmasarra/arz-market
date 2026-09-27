@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 
 export default function CustomerDashboard({ onGoToStore, onNavigate }) {
-  const { lang, t, formatPrice, apiBase, apiHost } = useApp();
+  const { lang, t, formatPrice, apiBase, apiHost, getImageUrl, handleImageError } = useApp();
   const { user, token } = useAuth();
   const { addToCart, setIsCartOpen } = useCart();
   const { setIsChatOpen } = useChat();
@@ -841,9 +841,7 @@ export default function CustomerDashboard({ onGoToStore, onNavigate }) {
                             {lang === 'ar' ? 'المنتجات في هذه الطلبية:' : 'Items in this order:'}
                           </span>
                           {(order.items || []).map((item, idx) => {
-                            const itemImg = item.image_url 
-                              ? (item.image_url.startsWith('http') || item.image_url.startsWith('data:') ? item.image_url : `${apiHost}${item.image_url}`)
-                              : 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=150&q=80';
+                            const itemImg = getImageUrl(item.image_url, 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=150&q=80');
                             
                             return (
                               <div key={idx} style={{
@@ -860,6 +858,7 @@ export default function CustomerDashboard({ onGoToStore, onNavigate }) {
                                   <img 
                                     src={itemImg} 
                                     alt={item.name_ar || item.name_en} 
+                                    onError={handleImageError}
                                     style={{ width: '44px', height: '44px', borderRadius: '8px', objectFit: 'cover' }}
                                   />
                                   <div>

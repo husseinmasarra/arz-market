@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { useApp } from './AppContext';
 import { useAuth } from './AuthContext';
+import { trackAddToCart } from '../utils/pixelTracker';
 
 const CartContext = createContext();
 
@@ -91,6 +92,8 @@ export const CartProvider = ({ children }) => {
   }, [cartItems, cartKey, loadedKey]);
 
   const addToCart = (product, quantity = 1, selectedColor = null, selectedSize = null, customerNote = '') => {
+    trackAddToCart(product, quantity, selectedColor, selectedSize);
+
     setCartItems((prevItems) => {
       const existingItem = prevItems.find((item) => 
         item.product.id === product.id && 

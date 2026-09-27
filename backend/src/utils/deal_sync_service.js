@@ -1,14 +1,27 @@
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
-const sharp = require('sharp');
+let sharp = null;
+try {
+  sharp = require('sharp');
+} catch (e) {
+  console.warn('sharp is optional, continuing without sharp image processing');
+}
 const db = require('../config/db');
 
 const agent = new https.Agent({ rejectUnauthorized: false });
 
-const UPLOADS_DIR = path.join(__dirname, '../../uploads/products');
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+let UPLOADS_DIR = path.join(__dirname, '../../uploads/products');
+try {
+  if (!fs.existsSync(UPLOADS_DIR)) {
+    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  }
+} catch (e) {
+  const os = require('os');
+  UPLOADS_DIR = path.join(os.tmpdir(), 'uploads/products');
+  try {
+    if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  } catch (err) {}
 }
 
 function fetchUrl(url) {
@@ -150,7 +163,7 @@ const DEAL_CATEGORIES = [
   { id: '129', name_en: 'Party Supplies', name_ar: 'مستلزمات الحفلات' },
   { id: '134', name_en: 'Care Supplies', name_ar: 'مستلزمات العناية' },
   { id: '174', name_en: 'Home Decor', name_ar: 'ديكور منزلي' },
-  { id: '175', name_en: 'Super Deal', name_ar: 'عروض سوبر ديل' },
+  { id: '175', name_en: 'Special Offers', name_ar: 'العروض والتخفيضات الحصرية' },
   { id: '162', name_en: 'Sports & Fitness', name_ar: 'رياضة ولياقة بدنية' },
   { id: '164', name_en: 'Health Care', name_ar: 'رعاية صحية' },
   { id: '168', name_en: 'Muller Koch', name_ar: 'أدوات مطبخ مولر كوخ' },
@@ -329,7 +342,7 @@ async function syncDealLebanon({ sourceId = null, markupPercent = 18 } = {}) {
 
       for (const item of items) {
         const bilingual = splitTitleBilingual(item.title);
-        const sku = item.dealId ? `DEAL-${item.dealId}` : '';
+        const sku = item.dealId ? `ARZ-${item.dealId}` : '';
         const markupPrice = Math.round(item.originalPrice * markupMultiplier * 100) / 100;
         const oldPrice = item.oldPrice > item.originalPrice 
           ? Math.round(item.oldPrice * markupMultiplier * 100) / 100 
@@ -351,8 +364,10 @@ async function syncDealLebanon({ sourceId = null, markupPercent = 18 } = {}) {
         }
 
         let finalImageUrl = item.imageUrl;
-        if (item.imageUrl.includes('deal.com.lb')) {
-          finalImageUrl = await cleanAndSaveDealImage(item.imageUrl, item.dealId || Date.now());
+        if (existingProd && existingProd.image_url && existingProd.image_url.startsWith('/uploads/products/')) {
+          finalImageUrl = existingProd.image_url;
+        } else if (item.imageUrl.includes('deal.com.lb')) {
+          finalImageUrl = await cleanAndSaveDealImage(item.imageUrl, existingProd ? existingProd.id : (item.dealId || Date.now()));
         }
 
         if (existingProd) {

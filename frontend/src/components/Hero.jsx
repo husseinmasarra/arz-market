@@ -10,7 +10,7 @@ export default function Hero() {
     {
       image: 'https://images.unsplash.com/photo-1550009158-9ebf69173e03?auto=format&fit=crop&w=1200&q=80',
       title_ar: 'عروض حصرية على إكسسوارات الهواتف',
-      title_en: 'Exclusive Phone Accessories Deals',
+      title_en: 'Exclusive Phone Accessories Offers',
       desc_ar: 'أفضل الأسعار على كابلات الشحن، الشواحن السريعة، وسماعات الرأس الأصلية',
       desc_en: 'Best prices on cables, fast chargers, and authentic headphones'
     },

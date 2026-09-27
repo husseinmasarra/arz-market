@@ -12,9 +12,7 @@ app/build/
 *.apk
 *.aar
 
-# SQLite database (database.sqlite included for deployment)
-# backend/database.sqlite
-# *.sqlite
+# SQLite database
 *.sqlite3
 
 # Log files
@@ -29,6 +27,7 @@ yarn-error.log*
 .env.development.local
 .env.test.local
 .env.production.local
+.env*
 
 # IDE configurations
 .idea/
@@ -40,10 +39,8 @@ yarn-error.log*
 *.swp
 
 .vercel
-.env*
 backend/deal_originals/
+backend/uploads/products/
 backend/.whatsapp_browser_session/
+scratch/
 *.tmp
-
-.vercel
-.env*

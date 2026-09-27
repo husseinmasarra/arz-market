@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
-import { Printer, Eye, CheckCircle2, MessageCircle, Mail, DollarSign, PackageCheck, Send, MessageSquare } from 'lucide-react';
+import { Printer, Eye, CheckCircle2, MessageCircle, Mail, DollarSign, PackageCheck, Send, MessageSquare, Download, Search, RotateCcw, ShieldCheck } from 'lucide-react';
 
 export default function AdminOrders() {
-  const { lang, formatPrice, apiBase, settings, apiHost } = useApp();
+  const { lang, formatPrice, apiBase, settings, apiHost, getImageUrl, handleImageError } = useApp();
   const { token, user } = useAuth();
 
   const [orders, setOrders] = useState([]);
-  const [activeSubTab, setActiveSubTab] = useState('active'); // 'active', 'delivered', 'cancelled'
+  const [activeSubTab, setActiveSubTab] = useState('all'); // 'all', 'active', 'delivered', 'cancelled', 'archive'
+  const [searchQuery, setSearchQuery] = useState('');
+  const [dateFilter, setDateFilter] = useState('all'); // 'all', 'today', 'week', 'month'
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [hidePricesInPrint, setHidePricesInPrint] = useState(false);
 
@@ -167,85 +169,240 @@ ${order.notes ? `*ملاحظات الزبون:* ${order.notes}\n` : ''}*طريق
     }
   };
 
-  const filteredOrders = orders.filter(order => {
-    if (activeSubTab === 'active') {
-      return order.status !== 'delivered' && order.status !== 'cancelled' && order.status !== 'archived';
-    } else if (activeSubTab === 'delivered') {
-      return order.status === 'delivered';
-    } else if (activeSubTab === 'cancelled') {
-      return order.status === 'cancelled';
-    } else {
-      return order.status === 'archived';
+  const handleExportOrdersCsv = () => {
+    if (!orders || orders.length === 0) {
+      alert(lang === 'ar' ? 'لا توجد طلبيات لتصديرها حالياً' : 'No orders to export');
+      return;
     }
+    const headers = ['Order ID', 'Tracking Number', 'Date', 'Customer Name', 'Phone', 'Address', 'Status', 'Supplier Status', 'Total USD', 'Total LBP', 'Items Count', 'Notes'];
+    const rows = orders.map(o => [
+      o.id,
+      `"${o.tracking_number || ''}"`,
+      `"${new Date(o.created_at).toLocaleString()}"`,
+      `"${(o.user_name || '').replace(/"/g, '""')}"`,
+      `"${(o.phone || '').replace(/"/g, '""')}"`,
+      `"${(o.address || '').replace(/"/g, '""')}"`,
+      `"${o.status || ''}"`,
+      `"${o.supplier_fulfillment_status || ''}"`,
+      o.total_usd || 0,
+      o.total_lbp || 0,
+      Array.isArray(o.items) ? o.items.length : 0,
+      `"${(o.notes || '').replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `arzmart_orders_backup_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleRestoreOrder = async (id) => {
+    try {
+      await handleUpdateStatus(id, 'pending');
+      alert(lang === 'ar' ? 'تمت استعادة الطلبية إلى قائمة الطلبيات النشطة بنجاح' : 'Order restored to active status');
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const filteredOrders = orders.filter(order => {
+    // 1. Subtab filter
+    if (activeSubTab === 'active') {
+      if (order.status === 'delivered' || order.status === 'cancelled' || order.status === 'archived') return false;
+    } else if (activeSubTab === 'delivered') {
+      if (order.status !== 'delivered') return false;
+    } else if (activeSubTab === 'cancelled') {
+      if (order.status !== 'cancelled') return false;
+    } else if (activeSubTab === 'archive') {
+      if (order.status !== 'archived') return false;
+    }
+
+    // 2. Date filter
+    if (dateFilter === 'today') {
+      const oDate = new Date(order.created_at);
+      const now = new Date();
+      if (oDate.getDate() !== now.getDate() || oDate.getMonth() !== now.getMonth() || oDate.getFullYear() !== now.getFullYear()) {
+        return false;
+      }
+    } else if (dateFilter === 'week') {
+      const oDate = new Date(order.created_at).getTime();
+      const weekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+      if (oDate < weekAgo) return false;
+    } else if (dateFilter === 'month') {
+      const oDate = new Date(order.created_at).getTime();
+      const monthAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+      if (oDate < monthAgo) return false;
+    }
+
+    // 3. Search query filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      const matchTracking = (order.tracking_number || '').toLowerCase().includes(q);
+      const matchName = (order.user_name || '').toLowerCase().includes(q);
+      const matchPhone = (order.phone || '').toLowerCase().includes(q);
+      const matchNotes = (order.notes || '').toLowerCase().includes(q);
+      const matchItems = Array.isArray(order.items) && order.items.some(i => 
+        (i.name_ar || '').toLowerCase().includes(q) || (i.name_en || '').toLowerCase().includes(q)
+      );
+      if (!matchTracking && !matchName && !matchPhone && !matchNotes && !matchItems) {
+        return false;
+      }
+    }
+
+    return true;
   });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       
-      {/* Sub tabs */}
-      <div className="no-print" style={{ display: 'flex', gap: '10px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', flexWrap: 'wrap' }}>
-        <button
-          onClick={() => setActiveSubTab('active')}
-          style={{
-            padding: '8px 16px',
-            borderRadius: '20px',
-            border: 'none',
-            backgroundColor: activeSubTab === 'active' ? 'var(--accent-blue)' : 'var(--bg-tertiary)',
-            color: activeSubTab === 'active' ? 'white' : 'var(--text-primary)',
-            cursor: 'pointer',
-            fontWeight: '700',
-            fontSize: '0.85rem'
-          }}
-        >
-          الطلبيات النشطة ({orders.filter(o => o.status !== 'delivered' && o.status !== 'cancelled' && o.status !== 'archived').length})
-        </button>
-        <button
-          onClick={() => setActiveSubTab('delivered')}
-          style={{
-            padding: '8px 16px',
-            borderRadius: '20px',
-            border: 'none',
-            backgroundColor: activeSubTab === 'delivered' ? 'var(--accent-blue)' : 'var(--bg-tertiary)',
-            color: activeSubTab === 'delivered' ? 'white' : 'var(--text-primary)',
-            cursor: 'pointer',
-            fontWeight: '700',
-            fontSize: '0.85rem'
-          }}
-        >
-          الطلبيات المسلمة ({orders.filter(o => o.status === 'delivered').length})
-        </button>
-        <button
-          onClick={() => setActiveSubTab('cancelled')}
-          style={{
-            padding: '8px 16px',
-            borderRadius: '20px',
-            border: 'none',
-            backgroundColor: activeSubTab === 'cancelled' ? 'var(--accent-blue)' : 'var(--bg-tertiary)',
-            color: activeSubTab === 'cancelled' ? 'white' : 'var(--text-primary)',
-            cursor: 'pointer',
-            fontWeight: '700',
-            fontSize: '0.85rem'
-          }}
-        >
-          الطلبيات الملغاة ({orders.filter(o => o.status === 'cancelled').length})
-        </button>
-        {user?.role === 'admin' && (
+      {/* Sub tabs & Export Actions Header */}
+      <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', borderBottom: '1px solid var(--border-color)', paddingBottom: '14px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
           <button
-            onClick={() => setActiveSubTab('archive')}
+            onClick={() => setActiveSubTab('all')}
             style={{
               padding: '8px 16px',
               borderRadius: '20px',
               border: 'none',
-              backgroundColor: activeSubTab === 'archive' ? 'var(--accent-blue)' : 'var(--bg-tertiary)',
-              color: activeSubTab === 'archive' ? 'white' : 'var(--text-primary)',
+              backgroundColor: activeSubTab === 'all' ? 'var(--accent-blue)' : 'var(--bg-tertiary)',
+              color: activeSubTab === 'all' ? 'white' : 'var(--text-primary)',
               cursor: 'pointer',
               fontWeight: '700',
               fontSize: '0.85rem'
             }}
           >
-            أرشيف الطلبيات ({orders.filter(o => o.status === 'archived').length})
+            جميع الطلبيات المحفوظة ({orders.length})
           </button>
-        )}
+          <button
+            onClick={() => setActiveSubTab('active')}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '20px',
+              border: 'none',
+              backgroundColor: activeSubTab === 'active' ? 'var(--accent-blue)' : 'var(--bg-tertiary)',
+              color: activeSubTab === 'active' ? 'white' : 'var(--text-primary)',
+              cursor: 'pointer',
+              fontWeight: '700',
+              fontSize: '0.85rem'
+            }}
+          >
+            الطلبيات النشطة ({orders.filter(o => o.status !== 'delivered' && o.status !== 'cancelled' && o.status !== 'archived').length})
+          </button>
+          <button
+            onClick={() => setActiveSubTab('delivered')}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '20px',
+              border: 'none',
+              backgroundColor: activeSubTab === 'delivered' ? 'var(--accent-blue)' : 'var(--bg-tertiary)',
+              color: activeSubTab === 'delivered' ? 'white' : 'var(--text-primary)',
+              cursor: 'pointer',
+              fontWeight: '700',
+              fontSize: '0.85rem'
+            }}
+          >
+            الطلبيات المسلمة ({orders.filter(o => o.status === 'delivered').length})
+          </button>
+          <button
+            onClick={() => setActiveSubTab('cancelled')}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '20px',
+              border: 'none',
+              backgroundColor: activeSubTab === 'cancelled' ? 'var(--accent-blue)' : 'var(--bg-tertiary)',
+              color: activeSubTab === 'cancelled' ? 'white' : 'var(--text-primary)',
+              cursor: 'pointer',
+              fontWeight: '700',
+              fontSize: '0.85rem'
+            }}
+          >
+            الطلبيات الملغاة ({orders.filter(o => o.status === 'cancelled').length})
+          </button>
+          {user?.role === 'admin' && (
+            <button
+              onClick={() => setActiveSubTab('archive')}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '20px',
+                border: 'none',
+                backgroundColor: activeSubTab === 'archive' ? 'var(--accent-blue)' : 'var(--bg-tertiary)',
+                color: activeSubTab === 'archive' ? 'white' : 'var(--text-primary)',
+                cursor: 'pointer',
+                fontWeight: '700',
+                fontSize: '0.85rem'
+              }}
+            >
+              أرشيف الطلبيات ({orders.filter(o => o.status === 'archived').length})
+            </button>
+          )}
+        </div>
+
+        {/* Export / Backup CSV button */}
+        <button
+          onClick={handleExportOrdersCsv}
+          className="input-field"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 14px',
+            backgroundColor: 'var(--bg-tertiary)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '8px',
+            fontSize: '0.82rem',
+            fontWeight: '600',
+            cursor: 'pointer'
+          }}
+          title="تحميل نسخة احتياطية من كافة الطلبيات كملف Excel / CSV"
+        >
+          <Download size={15} color="var(--accent-blue)" />
+          <span>تصدير الطلبيات (Excel/CSV)</span>
+        </button>
+      </div>
+
+      {/* Search and Date Quick Filters Bar */}
+      <div className="no-print" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ position: 'relative', flex: '1', minWidth: '220px' }}>
+          <Search size={16} style={{ position: 'absolute', top: '50%', transform: 'translateY(-50%)', right: lang === 'ar' ? '12px' : 'auto', left: lang === 'ar' ? 'auto' : '12px', color: 'var(--text-light)' }} />
+          <input
+            type="text"
+            className="input-field"
+            placeholder={lang === 'ar' ? 'البحث برقم الطلب، اسم الزبون، رقم الهاتف، أو اسم المنتج...' : 'Search by tracking, customer, phone, or product...'}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{ paddingRight: lang === 'ar' ? '36px' : '12px', paddingLeft: lang === 'ar' ? '12px' : '36px', width: '100%' }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+          {['all', 'today', 'week', 'month'].map(period => (
+            <button
+              key={period}
+              onClick={() => setDateFilter(period)}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '6px',
+                border: '1px solid var(--border-color)',
+                backgroundColor: dateFilter === period ? 'var(--accent-blue)' : 'var(--bg-tertiary)',
+                color: dateFilter === period ? 'white' : 'var(--text-secondary)',
+                fontSize: '0.78rem',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+            >
+              {period === 'all' && (lang === 'ar' ? 'كافة الفترات' : 'All Time')}
+              {period === 'today' && (lang === 'ar' ? 'اليوم' : 'Today')}
+              {period === 'week' && (lang === 'ar' ? 'آخر 7 أيام' : 'Last 7 Days')}
+              {period === 'month' && (lang === 'ar' ? 'هذا الشهر' : 'This Month')}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Orders Grid */}
@@ -354,13 +511,25 @@ ${order.notes ? `*ملاحظات الزبون:* ${order.notes}\n` : ''}*طريق
                       <span>أرشفة الطلبية</span>
                     </button>
                   )}
+                  {(selectedOrder.status === 'archived' || selectedOrder.status === 'cancelled') && (
+                    <button
+                      onClick={() => handleRestoreOrder(selectedOrder.id)}
+                      className="input-field animate-scale"
+                      style={{ width: 'auto', padding: '6px 12px', backgroundColor: '#10b981', color: 'white', border: 'none', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
+                    >
+                      <RotateCcw size={14} />
+                      <span>استعادة إلى النشطة</span>
+                    </button>
+                  )}
                 </div>
 
-                {((selectedOrder.status !== 'delivered' && selectedOrder.status !== 'cancelled' && selectedOrder.status !== 'archived') || 
-                  (selectedOrder.status === 'archived' && user?.role === 'admin')) && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-secondary)' }}>
+                    حالة الطلب:
+                  </span>
                   <select
                     className="input-field"
-                    style={{ width: 'auto', padding: '4px 10px', fontSize: '0.8rem' }}
+                    style={{ width: 'auto', padding: '4px 10px', fontSize: '0.8rem', fontWeight: '600' }}
                     value={selectedOrder.status}
                     onChange={(e) => handleUpdateStatus(selectedOrder.id, e.target.value)}
                   >
@@ -368,14 +537,12 @@ ${order.notes ? `*ملاحظات الزبون:* ${order.notes}\n` : ''}*طريق
                     <option value="processing">قيد التحضير (Processing)</option>
                     <option value="shipped">تم الشحن (Shipped)</option>
                     <option value="delivered">تم التسليم (Delivered)</option>
+                    <option value="cancelled">ملغاة (Cancelled)</option>
                     {user?.role === 'admin' && (
-                      <option value="cancelled">ملغاة (Cancelled)</option>
-                    )}
-                    {user?.role === 'admin' && selectedOrder.status === 'archived' && (
                       <option value="archived">مؤرشفة (Archived)</option>
                     )}
                   </select>
-                )}
+                </div>
               </div>
 
               {/* --- DROPSHIPPING & SUPPLIER DISPATCH CONTROL (NO-PRINT) --- */}
@@ -729,9 +896,7 @@ ${order.notes ? `*ملاحظات الزبون:* ${order.notes}\n` : ''}*طريق
                   </thead>
                   <tbody>
                     {selectedOrder.items.map((item, idx) => {
-                      const itemImg = item.image_url 
-                        ? (item.image_url.startsWith('http') || item.image_url.startsWith('data:') ? item.image_url : `${apiHost}${item.image_url}`)
-                        : '';
+                      const itemImg = item.image_url ? getImageUrl(item.image_url) : '';
                       return (
                         <tr key={idx} style={{ borderBottom: '1px solid var(--border-color)', fontSize: '0.85rem', verticalAlign: 'middle' }}>
                           {/* Product Image Column */}
@@ -740,6 +905,7 @@ ${order.notes ? `*ملاحظات الزبون:* ${order.notes}\n` : ''}*طريق
                               <img 
                                 src={itemImg} 
                                 alt="Item" 
+                                onError={handleImageError}
                                 style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)', display: 'block', margin: 'auto' }} 
                               />
                             ) : (

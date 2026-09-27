@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { X, CheckCircle, ShieldCheck, LogIn, UserPlus, MessageSquare, Gift, Tag } from 'lucide-react';
 import SocialAuthButtons from './SocialAuthButtons';
 import WelcomeDiscountModal from './WelcomeDiscountModal';
+import { trackInitiateCheckout, trackPurchase } from '../utils/pixelTracker';
 
 export default function Checkout({ onClose }) {
   const { lang, formatPrice, settings, t, apiBase } = useApp();
@@ -26,6 +27,20 @@ export default function Checkout({ onClose }) {
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+
+  // Track InitiateCheckout on checkout open
+  useEffect(() => {
+    if (cartItems && cartItems.length > 0) {
+      const itemsList = cartItems.map(item => ({
+        product_id: item.product?.id,
+        name_ar: item.product?.name_ar,
+        name_en: item.product?.name_en,
+        price_usd: getOptionPrice(item.selectedSize, item.product?.price_usd),
+        quantity: item.quantity
+      }));
+      trackInitiateCheckout(itemsList, total);
+    }
+  }, []);
 
   useEffect(() => {
     if (user?.phone && !phone) {
@@ -180,6 +195,17 @@ export default function Checkout({ onClose }) {
         setTrackingNumber(data.tracking_number);
         setPlacedOrderInfo(data.order);
         setOrderSuccess(true);
+        
+        // Fire Purchase tracking event for Meta, TikTok, Snapchat, GA4
+        const purchasedItems = cartItems.map(item => ({
+          product_id: item.product?.id,
+          name_ar: item.product?.name_ar,
+          name_en: item.product?.name_en,
+          price_usd: getOptionPrice(item.selectedSize, item.product?.price_usd),
+          quantity: item.quantity
+        }));
+        trackPurchase(data.order?.id || data.tracking_number, purchasedItems, finalTotal, 'USD');
+
         clearCart();
       } else {
         setCheckoutError(data.error_ar || data.error_en || 'Failed to place order');

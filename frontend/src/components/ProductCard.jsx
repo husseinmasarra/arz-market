@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
-import { Star, ShoppingCart, Eye } from 'lucide-react';
+import { Star, ShoppingCart, Eye, Share2, Check, Tag } from 'lucide-react';
 
-export default function ProductCard({ product, onDetailsClick }) {
-  const { lang, formatPrice, t, apiHost } = useApp();
+export default function ProductCard({ product, onDetailsClick, onCategoryClick }) {
+  const { lang, formatPrice, t, getImageUrl, handleImageError } = useApp();
   const { addToCart } = useCart();
+  const [cardCopied, setCardCopied] = useState(false);
 
   const name = (lang === 'ar' ? product?.name_ar : product?.name_en) || product?.name_ar || product?.name_en || product?.title || 'Product';
   const categoryName = (lang === 'ar' ? product?.category_name_ar : product?.category_name_en) || product?.category_name_ar || product?.category_name_en;
@@ -25,10 +26,7 @@ export default function ProductCard({ product, onDetailsClick }) {
 
   const hasDiscount = product?.old_price_usd && Number(product.old_price_usd) > Number(product.price_usd);
 
-  const rawImg = product?.image_url;
-  const imageUrl = (typeof rawImg === 'string' && rawImg.trim().length > 0)
-    ? (rawImg.startsWith('http') || rawImg.startsWith('data:') ? rawImg : `${apiHost}${rawImg}`)
-    : 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=400&q=80';
+  const imageUrl = getImageUrl(product?.image_url);
 
   return (
     <div 
@@ -52,15 +50,20 @@ export default function ProductCard({ product, onDetailsClick }) {
       <div 
         style={{
           width: '100%',
-          height: '200px',
+          height: '220px',
           overflow: 'hidden',
-          backgroundColor: 'white',
-          position: 'relative'
+          backgroundColor: '#ffffff',
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '8px'
         }}
       >
         <img
           src={imageUrl}
           alt={name}
+          onError={handleImageError}
           style={{
             width: '100%',
             height: '100%',
@@ -100,14 +103,49 @@ export default function ProductCard({ product, onDetailsClick }) {
       }}>
         {/* Category Label */}
         {categoryName && (
-          <span style={{
-            fontSize: '0.75rem',
-            fontWeight: '600',
-            color: 'var(--accent-blue)',
-            textTransform: 'uppercase'
-          }}>
-            {categoryName}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <span 
+              onClick={(e) => {
+                if (onCategoryClick && product?.category_id) {
+                  e.stopPropagation();
+                  onCategoryClick(product.category_id);
+                }
+              }}
+              title={lang === 'ar' ? `عرض المزيد من تصنيف ${categoryName}` : `View more in ${categoryName}`}
+              style={{
+                fontSize: '0.74rem',
+                fontWeight: '700',
+                color: 'var(--accent-blue)',
+                backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                padding: '3px 8px',
+                borderRadius: '6px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                cursor: onCategoryClick ? 'pointer' : 'default',
+                transition: 'all 0.2s ease',
+                maxWidth: '100%',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
+              onMouseEnter={(e) => {
+                if (onCategoryClick) {
+                  e.currentTarget.style.backgroundColor = 'rgba(37, 99, 235, 0.18)';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (onCategoryClick) {
+                  e.currentTarget.style.backgroundColor = 'rgba(37, 99, 235, 0.08)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }
+              }}
+            >
+              <Tag size={11} style={{ flexShrink: 0 }} />
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{categoryName}</span>
+            </span>
+          </div>
         )}
 
         {/* Title */}
@@ -174,7 +212,7 @@ export default function ProductCard({ product, onDetailsClick }) {
         </div>
 
         {/* Action Buttons */}
-        <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+        <div style={{ display: 'flex', gap: '6px', marginTop: '10px' }}>
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -183,7 +221,7 @@ export default function ProductCard({ product, onDetailsClick }) {
             className="input-field"
             style={{
               padding: '8px',
-              width: '40px',
+              width: '38px',
               height: '38px',
               display: 'flex',
               alignItems: 'center',
@@ -197,6 +235,45 @@ export default function ProductCard({ product, onDetailsClick }) {
             title={t('product_details')}
           >
             <Eye size={16} />
+          </button>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              const productUrl = `${window.location.origin}/?product_id=${product.id}`;
+              try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                  navigator.clipboard.writeText(productUrl);
+                } else {
+                  const ta = document.createElement('textarea');
+                  ta.value = productUrl;
+                  document.body.appendChild(ta);
+                  ta.select();
+                  document.execCommand('copy');
+                  document.body.removeChild(ta);
+                }
+                setCardCopied(true);
+                setTimeout(() => setCardCopied(false), 2000);
+              } catch (err) {}
+            }}
+            className="input-field"
+            style={{
+              padding: '8px',
+              width: '38px',
+              height: '38px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              border: '1px solid var(--border-color)',
+              backgroundColor: cardCopied ? '#10b981' : 'var(--bg-tertiary)',
+              color: cardCopied ? '#ffffff' : 'var(--text-primary)',
+              borderRadius: '8px',
+              transition: 'all 0.2s ease'
+            }}
+            title={cardCopied ? (lang === 'ar' ? 'تم نسخ الرابط!' : 'Link Copied!') : (lang === 'ar' ? 'نسخ رابط المنتج المباشر' : 'Copy Direct Product Link')}
+          >
+            {cardCopied ? <Check size={16} /> : <Share2 size={16} />}
           </button>
           
           <button
