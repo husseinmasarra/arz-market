@@ -138,6 +138,10 @@ exports.updateSettings = async (req, res) => {
     const ttPixel = tiktok_pixel_id !== undefined ? tiktok_pixel_id.trim() : (settings?.tiktok_pixel_id || '');
     const scPixel = snapchat_pixel_id !== undefined ? snapchat_pixel_id.trim() : (settings?.snapchat_pixel_id || '');
     const gaId = google_analytics_id !== undefined ? google_analytics_id.trim() : (settings?.google_analytics_id || '');
+    const tgToken = telegram_bot_token !== undefined ? telegram_bot_token.trim() : (settings?.telegram_bot_token || '');
+    const tgChat = telegram_chat_id !== undefined ? telegram_chat_id.trim() : (settings?.telegram_chat_id || '');
+    const adminWa = admin_whatsapp_number !== undefined ? admin_whatsapp_number.trim() : (settings?.admin_whatsapp_number || '+96170000000');
+    const autoSync = auto_sync_enabled !== undefined ? parseInt(auto_sync_enabled, 10) : (settings?.auto_sync_enabled !== undefined ? settings.auto_sync_enabled : 1);
 
     if (settings) {
       await db.runAsync(`
@@ -145,14 +149,15 @@ exports.updateSettings = async (req, res) => {
         SET app_name = ?, logo_url = ?, exchange_rate = ?, free_delivery_threshold = ?, delivery_fee = ?, online_payment_enabled = ?, contact_email = ?,
             supplier_catalog_url = ?, supplier_catalog_passcode = ?, supplier_markup_percent = ?,
             visitor_baseline_count = ?, show_visitor_counter = ?, show_out_of_stock_on_home = ?,
-            facebook_pixel_id = ?, tiktok_pixel_id = ?, snapchat_pixel_id = ?, google_analytics_id = ?
+            facebook_pixel_id = ?, tiktok_pixel_id = ?, snapchat_pixel_id = ?, google_analytics_id = ?,
+            telegram_bot_token = ?, telegram_chat_id = ?, admin_whatsapp_number = ?, auto_sync_enabled = ?
         WHERE id = ?
-      `, [appName, logoUrl, exRate, freeThreshold, delFee, payEnabled, contactEmail, supplierUrl, supplierPass, supplierMarkup, baselineCount, showCounter, showOutOfStock, fbPixel, ttPixel, scPixel, gaId, id]);
+      `, [appName, logoUrl, exRate, freeThreshold, delFee, payEnabled, contactEmail, supplierUrl, supplierPass, supplierMarkup, baselineCount, showCounter, showOutOfStock, fbPixel, ttPixel, scPixel, gaId, tgToken, tgChat, adminWa, autoSync, id]);
     } else {
       await db.runAsync(`
-        INSERT INTO settings (app_name, logo_url, exchange_rate, free_delivery_threshold, delivery_fee, online_payment_enabled, contact_email, hero_banners, supplier_catalog_url, supplier_catalog_passcode, supplier_markup_percent, visitor_baseline_count, show_visitor_counter, show_out_of_stock_on_home, facebook_pixel_id, tiktok_pixel_id, snapchat_pixel_id, google_analytics_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, '[]', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, [appName, logoUrl, exRate, freeThreshold, delFee, payEnabled, contactEmail, supplierUrl, supplierPass, supplierMarkup, baselineCount, showCounter, showOutOfStock, fbPixel, ttPixel, scPixel, gaId]);
+        INSERT INTO settings (app_name, logo_url, exchange_rate, free_delivery_threshold, delivery_fee, online_payment_enabled, contact_email, hero_banners, supplier_catalog_url, supplier_catalog_passcode, supplier_markup_percent, visitor_baseline_count, show_visitor_counter, show_out_of_stock_on_home, facebook_pixel_id, tiktok_pixel_id, snapchat_pixel_id, google_analytics_id, telegram_bot_token, telegram_chat_id, admin_whatsapp_number, auto_sync_enabled)
+        VALUES (?, ?, ?, ?, ?, ?, ?, '[]', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [appName, logoUrl, exRate, freeThreshold, delFee, payEnabled, contactEmail, supplierUrl, supplierPass, supplierMarkup, baselineCount, showCounter, showOutOfStock, fbPixel, ttPixel, scPixel, gaId, tgToken, tgChat, adminWa, autoSync]);
     }
 
     invalidateSettingsCache();
@@ -177,12 +182,60 @@ exports.updateSettings = async (req, res) => {
         facebook_pixel_id: fbPixel,
         tiktok_pixel_id: ttPixel,
         snapchat_pixel_id: scPixel,
-        google_analytics_id: gaId
+        google_analytics_id: gaId,
+        telegram_bot_token: tgToken,
+        telegram_chat_id: tgChat,
+        admin_whatsapp_number: adminWa,
+        auto_sync_enabled: autoSync
       }
     });
   } catch (err) {
     console.error('Update settings error:', err);
     res.status(500).json({ error_ar: 'خطأ أثناء تحديث الإعدادات', error_en: 'Error updating settings' });
+  }
+};
+
+exports.testTelegramNotification = async (req, res) => {
+  const { bot_token, chat_id } = req.body;
+  const { sendTelegramMessage } = require('../utils/notificationService');
+  
+  try {
+    const settings = await db.getAsync('SELECT * FROM settings ORDER BY id DESC LIMIT 1');
+    const token = bot_token || settings?.telegram_bot_token;
+    const chat = chat_id || settings?.telegram_chat_id;
+
+    if (!token || !chat) {
+      return res.status(400).json({
+        error_ar: 'الرجاء إدخال Telegram Bot Token و Chat ID أولاً',
+        error_en: 'Please provide Telegram Bot Token and Chat ID first'
+      });
+    }
+
+    const testMsg = `
+🔔 <b>تجربة إشعارات أرز مارت | ArzMart Notification Test</b>
+━━━━━━━━━━━━━━━━━━━━━━
+✅ تم ربط وتفعيل بوت تيليجرام بنجاح!
+ستصلك الآن كافة تفاصيل الطلبيات الجديدة فور قيام أي زبون بالطلب مباشرة 🚀
+━━━━━━━━━━━━━━━━━━━━━━
+⏰ <i>${new Date().toLocaleString('ar-LB')}</i>
+`.trim();
+
+    const ok = await sendTelegramMessage(token, chat, testMsg);
+    if (ok) {
+      return res.json({
+        success: true,
+        message_ar: 'تم إرسال الإشعار التجريبي بنجاح إلى تيليجرام! تفقد هاتفك ✅',
+        message_en: 'Test notification sent successfully to Telegram! Check your phone ✅'
+      });
+    } else {
+      return res.status(400).json({
+        error_ar: 'فشل إرسال الإشعار. تأكد من صحة رمز البوت (Bot Token) وChat ID وأنك قمت ببدء محادثة مع البوت بالضغط على /start',
+        error_en: 'Failed to send notification. Please verify Bot Token & Chat ID and make sure you clicked /start on the bot'
+      });
+    }
+  } catch (e) {
+    console.error('Test telegram error:', e);
+    res.status(500).json({ error: e.message });
   }
 };
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
-import { Settings, Image, Plus, Trash2, Save, Globe, RefreshCw, CheckCircle2, AlertCircle, Activity, Target, BarChart2 } from 'lucide-react';
+import { Settings, Image, Plus, Trash2, Save, Globe, RefreshCw, CheckCircle2, AlertCircle, Activity, Target, BarChart2, Bell, Send, Copy, Check, MessageSquare, Rss, Clock, Zap } from 'lucide-react';
 
 export default function AdminSettings() {
   const { lang, settings, fetchSettings, apiBase } = useApp();
@@ -19,11 +19,26 @@ export default function AdminSettings() {
   const [showVisitorCounter, setShowVisitorCounter] = useState(1);
   const [showOutOfStockOnHome, setShowOutOfStockOnHome] = useState(1);
 
+  // Telegram & WhatsApp Notifications states (Option 1)
+  const [telegramBotToken, setTelegramBotToken] = useState('');
+  const [telegramChatId, setTelegramChatId] = useState('');
+  const [adminWhatsappNumber, setAdminWhatsappNumber] = useState('');
+  const [testingTelegram, setTestingTelegram] = useState(false);
+  const [telegramTestStatus, setTelegramTestStatus] = useState(null);
+
   // Marketing Pixels states
   const [facebookPixelId, setFacebookPixelId] = useState('');
   const [tiktokPixelId, setTiktokPixelId] = useState('');
   const [snapchatPixelId, setSnapchatPixelId] = useState('');
   const [googleAnalyticsId, setGoogleAnalyticsId] = useState('');
+
+  // Automated Multi-Supplier Sync states (Option 5)
+  const [autoSyncEnabled, setAutoSyncEnabled] = useState(1);
+  const [runningFullSync, setRunningFullSync] = useState(false);
+  const [fullSyncResult, setFullSyncResult] = useState(null);
+
+  // Copy URL states for Feeds (Option 4)
+  const [copiedFeed, setCopiedFeed] = useState(null);
 
   // Supplier Catalog Sync states
   const [supplierUrl, setSupplierUrl] = useState('https://drphonewholesale.online');
@@ -72,6 +87,12 @@ export default function AdminSettings() {
       setSnapchatPixelId(settings.snapchat_pixel_id || '');
       setGoogleAnalyticsId(settings.google_analytics_id || '');
       
+      // Option 1 & 5 settings
+      setTelegramBotToken(settings.telegram_bot_token || '');
+      setTelegramChatId(settings.telegram_chat_id || '');
+      setAdminWhatsappNumber(settings.admin_whatsapp_number || '');
+      setAutoSyncEnabled(settings.auto_sync_enabled !== undefined ? settings.auto_sync_enabled : 1);
+      
       // Ensure all loaded banners have unique IDs for stable editing key
       const bannersWithIds = (settings.hero_banners || []).map((b, idx) => ({
         ...b,
@@ -80,6 +101,89 @@ export default function AdminSettings() {
       setBanners(bannersWithIds);
     }
   }, [settings]);
+
+  const handleTestTelegram = async () => {
+    if (!telegramBotToken.trim() || !telegramChatId.trim()) {
+      alert(lang === 'ar' ? 'الرجاء إدخال توكن البوت ومعرف الشات أولاً' : 'Please enter Telegram Bot Token and Chat ID first');
+      return;
+    }
+    setTestingTelegram(true);
+    setTelegramTestStatus(null);
+    try {
+      const res = await fetch(`${apiBase}/notifications/test-telegram`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          bot_token: telegramBotToken.trim(),
+          chat_id: telegramChatId.trim()
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setTelegramTestStatus({
+          success: true,
+          message: lang === 'ar' ? '✅ تم إرسال رسالة تجريبية بنجاح إلى حساب التيليجرام الخاص بك!' : '✅ Test notification sent successfully to your Telegram!'
+        });
+      } else {
+        setTelegramTestStatus({
+          success: false,
+          message: data.error || (lang === 'ar' ? 'فشل إرسال الإشعار. تحقق من صحة التوكن وChat ID وبدء المحادثة مع البوت (/start).' : 'Failed to send test message. Verify Bot Token & Chat ID and start chat with bot (/start).')
+        });
+      }
+    } catch (e) {
+      setTelegramTestStatus({
+        success: false,
+        message: e.message
+      });
+    } finally {
+      setTestingTelegram(false);
+    }
+  };
+
+  const handleCopyFeed = (feedUrl, feedKey) => {
+    const fullUrl = `${window.location.origin}${feedUrl}`;
+    navigator.clipboard.writeText(fullUrl);
+    setCopiedFeed(feedKey);
+    setTimeout(() => setCopiedFeed(null), 3000);
+  };
+
+  const handleRunFullMultiSync = async () => {
+    setRunningFullSync(true);
+    setFullSyncResult(null);
+    try {
+      const res = await fetch(`${apiBase}/sync/run-now`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setFullSyncResult({
+          success: true,
+          data: data
+        });
+        fetchSyncStatus();
+        fetchSettings();
+      } else {
+        setFullSyncResult({
+          success: false,
+          error: data.error || 'Failed to sync'
+        });
+      }
+    } catch (e) {
+      setFullSyncResult({
+        success: false,
+        error: e.message
+      });
+    } finally {
+      setRunningFullSync(false);
+    }
+  };
 
   const handleLogoChange = (e) => {
     setLogoFile(e.target.files[0]);
@@ -188,6 +292,10 @@ export default function AdminSettings() {
     formData.append('tiktok_pixel_id', tiktokPixelId.trim());
     formData.append('snapchat_pixel_id', snapchatPixelId.trim());
     formData.append('google_analytics_id', googleAnalyticsId.trim());
+    formData.append('telegram_bot_token', telegramBotToken.trim());
+    formData.append('telegram_chat_id', telegramChatId.trim());
+    formData.append('admin_whatsapp_number', adminWhatsappNumber.trim());
+    formData.append('auto_sync_enabled', autoSyncEnabled);
     if (logoFile) {
       formData.append('logo', logoFile);
     }
@@ -682,6 +790,413 @@ export default function AdminSettings() {
             </button>
           </div>
         </form>
+      </div>
+
+      {/* 1. Instant Telegram & WhatsApp Order Alerts (Option 1) */}
+      <div className="dashboard-card" style={{ padding: '24px', border: '1px solid var(--border-color)', borderRadius: '16px', background: 'linear-gradient(145deg, var(--bg-secondary) 0%, rgba(14, 165, 233, 0.05) 100%)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ width: '42px', height: '42px', borderRadius: '10px', backgroundColor: 'rgba(14, 165, 233, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0ea5e9' }}>
+              <Bell size={24} />
+            </div>
+            <div>
+              <h4 style={{ fontSize: '1.2rem', fontWeight: '800', margin: 0 }}>
+                {lang === 'ar' ? 'إشعارات الطلبات الفورية عبر تيليجرام وواتساب' : 'Instant Telegram & WhatsApp Order Notifications'}
+              </h4>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', margin: '4px 0 0' }}>
+                {lang === 'ar'
+                  ? 'استقبل تنبيهاً فورياً على التيليجرام بتفاصيل كل طلب جديد مع رابط مباشر للتواصل مع العميل عبر الواتساب'
+                  : 'Receive instant Telegram alerts for every new order with direct 1-tap WhatsApp customer chat link'}
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', fontSize: '0.78rem', fontWeight: '700' }}>
+            <span style={{ padding: '4px 10px', backgroundColor: telegramBotToken && telegramChatId ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-tertiary)', color: telegramBotToken && telegramChatId ? '#10b981' : 'var(--text-light)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              Telegram: {telegramBotToken && telegramChatId ? (lang === 'ar' ? 'مفعّل وجاهز' : 'Connected') : (lang === 'ar' ? 'غير مكتمل' : 'Not configured')}
+            </span>
+            <span style={{ padding: '4px 10px', backgroundColor: adminWhatsappNumber ? 'rgba(34, 197, 94, 0.12)' : 'var(--bg-tertiary)', color: adminWhatsappNumber ? '#22c55e' : 'var(--text-light)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              WhatsApp: {adminWhatsappNumber ? adminWhatsappNumber : (lang === 'ar' ? 'غير محدد' : 'Not set')}
+            </span>
+          </div>
+        </div>
+
+        <form onSubmit={handleSettingsSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
+          <div>
+            <label className="input-label" style={{ fontWeight: '700' }}>
+              {lang === 'ar' ? 'رمز توكن بوت التيليجرام (Telegram Bot Token)' : 'Telegram Bot Token'}
+            </label>
+            <input
+              type="text"
+              className="input-field"
+              placeholder="e.g. 123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
+              value={telegramBotToken}
+              onChange={(e) => setTelegramBotToken(e.target.value)}
+              style={{ direction: 'ltr', textAlign: 'left', fontWeight: '600' }}
+            />
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-light)', marginTop: '4px', display: 'block' }}>
+              {lang === 'ar' ? 'تحصل عليه بإنشاء بوت مجاني عبر @BotFather' : 'Get it by creating a bot via @BotFather'}
+            </span>
+          </div>
+
+          <div>
+            <label className="input-label" style={{ fontWeight: '700' }}>
+              {lang === 'ar' ? 'معرّف الشات الخاص بك (Telegram Chat ID)' : 'Telegram Chat ID'}
+            </label>
+            <input
+              type="text"
+              className="input-field"
+              placeholder="e.g. 123456789"
+              value={telegramChatId}
+              onChange={(e) => setTelegramChatId(e.target.value)}
+              style={{ direction: 'ltr', textAlign: 'left', fontWeight: '600' }}
+            />
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-light)', marginTop: '4px', display: 'block' }}>
+              {lang === 'ar' ? 'معرف حسابك الشخصي أو القروب (احصل عليه من @userinfobot)' : 'Your Chat or Group ID (get from @userinfobot)'}
+            </span>
+          </div>
+
+          <div>
+            <label className="input-label" style={{ fontWeight: '700' }}>
+              {lang === 'ar' ? 'رقم هاتف الواتساب للإدارة (Admin WhatsApp Number)' : 'Admin WhatsApp Number'}
+            </label>
+            <input
+              type="text"
+              className="input-field"
+              placeholder="96170123456"
+              value={adminWhatsappNumber}
+              onChange={(e) => setAdminWhatsappNumber(e.target.value)}
+              style={{ direction: 'ltr', textAlign: 'left', fontWeight: '600' }}
+            />
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-light)', marginTop: '4px', display: 'block' }}>
+              {lang === 'ar' ? 'مع الرمز الدولي بدون إشارة + (مثال: 96170123456)' : 'With country code without + (e.g. 96170123456)'}
+            </span>
+          </div>
+
+          <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginTop: '6px' }}>
+            <button
+              type="submit"
+              className="input-field"
+              style={{
+                width: 'auto',
+                padding: '10px 22px',
+                backgroundColor: 'var(--accent-blue)',
+                color: 'white',
+                border: 'none',
+                fontWeight: '700',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <Save size={16} />
+              <span>{lang === 'ar' ? 'حفظ إعدادات الإشعارات' : 'Save Notification Settings'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleTestTelegram}
+              disabled={testingTelegram || !telegramBotToken || !telegramChatId}
+              className="input-field"
+              style={{
+                width: 'auto',
+                padding: '10px 20px',
+                backgroundColor: !telegramBotToken || !telegramChatId ? 'var(--bg-tertiary)' : '#0ea5e9',
+                color: !telegramBotToken || !telegramChatId ? 'var(--text-light)' : 'white',
+                border: 'none',
+                fontWeight: '700',
+                cursor: !telegramBotToken || !telegramChatId || testingTelegram ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <Send size={16} />
+              <span>
+                {testingTelegram 
+                  ? (lang === 'ar' ? 'جاري إرسال إشعار تجريبي...' : 'Sending Test...') 
+                  : (lang === 'ar' ? 'إرسال إشعار تجريبي للتيليجرام' : 'Test Telegram Alert')}
+              </span>
+            </button>
+          </div>
+        </form>
+
+        {/* Telegram Test Alert Result */}
+        {telegramTestStatus && (
+          <div style={{
+            marginTop: '16px',
+            padding: '12px 16px',
+            borderRadius: '10px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            backgroundColor: telegramTestStatus.success ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+            border: `1px solid ${telegramTestStatus.success ? '#10b981' : '#ef4444'}`,
+            color: telegramTestStatus.success ? '#10b981' : '#ef4444',
+            fontSize: '0.88rem',
+            fontWeight: '700'
+          }}>
+            {telegramTestStatus.success ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
+            <span>{telegramTestStatus.message}</span>
+          </div>
+        )}
+      </div>
+
+      {/* 2. Automated Product Feeds for Meta, Google & TikTok (Option 4) */}
+      <div className="dashboard-card" style={{ padding: '24px', border: '1px solid var(--border-color)', borderRadius: '16px', background: 'linear-gradient(145deg, var(--bg-secondary) 0%, rgba(245, 158, 11, 0.05) 100%)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ width: '42px', height: '42px', borderRadius: '10px', backgroundColor: 'rgba(245, 158, 11, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f59e0b' }}>
+              <Rss size={24} />
+            </div>
+            <div>
+              <h4 style={{ fontSize: '1.2rem', fontWeight: '800', margin: 0 }}>
+                {lang === 'ar' ? 'خلاصات الكتالوج التلقائية للإعلانات (Product Feeds)' : 'Automated Product Catalog Feeds'}
+              </h4>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', margin: '4px 0 0' }}>
+                {lang === 'ar'
+                  ? 'روابط خلاصات الكتالوج المحدثة تلقائياً للربط المباشر مع حملات إعلانات فيسبوك، جوجل شوبينغ، وتيك توك'
+                  : 'Live automated XML & CSV catalog feeds for Meta Commerce, Google Merchant, and TikTok Ads'}
+              </p>
+            </div>
+          </div>
+
+          <span style={{ padding: '4px 10px', backgroundColor: 'rgba(16, 185, 129, 0.12)', color: '#10b981', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '0.78rem', fontWeight: '700' }}>
+            {lang === 'ar' ? 'جاهزة ومولّدة بالكامل' : 'Ready & Live'}
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Feed 1: Meta / Facebook */}
+          <div style={{ backgroundColor: 'var(--bg-primary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <span style={{ fontWeight: '800', color: '#3b82f6', fontSize: '0.95rem' }}>
+                1. Meta / Facebook & Instagram Catalog (XML / RSS)
+              </span>
+              <span style={{ fontSize: '0.72rem', backgroundColor: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', padding: '2px 8px', borderRadius: '6px', fontWeight: '700' }}>
+                Meta Commerce Manager
+              </span>
+            </div>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', margin: '0 0 8px' }}>
+              {lang === 'ar'
+                ? 'انسخ هذا الرابط وأضفه كمصدر بيانات تلقائي مجدول في Meta Commerce Manager لإنشاء إعلانات المنتجات الديناميكية (DPA)'
+                : 'Paste this scheduled data feed URL into Meta Commerce Manager for Dynamic Product Ads (DPA)'}
+            </p>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="text"
+                readOnly
+                className="input-field"
+                value={typeof window !== 'undefined' ? `${window.location.origin}/api/feeds/facebook.xml` : '/api/feeds/facebook.xml'}
+                style={{ direction: 'ltr', textAlign: 'left', fontWeight: '600', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+              />
+              <button
+                type="button"
+                onClick={() => handleCopyFeed('/api/feeds/facebook.xml', 'fb')}
+                className="input-field"
+                style={{ width: 'auto', padding: '8px 16px', backgroundColor: copiedFeed === 'fb' ? '#10b981' : '#3b82f6', color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700', flexShrink: 0 }}
+              >
+                {copiedFeed === 'fb' ? <Check size={16} /> : <Copy size={16} />}
+                <span>{copiedFeed === 'fb' ? (lang === 'ar' ? 'تم النسخ!' : 'Copied!') : (lang === 'ar' ? 'نسخ الرابط' : 'Copy Feed')}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Feed 2: Google Merchant Center */}
+          <div style={{ backgroundColor: 'var(--bg-primary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <span style={{ fontWeight: '800', color: '#10b981', fontSize: '0.95rem' }}>
+                2. Google Merchant Center & Shopping Feed (XML / RSS)
+              </span>
+              <span style={{ fontSize: '0.72rem', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '2px 8px', borderRadius: '6px', fontWeight: '700' }}>
+                Google Shopping
+              </span>
+            </div>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', margin: '0 0 8px' }}>
+              {lang === 'ar'
+                ? 'انسخ الرابط وضعه في Google Merchant Center > Feeds لعرض منتجاتك مجاناً وبإعلانات Google Shopping'
+                : 'Paste into Google Merchant Center > Feeds for Google Shopping Ads and Free Listings'}
+            </p>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="text"
+                readOnly
+                className="input-field"
+                value={typeof window !== 'undefined' ? `${window.location.origin}/api/feeds/google.xml` : '/api/feeds/google.xml'}
+                style={{ direction: 'ltr', textAlign: 'left', fontWeight: '600', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+              />
+              <button
+                type="button"
+                onClick={() => handleCopyFeed('/api/feeds/google.xml', 'google')}
+                className="input-field"
+                style={{ width: 'auto', padding: '8px 16px', backgroundColor: copiedFeed === 'google' ? '#10b981' : '#10b981', color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700', flexShrink: 0 }}
+              >
+                {copiedFeed === 'google' ? <Check size={16} /> : <Copy size={16} />}
+                <span>{copiedFeed === 'google' ? (lang === 'ar' ? 'تم النسخ!' : 'Copied!') : (lang === 'ar' ? 'نسخ الرابط' : 'Copy Feed')}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Feed 3: TikTok Catalog CSV */}
+          <div style={{ backgroundColor: 'var(--bg-primary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <span style={{ fontWeight: '800', color: 'var(--text-primary)', fontSize: '0.95rem' }}>
+                3. TikTok Ads Catalog Feed (CSV Format)
+              </span>
+              <span style={{ fontSize: '0.72rem', backgroundColor: 'rgba(0, 0, 0, 0.08)', color: 'var(--text-primary)', padding: '2px 8px', borderRadius: '6px', fontWeight: '700' }}>
+                TikTok Ads Manager
+              </span>
+            </div>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', margin: '0 0 8px' }}>
+              {lang === 'ar'
+                ? 'انسخ الرابط إلى TikTok Ads Manager > Assets > Catalogs لإطلاق إعلانات المنتجات التفاعلية على تيك توك'
+                : 'Paste into TikTok Ads Manager > Assets > Catalogs for TikTok Shopping and Collection Ads'}
+            </p>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="text"
+                readOnly
+                className="input-field"
+                value={typeof window !== 'undefined' ? `${window.location.origin}/api/feeds/tiktok.csv` : '/api/feeds/tiktok.csv'}
+                style={{ direction: 'ltr', textAlign: 'left', fontWeight: '600', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+              />
+              <button
+                type="button"
+                onClick={() => handleCopyFeed('/api/feeds/tiktok.csv', 'tiktok')}
+                className="input-field"
+                style={{ width: 'auto', padding: '8px 16px', backgroundColor: copiedFeed === 'tiktok' ? '#10b981' : '#1f2937', color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '700', flexShrink: 0 }}
+              >
+                {copiedFeed === 'tiktok' ? <Check size={16} /> : <Copy size={16} />}
+                <span>{copiedFeed === 'tiktok' ? (lang === 'ar' ? 'تم النسخ!' : 'Copied!') : (lang === 'ar' ? 'نسخ الرابط' : 'Copy Feed')}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Scheduled Automated Multi-Supplier Catalog Sync (Option 5) */}
+      <div className="dashboard-card" style={{ padding: '24px', border: '1px solid var(--border-color)', borderRadius: '16px', background: 'linear-gradient(145deg, var(--bg-secondary) 0%, rgba(139, 92, 246, 0.05) 100%)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ width: '42px', height: '42px', borderRadius: '10px', backgroundColor: 'rgba(139, 92, 246, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8b5cf6' }}>
+              <Clock size={24} />
+            </div>
+            <div>
+              <h4 style={{ fontSize: '1.2rem', fontWeight: '800', margin: 0 }}>
+                {lang === 'ar' ? 'المزامنة التلقائية المجدولة لجميع الموردين (Cron Job)' : 'Automated Scheduled Multi-Supplier Sync'}
+              </h4>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-light)', margin: '4px 0 0' }}>
+                {lang === 'ar'
+                  ? 'مزامنة وتحديث يومي تلقائي للأسعار والمخزون والمنتجات الجديدة من الموردين (عبد الغني، Deal.com، DrPhone)'
+                  : 'Automated daily synchronization of prices, stock, and new products from Abdul Ghani, Deal.com, and DrPhone'}
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', fontSize: '0.78rem', fontWeight: '700' }}>
+            <span style={{ padding: '4px 10px', backgroundColor: 'rgba(139, 92, 246, 0.12)', color: '#8b5cf6', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              {lang === 'ar' ? 'الجدول: يومياً الساعة 04:00 صباحاً (UTC)' : 'Schedule: Daily at 04:00 AM UTC'}
+            </span>
+            <span style={{ padding: '4px 10px', backgroundColor: autoSyncEnabled ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)', color: autoSyncEnabled ? '#10b981' : '#ef4444', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              {autoSyncEnabled ? (lang === 'ar' ? 'المزامنة التلقائية مفعلة' : 'Auto-Sync Active') : (lang === 'ar' ? 'معطلة' : 'Disabled')}
+            </span>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+          <div>
+            <label className="input-label" style={{ fontWeight: '700' }}>
+              {lang === 'ar' ? 'حالة المزامنة التلقائية المجدولة' : 'Automated Sync Status'}
+            </label>
+            <select
+              className="input-field"
+              value={autoSyncEnabled}
+              onChange={(e) => setAutoSyncEnabled(parseInt(e.target.value))}
+            >
+              <option value={1}>{lang === 'ar' ? 'مفعّل - مزامنة الكتالوجات يومياً تلقائياً' : 'Enabled - Daily Auto Sync'}</option>
+              <option value={0}>{lang === 'ar' ? 'إيقاف المزامنة التلقائية' : 'Disabled'}</option>
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+            <button
+              type="button"
+              onClick={handleRunFullMultiSync}
+              disabled={runningFullSync}
+              className="input-field"
+              style={{
+                backgroundColor: runningFullSync ? 'var(--text-light)' : '#8b5cf6',
+                color: 'white',
+                border: 'none',
+                fontWeight: '800',
+                cursor: runningFullSync ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                padding: '10px 20px',
+                boxShadow: runningFullSync ? 'none' : '0 4px 14px rgba(139, 92, 246, 0.35)',
+                transition: 'all 0.2s'
+              }}
+            >
+              <RefreshCw size={18} style={{ animation: runningFullSync ? 'spin 1s linear infinite' : 'none' }} />
+              <span>
+                {runningFullSync 
+                  ? (lang === 'ar' ? 'جاري مزامنة كافة الموردين الآن...' : 'Syncing All Suppliers...') 
+                  : (lang === 'ar' ? 'تشغيل المزامنة الشاملة لكافة الموردين الآن' : 'Run Full Multi-Supplier Sync Now')}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Sync Summary Result Banner */}
+        {fullSyncResult && (
+          <div style={{
+            marginTop: '16px',
+            padding: '16px',
+            borderRadius: '12px',
+            backgroundColor: fullSyncResult.success ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+            border: `1px solid ${fullSyncResult.success ? '#10b981' : '#ef4444'}`,
+            fontSize: '0.88rem'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '800', color: fullSyncResult.success ? '#10b981' : '#ef4444', marginBottom: '8px' }}>
+              {fullSyncResult.success ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+              <span>{fullSyncResult.success ? (lang === 'ar' ? 'تمت المزامنة الشاملة لجميع الموردين بنجاح!' : 'Full Multi-Supplier Sync Completed Successfully!') : fullSyncResult.error}</span>
+            </div>
+
+            {fullSyncResult.data?.results && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', marginTop: '10px' }}>
+                <div style={{ backgroundColor: 'var(--bg-primary)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <strong style={{ display: 'block', color: 'var(--accent-blue)', marginBottom: '4px' }}>🏢 Abdul Ghani Trading:</strong>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>
+                    {fullSyncResult.data.results.abdulGhani?.success 
+                      ? (lang === 'ar' ? `المعالج: ${fullSyncResult.data.results.abdulGhani.processed}، المضاف: ${fullSyncResult.data.results.abdulGhani.inserted}، المحدث: ${fullSyncResult.data.results.abdulGhani.updated}` : `Processed: ${fullSyncResult.data.results.abdulGhani.processed}, New: ${fullSyncResult.data.results.abdulGhani.inserted}, Updated: ${fullSyncResult.data.results.abdulGhani.updated}`)
+                      : 'Skipped / Error'}
+                  </span>
+                </div>
+
+                <div style={{ backgroundColor: 'var(--bg-primary)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <strong style={{ display: 'block', color: '#f59e0b', marginBottom: '4px' }}>🛒 Deal.com:</strong>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>
+                    {fullSyncResult.data.results.dealCom?.success 
+                      ? (lang === 'ar' ? `المعالج: ${fullSyncResult.data.results.dealCom.processed}، المضاف: ${fullSyncResult.data.results.dealCom.inserted}، المحدث: ${fullSyncResult.data.results.dealCom.updated}` : `Processed: ${fullSyncResult.data.results.dealCom.processed}, New: ${fullSyncResult.data.results.dealCom.inserted}, Updated: ${fullSyncResult.data.results.dealCom.updated}`)
+                      : 'Skipped / Error'}
+                  </span>
+                </div>
+
+                <div style={{ backgroundColor: 'var(--bg-primary)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <strong style={{ display: 'block', color: '#8b5cf6', marginBottom: '4px' }}>📱 DrPhone Wholesale:</strong>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>
+                    {fullSyncResult.data.results.drPhone?.success 
+                      ? (lang === 'ar' ? `المعالج: ${fullSyncResult.data.results.drPhone.processed}، المضاف: ${fullSyncResult.data.results.drPhone.inserted}، المحدث: ${fullSyncResult.data.results.drPhone.updated}` : `Processed: ${fullSyncResult.data.results.drPhone.processed}, New: ${fullSyncResult.data.results.drPhone.inserted}, Updated: ${fullSyncResult.data.results.drPhone.updated}`)
+                      : 'Skipped / Error'}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Infinite Banners Slider Settings */}

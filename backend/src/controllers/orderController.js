@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { notifyAdminNewOrder } = require('../utils/notificationService');
 
 exports.createOrder = async (req, res) => {
   const { phone, address, items, coupon_code, payment_method, notes } = req.body;
@@ -170,10 +171,26 @@ exports.createOrder = async (req, res) => {
       await db.runAsync('DELETE FROM user_carts WHERE user_id = ?', [userId]).catch(() => {});
     }
 
+    // Trigger Instant Admin Notification (Telegram + WhatsApp)
+    const notifResult = await notifyAdminNewOrder({
+      orderId: result.lastID,
+      trackingNumber,
+      customerName: userRecord?.full_name || userName,
+      customerPhone: phone,
+      address,
+      items: orderItemsDetails,
+      totalUsd,
+      totalLbp,
+      deliveryFeeUsd,
+      paymentMethod: payment_method || 'COD',
+      notes: notes || ''
+    }).catch(e => console.error('Notification error:', e));
+
     res.status(201).json({
       message_ar: 'تم تسجيل طلبيتك بنجاح!',
       message_en: 'Your order was successfully registered!',
       tracking_number: trackingNumber,
+      whatsapp_chat_url: notifResult?.whatsappLink || '',
       order: {
         id: result.lastID,
         total_usd: totalUsd,

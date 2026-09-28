@@ -153,16 +153,21 @@ router.get('/deal/status', async (req, res) => {
     const dealProducts = dealMerchant ? await db.getAsync("SELECT count(*) as c FROM products WHERE merchant_id = ?", [dealMerchant.id]) : { c: 0 };
     const total = await db.getAsync("SELECT count(*) as c FROM products");
     const categoriesCount = await db.getAsync("SELECT count(*) as c FROM categories");
-    res.json({
-      merchant: 'Deal.com.lb',
-      dealProductsCount: dealProducts ? dealProducts.c : 0,
-      totalStoreProducts: total ? total.c : 0,
-      totalCategories: categoriesCount ? categoriesCount.c : 0,
-      activeMarkup: '18%'
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// --- Marketing & Product Feeds for Meta, Google & TikTok ---
+const feedController = require('../controllers/feedController');
+router.get('/feeds/facebook.xml', feedController.getFacebookFeed);
+router.get('/feeds/facebook', feedController.getFacebookFeed);
+router.get('/feeds/google.xml', feedController.getGoogleFeed);
+router.get('/feeds/google', feedController.getGoogleFeed);
+router.get('/feeds/tiktok.csv', feedController.getTikTokFeed);
+router.get('/feeds/tiktok', feedController.getTikTokFeed);
+
+// --- Automated Scheduled Sync & Cron Routes ---
+const syncCronController = require('../controllers/syncCronController');
+router.get('/sync/cron', syncCronController.runCronSync);
+router.post('/sync/run-now', authenticateToken, requirePermission('settings'), syncCronController.runCronSync);
+
+// --- Telegram Test Notification Route ---
+router.post('/notifications/test-telegram', authenticateToken, requirePermission('settings'), settingsController.testTelegramNotification);
 
 module.exports = router;
