@@ -114,46 +114,70 @@
       ]
     }
     </script>
-    <!-- Firebase App & Authentication SDK -->
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-    <script>
-      try {
-        const firebaseConfig = {
-          apiKey: "AIzaSyBEvA7fHjgtGNNOSqE8R6dZi8kgFnMuqYA",
-          authDomain: "arz-mart.firebaseapp.com",
-          projectId: "arz-mart",
-          storageBucket: "arz-mart.firebasestorage.app",
-          messagingSenderId: "815498761618",
-          appId: "1:815498761618:web:2123c74f829278e10e5d4b"
-        };
-        if (typeof firebase !== 'undefined' && (!firebase.apps || firebase.apps.length === 0)) {
-          firebase.initializeApp(firebaseConfig);
-        }
-      } catch (e) {
-        console.warn('Firebase init:', e);
+    <style>
+      /* Instant Native-App Splash Screen */
+      #app-splash {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background-color: #0f172a;
+        color: #ffffff;
+        font-family: 'Cairo', system-ui, -apple-system, sans-serif;
+        z-index: 99999;
+        transition: opacity 0.3s ease;
       }
-    </script>
-    <script>
-      // Clear legacy service worker caches automatically
-      try {
-        const CURRENT_APP_VER = 'arz-mart-v13';
-        if (localStorage.getItem('arz_app_ver') !== CURRENT_APP_VER) {
-          localStorage.setItem('arz_app_ver', CURRENT_APP_VER);
-          if ('caches' in window) {
-            caches.keys().then(names => names.forEach(n => caches.delete(n)));
-          }
-          if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(regs => {
-              regs.forEach(r => r.unregister());
-            });
-          }
-        }
-      } catch (e) {}
-    </script>
+      .splash-logo {
+        width: 84px;
+        height: 84px;
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        margin-bottom: 18px;
+        animation: pulseLogo 2s infinite ease-in-out;
+      }
+      .splash-title {
+        font-size: 1.4rem;
+        font-weight: 800;
+        letter-spacing: -0.5px;
+        margin: 0 0 6px 0;
+        background: linear-gradient(135deg, #60a5fa 0%, #38bdf8 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .splash-subtitle {
+        font-size: 0.85rem;
+        color: #94a3b8;
+        margin: 0 0 24px 0;
+      }
+      .splash-spinner {
+        width: 28px;
+        height: 28px;
+        border: 3px solid rgba(255, 255, 255, 0.1);
+        border-top-color: #38bdf8;
+        border-radius: 50%;
+        animation: spinSplash 0.8s linear infinite;
+      }
+      @keyframes spinSplash {
+        to { transform: rotate(360deg); }
+      }
+      @keyframes pulseLogo {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+      }
+    </style>
   </head>
-  <body>
-    <div id="root"></div>
+  <body style="margin: 0; background-color: #0f172a;">
+    <div id="root">
+      <!-- Instant Branded Splash Screen (Replaced automatically by React) -->
+      <div id="app-splash">
+        <img src="/logo.png" alt="ArzMart" class="splash-logo" onerror="this.style.display='none'" />
+        <h1 class="splash-title">ArzMart | أرز مارت</h1>
+        <p class="splash-subtitle">جاري تجهيز المتجر وتحميل المنتجات...</p>
+        <div class="splash-spinner"></div>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

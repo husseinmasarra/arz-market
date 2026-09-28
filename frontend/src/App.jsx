@@ -52,13 +52,15 @@ export default function App() {
   const { isChatOpen, setIsChatOpen } = useChat();
 
   const [currentView, setCurrentView] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    const viewParam = params.get('view');
-    if (viewParam) return viewParam;
-    const path = window.location.pathname.toLowerCase();
-    if (path.includes('privacy')) return 'privacy';
-    if (path.includes('terms')) return 'terms';
-    if (path.includes('delete-account') || path.includes('account-deletion')) return 'delete-account';
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const viewParam = params.get('view');
+      if (viewParam) return viewParam;
+      const path = window.location.pathname.toLowerCase();
+      if (path.includes('privacy')) return 'privacy';
+      if (path.includes('terms')) return 'terms';
+      if (path.includes('delete-account') || path.includes('account-deletion')) return 'delete-account';
+    } catch (e) {}
     return 'store';
   });
 
@@ -72,8 +74,12 @@ export default function App() {
   const [searchVal, setSearchVal] = useState('');
   const [searchCategoryFilter, setSearchCategoryFilter] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get('category_id') || params.get('category') || '';
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('category_id') || params.get('category') || '';
+    } catch (e) {
+      return '';
+    }
   });
   // Hierarchical category: when user clicks a parent, we show its children
   const [selectedParentCategory, setSelectedParentCategory] = useState(null);

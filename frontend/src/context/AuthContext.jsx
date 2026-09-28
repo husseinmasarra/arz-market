@@ -3,9 +3,30 @@ import { useApp } from './AppContext';
 
 const AuthContext = createContext();
 
+function safeGetItem(key, fallback = null) {
+  try {
+    const val = localStorage.getItem(key);
+    return val !== null ? val : fallback;
+  } catch (e) {
+    return fallback;
+  }
+}
+
+function safeSetItem(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch (e) {}
+}
+
+function safeRemoveItem(key) {
+  try {
+    localStorage.removeItem(key);
+  } catch (e) {}
+}
+
 export const AuthProvider = ({ children }) => {
   const { apiBase } = useApp();
-  const [token, setToken] = useState(localStorage.getItem('token') || null);
+  const [token, setToken] = useState(() => safeGetItem('token', null));
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -52,7 +73,7 @@ export const AuthProvider = ({ children }) => {
 
     setToken(data.token);
     setUser(data.user);
-    localStorage.setItem('token', data.token);
+    safeSetItem('token', data.token);
     return data;
   };
 
@@ -71,7 +92,7 @@ export const AuthProvider = ({ children }) => {
     if (data.token) {
       setToken(data.token);
       setUser(data.user);
-      localStorage.setItem('token', data.token);
+      safeSetItem('token', data.token);
     }
 
     return data;
@@ -92,7 +113,7 @@ export const AuthProvider = ({ children }) => {
 
     setToken(data.token);
     setUser(data.user);
-    localStorage.setItem('token', data.token);
+    safeSetItem('token', data.token);
     return data;
   };
 
@@ -110,14 +131,14 @@ export const AuthProvider = ({ children }) => {
 
     setToken(data.token);
     setUser(data.user);
-    localStorage.setItem('token', data.token);
+    safeSetItem('token', data.token);
     return data;
   };
 
   const logout = () => {
     setToken(null);
     setUser(null);
-    localStorage.removeItem('token');
+    safeRemoveItem('token');
   };
 
   const hasPermission = (permission) => {

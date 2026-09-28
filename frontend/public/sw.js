@@ -1,61 +1,91 @@
-const CACHE_NAME = 'arz-mart-cache-v16';
+const CACHE_NAME = 'arzmart-pwa-v17';
+const OFFLINE_URL = '/index.html';
 
-// Install Event - skip waiting immediately
+const PRECACHE_ASSETS = [
+  '/',
+  '/index.html',
+  '/manifest.json',
+  '/favicon.png',
+  '/logo.png'
+];
+
+// Install Event - Pre-cache essential app shell
 self.addEventListener('install', (event) => {
-  self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(PRECACHE_ASSETS).catch((err) => {
+        console.warn('[SW] Precache issue:', err);
+      });
+    }).then(() => self.skipWaiting())
+  );
 });
 
-// Activate Event - clean up all previous caches and claim clients immediately
+// Activate Event - Clean old caches and claim clients
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
+            console.log('[SW] Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
-    }).then(() => self.clients.claim()).then(() => {
-      return self.clients.matchAll({ type: 'window' }).then(clients => {
-        clients.forEach(client => {
-          client.postMessage({ type: 'RELOAD_NEW_VERSION' });
-        });
-      });
-    })
+    }).then(() => self.clients.claim())
   );
 });
 
-// Fetch Event
-// Completely bypass Service Worker for HTML navigation so subpages and tabs NEVER fail with ERR_FAILED
+// Fetch Event - Smart caching
 self.addEventListener('fetch', (event) => {
-  // Let the browser natively handle all HTML/page navigations, non-GET requests, and API calls
-  if (
-    event.request.mode === 'navigate' ||
-    event.request.headers.get('accept')?.includes('text/html') ||
-    event.request.method !== 'GET' ||
-    event.request.url.includes('/api/') ||
-    !event.request.url.startsWith(self.location.origin)
-  ) {
+  const request = event.request;
+
+  // 1. Ignore non-GET requests and external URLs
+  if (request.method !== 'GET' || !request.url.startsWith(self.location.origin)) {
     return;
   }
 
-  // Network first for scripts/styles, cache fallback
+  // 2. Ignore API calls (always live network)
+  if (request.url.includes('/api/')) {
+    return;
+  }
+
+  // 3. Navigation requests (HTML page visits / PWA launch)
+  if (request.mode === 'navigate' || request.headers.get('accept')?.includes('text/html')) {
+    event.respondWith(
+      fetch(request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)).catch(() => {});
+          }
+          return networkResponse;
+        })
+        .catch(() => {
+          // If offline or network fails on PWA launch, return cached index.html app shell
+          return caches.match(OFFLINE_URL).then((cached) => {
+            return cached || caches.match('/') || new Response('Network Error', { status: 503 });
+          });
+        })
+    );
+    return;
+  }
+
+  // 4. Static assets (JS, CSS, images, fonts)
+  // Stale-while-revalidate / Cache-first
   event.respondWith(
-    fetch(event.request)
-      .then((networkResponse) => {
-        if (networkResponse && networkResponse.status === 200) {
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          }).catch(() => {});
-        }
-        return networkResponse;
-      })
-      .catch(() => {
-        return caches.match(event.request).then((cached) => {
-          return cached || new Response('', { status: 404, statusText: 'Not Found' });
-        });
-      })
+    caches.match(request).then((cachedResponse) => {
+      const fetchPromise = fetch(request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)).catch(() => {});
+          }
+          return networkResponse;
+        })
+        .catch(() => cachedResponse);
+
+      return cachedResponse || fetchPromise;
+    })
   );
 });

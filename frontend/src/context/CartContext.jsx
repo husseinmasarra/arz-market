@@ -29,6 +29,21 @@ export function getOptionPrice(optionItem, basePrice) {
   return basePrice;
 }
 
+function safeGetItem(key, fallback = null) {
+  try {
+    const val = localStorage.getItem(key);
+    return val !== null ? val : fallback;
+  } catch (e) {
+    return fallback;
+  }
+}
+
+function safeSetItem(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch (e) {}
+}
+
 export const CartProvider = ({ children }) => {
   const { settings, apiBase } = useApp();
   const { user } = useAuth();
@@ -41,7 +56,7 @@ export const CartProvider = ({ children }) => {
   const [orderNotes, setOrderNotes] = useState('');
 
   useEffect(() => {
-    const localData = localStorage.getItem(cartKey);
+    const localData = safeGetItem(cartKey);
     if (localData) {
       try {
         setCartItems(JSON.parse(localData));
@@ -54,7 +69,7 @@ export const CartProvider = ({ children }) => {
       setLoadedKey(cartKey);
 
       // If logged-in user has no local cart, check backend for saved cart
-      const token = localStorage.getItem('token');
+      const token = safeGetItem('token');
       if (user && token && apiBase) {
         fetch(`${apiBase}/cart/my-cart`, {
           headers: { 'Authorization': `Bearer ${token}` }
@@ -87,7 +102,7 @@ export const CartProvider = ({ children }) => {
 
   useEffect(() => {
     if (loadedKey === cartKey) {
-      localStorage.setItem(cartKey, JSON.stringify(cartItems));
+      safeSetItem(cartKey, JSON.stringify(cartItems));
     }
   }, [cartItems, cartKey, loadedKey]);
 

@@ -202,10 +202,25 @@ const translations = {
   }
 };
 
+function safeGetItem(key, fallback = null) {
+  try {
+    const val = localStorage.getItem(key);
+    return val !== null ? val : fallback;
+  } catch (e) {
+    return fallback;
+  }
+}
+
+function safeSetItem(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch (e) {}
+}
+
 export const AppProvider = ({ children }) => {
-  const [lang, setLang] = useState(localStorage.getItem('lang') || 'en');
-  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
-  const [currency, setCurrency] = useState(localStorage.getItem('currency') || 'USD'); // 'USD' or 'LBP'
+  const [lang, setLang] = useState(() => safeGetItem('lang', 'ar'));
+  const [theme, setTheme] = useState(() => safeGetItem('theme', 'light'));
+  const [currency, setCurrency] = useState(() => safeGetItem('currency', 'USD')); // 'USD' or 'LBP'
   const [settings, setSettings] = useState({
     app_name: 'Arz-Mart',
     logo_url: '',
@@ -240,34 +255,40 @@ export const AppProvider = ({ children }) => {
 
   // Update layout direction based on language
   useEffect(() => {
-    const root = window.document.documentElement;
-    if (lang === 'ar') {
-      root.classList.add('rtl');
-      root.classList.remove('ltr');
-      root.dir = 'rtl';
-    } else {
-      root.classList.add('ltr');
-      root.classList.remove('rtl');
-      root.dir = 'ltr';
-    }
-    localStorage.setItem('lang', lang);
+    try {
+      const root = window.document.documentElement;
+      if (lang === 'ar') {
+        root.classList.add('rtl');
+        root.classList.remove('ltr');
+        root.dir = 'rtl';
+      } else {
+        root.classList.add('ltr');
+        root.classList.remove('rtl');
+        root.dir = 'ltr';
+      }
+      safeSetItem('lang', lang);
+    } catch (e) {}
   }, [lang]);
 
   // Update theme class
   useEffect(() => {
-    const root = window.document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
-    localStorage.setItem('theme', theme);
+    try {
+      const root = window.document.documentElement;
+      if (theme === 'dark') {
+        root.classList.add('dark');
+        root.classList.remove('light');
+      } else {
+        root.classList.add('light');
+        root.classList.remove('dark');
+      }
+      safeSetItem('theme', theme);
+    } catch (e) {}
   }, [theme]);
 
   // Toggle currency
   const toggleCurrency = (cur) => {
     setCurrency(cur);
-    localStorage.setItem('currency', cur);
+    safeSetItem('currency', cur);
   };
 
   // Translation helper
