@@ -4,6 +4,7 @@ import { useAuth } from './context/AuthContext';
 import { useCart } from './context/CartContext';
 import { useChat } from './context/ChatContext';
 import Header from './components/Header';
+import TopAnnouncementBar from './components/TopAnnouncementBar';
 import Hero from './components/Hero';
 import ProductCard from './components/ProductCard';
 import ProductDetails from './components/ProductDetails';
@@ -137,20 +138,29 @@ export default function App() {
     }
   };
 
-  const fetchCategories = async () => {
+  const [loadingCategories, setLoadingCategories] = useState(false);
+
+  const fetchCategories = async (retryCount = 0) => {
     try {
-      const res = await fetch(`${apiBase}/categories`);
+      setLoadingCategories(true);
+      const res = await fetch(`${apiBase}/categories?_t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data)) {
+        if (Array.isArray(data) && data.length > 0) {
           setCategories(data.filter(c => c && c.active !== 0));
-        } else {
-          setCategories([]);
+        } else if (retryCount < 3) {
+          setTimeout(() => fetchCategories(retryCount + 1), 1200);
         }
+      } else if (retryCount < 3) {
+        setTimeout(() => fetchCategories(retryCount + 1), 1200);
       }
     } catch (err) {
       console.error('Fetch categories client error:', err);
-      setCategories([]);
+      if (retryCount < 3) {
+        setTimeout(() => fetchCategories(retryCount + 1), 1200);
+      }
+    } finally {
+      setLoadingCategories(false);
     }
   };
 
@@ -549,6 +559,9 @@ export default function App() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       
+      {/* Top Animated Bilingual Offers & Shipping Bar */}
+      <TopAnnouncementBar onOpenAuth={() => setCurrentView('login')} />
+
       {/* 1. Header Navigation */}
       <Header 
         currentView={currentView} 
@@ -1093,7 +1106,58 @@ export default function App() {
                   gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
                   gap: '24px'
                 }}>
-                  {(Array.isArray(categories) ? categories : []).filter(c => c && !c.parent_id).map((cat) => {
+                  {loadingCategories && (!categories || categories.length === 0) && (
+                    [1, 2, 3, 4, 5, 6].map(n => (
+                      <div
+                        key={n}
+                        className="animate-pulse"
+                        style={{
+                          height: '240px',
+                          borderRadius: '18px',
+                          backgroundColor: 'var(--bg-secondary)',
+                          border: '1px solid var(--border-color)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'var(--text-light)',
+                          fontSize: '0.9rem'
+                        }}
+                      >
+                        {lang === 'ar' ? 'جاري تحميل القسم...' : 'Loading category...'}
+                      </div>
+                    ))
+                  )}
+
+                  {(!loadingCategories && (!categories || categories.length === 0)) && (
+                    <div style={{
+                      gridColumn: '1 / -1',
+                      textAlign: 'center',
+                      padding: '40px 20px',
+                      backgroundColor: 'var(--bg-secondary)',
+                      borderRadius: '16px',
+                      border: '1px solid var(--border-color)'
+                    }}>
+                      <p style={{ color: 'var(--text-light)', marginBottom: '16px', fontWeight: '600' }}>
+                        {lang === 'ar' ? 'لم يتم تحميل الأقسام بعد أو انتهت مهلة الاتصال.' : 'Categories not loaded yet or connection timed out.'}
+                      </p>
+                      <button
+                        onClick={() => fetchCategories()}
+                        className="input-field"
+                        style={{
+                          maxWidth: '220px',
+                          margin: '0 auto',
+                          backgroundColor: 'var(--accent-blue)',
+                          color: 'white',
+                          fontWeight: '700',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {lang === 'ar' ? '🔄 إعادة تحميل الأقسام' : '🔄 Reload Categories'}
+                      </button>
+                    </div>
+                  )}
+
+                  {(Array.isArray(categories) ? categories : []).filter(c => c && (c.parent_id === null || c.parent_id === undefined || c.parent_id === 0 || c.parent_id === 'null' || c.parent_id === '')).map((cat) => {
                     const catName = getCategoryName(cat, lang);
                     const subcategories = (Array.isArray(categories) ? categories : []).filter(c => c && String(c.parent_id) === String(cat.id));
                     const subCount = subcategories.length;

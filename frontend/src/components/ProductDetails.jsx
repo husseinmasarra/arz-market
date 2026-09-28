@@ -35,7 +35,7 @@ function isLightColor(hex) {
   return false;
 }
 
-function parseProductOptions(sizes, basePrice) {
+function parseProductOptions(sizes, basePrice, allImages = [], getImageUrl = null) {
   if (!sizes) return [];
   let arr = sizes;
   if (typeof arr === 'string') {
@@ -49,7 +49,9 @@ function parseProductOptions(sizes, basePrice) {
       const price = item.price !== undefined && item.price !== null && !isNaN(item.price) 
         ? Number(item.price) 
         : basePrice;
-      return { id: `opt_${idx}`, name, price };
+      const rawImg = item.image || item.image_url || item.img || item.photo || null;
+      const image = rawImg ? (getImageUrl ? getImageUrl(rawImg) : rawImg) : (allImages && allImages[idx] ? allImages[idx] : null);
+      return { id: `opt_${idx}`, name, price, image, imageIndex: (allImages && allImages[idx]) ? idx : 0 };
     }
     const str = String(item);
     const priceRegex = /\(\s*([+-]?)\s*\$?\s*([0-9.]+)\s*\$?_?\)/;
@@ -64,7 +66,8 @@ function parseProductOptions(sizes, basePrice) {
       else if (sign === '-') price = basePrice - val;
       else price = val;
     }
-    return { id: `opt_${idx}`, name, price };
+    const fallbackImg = (allImages && allImages.length > idx) ? allImages[idx] : (allImages && allImages[0] ? allImages[0] : null);
+    return { id: `opt_${idx}`, name, price, image: fallbackImg, imageIndex: (allImages && allImages.length > idx) ? idx : 0 };
   });
 }
 
@@ -253,7 +256,24 @@ export default function ProductDetails({ product, onClose, onRefresh, onCategory
     handleZoomChange(zoomScale + delta);
   };
 
-  const productOptions = parseProductOptions(product?.sizes, product?.price_usd || 0);
+  const allImages = React.useMemo(() => {
+    let list = [];
+    if (product?.images) {
+      if (Array.isArray(product.images)) list = product.images;
+      else {
+        try { list = JSON.parse(product.images); } catch (e) { list = []; }
+      }
+    }
+    if (!Array.isArray(list) || list.length === 0) {
+      if (product?.image_url) list = [product.image_url];
+    }
+    if (list.length === 0) {
+      list = ['https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=600&q=80'];
+    }
+    return list.map(img => getImageUrl(img)).filter(Boolean);
+  }, [product?.images, product?.image_url, getImageUrl]);
+
+  const productOptions = parseProductOptions(product?.sizes, product?.price_usd || 0, allImages, getImageUrl);
   const hasOptions = productOptions.length > 0;
 
   const [selectedOptId, setSelectedOptId] = useState(() => (hasOptions ? productOptions[0].id : null));
@@ -262,6 +282,9 @@ export default function ProductDetails({ product, onClose, onRefresh, onCategory
   const [selectedColor, setSelectedColor] = useState(() => {
     return (product && product.colors && product.colors.length > 0) ? product.colors[0] : null;
   });
+
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const imageUrl = allImages[activeImageIndex] || allImages[0] || '';
 
   if (!product) return null;
 
@@ -291,26 +314,6 @@ export default function ProductDetails({ product, onClose, onRefresh, onCategory
   const currentPrice = selectedOption ? selectedOption.price : product.price_usd;
   const hasDiscount = product.old_price_usd && product.old_price_usd > currentPrice;
   const adjustedOldPrice = product.old_price_usd;
-
-  const allImages = React.useMemo(() => {
-    let list = [];
-    if (product?.images) {
-      if (Array.isArray(product.images)) list = product.images;
-      else {
-        try { list = JSON.parse(product.images); } catch (e) { list = []; }
-      }
-    }
-    if (!Array.isArray(list) || list.length === 0) {
-      if (product?.image_url) list = [product.image_url];
-    }
-    if (list.length === 0) {
-      list = ['https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=600&q=80'];
-    }
-    return list.map(img => getImageUrl(img)).filter(Boolean);
-  }, [product?.images, product?.image_url]);
-
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const imageUrl = allImages[activeImageIndex] || allImages[0] || '';
 
   const handleRatingSubmit = async () => {
     try {
@@ -752,94 +755,143 @@ export default function ProductDetails({ product, onClose, onRefresh, onCategory
               </div>
             )}
 
-            {/* Options / Models Table & Dropdown (Just like DR PHONE Supplier) */}
+            {/* Options / Models with Photos and Interactive Selector */}
             {hasOptions && (
-              <div style={{ margin: '8px 0' }}>
-                {/* Scrollable Table of Options */}
-                <div style={{
-                  borderRadius: '12px',
-                  border: '1px solid var(--border-color)',
-                  overflow: 'hidden',
-                  backgroundColor: 'var(--bg-secondary)',
-                  marginBottom: '12px'
-                }}>
-                  {/* Table Header */}
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    padding: '10px 16px',
-                    backgroundColor: 'var(--bg-tertiary)',
-                    fontWeight: '800',
-                    fontSize: '0.8rem',
-                    color: 'var(--text-primary)',
-                    borderBottom: '1px solid var(--border-color)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px'
-                  }}>
-                    <span>{lang === 'ar' ? 'الخيار / الموديل (OPTION)' : 'OPTION'}</span>
-                    <span style={{ color: '#dc2626' }}>{lang === 'ar' ? 'السعر (PRICE)' : 'PRICE'}</span>
-                  </div>
-
-                  {/* Table Rows */}
-                  <div style={{
-                    maxHeight: '190px',
-                    overflowY: 'auto',
-                    display: 'flex',
-                    flexDirection: 'column'
-                  }}>
-                    {productOptions.map((opt) => {
-                      const isSelected = selectedOption && selectedOption.id === opt.id;
-                      return (
-                        <div
-                          key={opt.id}
-                          onClick={() => setSelectedOptId(opt.id)}
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            padding: '10px 16px',
-                            cursor: 'pointer',
-                            borderBottom: '1px solid var(--border-color)',
-                            backgroundColor: isSelected ? 'rgba(37, 99, 235, 0.08)' : 'transparent',
-                            borderInlineStart: isSelected ? '4px solid var(--accent-blue)' : '4px solid transparent',
-                            transition: 'all 0.15s'
-                          }}
-                        >
-                          <span style={{
-                            fontSize: '0.9rem',
-                            fontWeight: isSelected ? '800' : '600',
-                            color: isSelected ? 'var(--accent-blue)' : 'var(--text-primary)'
-                          }}>
-                            {opt.name}
-                          </span>
-                          <span style={{
-                            fontWeight: '800',
-                            fontSize: '0.9rem',
-                            color: '#dc2626'
-                          }}>
-                            {formatPrice(opt.price)}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
+              <div style={{ margin: '10px 0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontWeight: '800', fontSize: '0.88rem', color: 'var(--text-primary)' }}>
+                    {lang === 'ar' ? 'اختر الموديل / الخيار المطلوب:' : 'Select Desired Option / Variant:'}
+                  </span>
+                  {selectedOption && (
+                    <span style={{
+                      fontSize: '0.78rem',
+                      fontWeight: '700',
+                      color: 'var(--accent-blue)',
+                      backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                      padding: '2px 8px',
+                      borderRadius: '8px'
+                    }}>
+                      {selectedOption.name}
+                    </span>
+                  )}
                 </div>
 
-                {/* Dropdown Selector: CHOOSE OPTION */}
+                {/* Visual Option Cards Grid with Photos */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
+                  gap: '8px',
+                  marginBottom: '12px'
+                }}>
+                  {productOptions.map((opt) => {
+                    const isSelected = selectedOption && selectedOption.id === opt.id;
+                    const optImg = opt.image || (allImages && allImages[0]) || null;
+
+                    return (
+                      <div
+                        key={opt.id}
+                        onClick={() => {
+                          setSelectedOptId(opt.id);
+                          if (opt.imageIndex !== undefined && allImages[opt.imageIndex]) {
+                            setActiveImageIndex(opt.imageIndex);
+                          }
+                        }}
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          padding: '8px 6px',
+                          borderRadius: '12px',
+                          cursor: 'pointer',
+                          backgroundColor: isSelected ? 'rgba(37, 99, 235, 0.08)' : 'var(--bg-secondary)',
+                          border: isSelected ? '2px solid var(--accent-blue)' : '1px solid var(--border-color)',
+                          boxShadow: isSelected ? '0 2px 8px rgba(37, 99, 235, 0.2)' : '0 1px 3px rgba(0,0,0,0.04)',
+                          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                          position: 'relative',
+                          textAlign: 'center'
+                        }}
+                      >
+                        {/* Option Image Thumbnail */}
+                        {optImg && (
+                          <div style={{
+                            width: '52px',
+                            height: '52px',
+                            borderRadius: '8px',
+                            overflow: 'hidden',
+                            backgroundColor: '#ffffff',
+                            marginBottom: '6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            border: '1px solid rgba(0,0,0,0.06)',
+                            padding: '2px'
+                          }}>
+                            <img
+                              src={optImg}
+                              alt={opt.name}
+                              onError={handleImageError}
+                              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                            />
+                          </div>
+                        )}
+
+                        <span style={{
+                          fontSize: '0.82rem',
+                          fontWeight: isSelected ? '800' : '600',
+                          color: isSelected ? 'var(--accent-blue)' : 'var(--text-primary)',
+                          lineHeight: '1.2',
+                          marginBottom: '4px',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden'
+                        }}>
+                          {opt.name}
+                        </span>
+
+                        <span style={{
+                          fontSize: '0.85rem',
+                          fontWeight: '800',
+                          color: '#dc2626'
+                        }}>
+                          {formatPrice(opt.price)}
+                        </span>
+
+                        {isSelected && (
+                          <div style={{
+                            position: 'absolute',
+                            top: '4px',
+                            insetInlineEnd: '4px',
+                            backgroundColor: 'var(--accent-blue)',
+                            color: '#ffffff',
+                            borderRadius: '50%',
+                            width: '18px',
+                            height: '18px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            boxShadow: '0 1px 4px rgba(0,0,0,0.2)'
+                          }}>
+                            <Check size={11} strokeWidth={3} />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Quick Option Dropdown */}
                 <div>
-                  <label className="input-label" style={{
-                    fontWeight: '800',
-                    fontSize: '0.85rem',
-                    textTransform: 'uppercase',
-                    color: 'var(--text-secondary)',
-                    marginBottom: '6px',
-                    display: 'block'
-                  }}>
-                    {lang === 'ar' ? 'تحديد الموديل (CHOOSE OPTION):' : 'CHOOSE OPTION:'}
-                  </label>
                   <select
                     value={selectedOptId || ''}
-                    onChange={(e) => setSelectedOptId(e.target.value)}
+                    onChange={(e) => {
+                      const foundId = e.target.value;
+                      setSelectedOptId(foundId);
+                      const foundOpt = productOptions.find(o => o.id === foundId);
+                      if (foundOpt && foundOpt.imageIndex !== undefined && allImages[foundOpt.imageIndex]) {
+                        setActiveImageIndex(foundOpt.imageIndex);
+                      }
+                    }}
                     className="input-field"
                     style={{
                       width: '100%',
@@ -848,16 +900,16 @@ export default function ProductDetails({ product, onClose, onRefresh, onCategory
                       backgroundColor: 'var(--bg-primary)',
                       color: 'var(--text-primary)',
                       border: '2px solid var(--accent-blue)',
-                      fontSize: '0.95rem',
+                      fontSize: '0.9rem',
                       fontWeight: '700',
                       cursor: 'pointer',
                       outline: 'none',
-                      boxShadow: '0 2px 8px rgba(37, 99, 235, 0.12)'
+                      boxShadow: '0 2px 8px rgba(37, 99, 235, 0.15)'
                     }}
                   >
                     {productOptions.map((opt) => (
                       <option key={opt.id} value={opt.id}>
-                        {opt.name} — {formatPrice(opt.price)}
+                        {opt.name} - ({formatPrice(opt.price)})
                       </option>
                     ))}
                   </select>
