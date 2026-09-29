@@ -61,6 +61,11 @@ class MainActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             @Suppress("DEPRECATION")
             override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
+                val urlStr = url ?: ""
+                if (urlStr.contains("firebaseapp.com") || urlStr.contains("accounts.google.com/signin/oauth/error")) {
+                    view?.loadUrl(PRODUCTION_URL)
+                    return true
+                }
                 return false
             }
 
@@ -68,6 +73,11 @@ class MainActivity : AppCompatActivity() {
                 view: WebView?,
                 request: android.webkit.WebResourceRequest?
             ): Boolean {
+                val urlStr = request?.url?.toString() ?: ""
+                if (urlStr.contains("firebaseapp.com") || urlStr.contains("accounts.google.com/signin/oauth/error")) {
+                    view?.loadUrl(PRODUCTION_URL)
+                    return true
+                }
                 return false
             }
 
@@ -98,6 +108,17 @@ class MainActivity : AppCompatActivity() {
 
         // بدء محاولة الاتصال بالعنوان الأول
         loadUrlAtIndex(0)
+    }
+
+    override fun onBackPressed() {
+        val currentUrl = webView.url ?: ""
+        if (currentUrl.contains("firebaseapp.com") || !currentUrl.contains("arzmart.com")) {
+            webView.loadUrl(PRODUCTION_URL)
+        } else if (webView.canGoBack()) {
+            webView.goBack()
+        } else {
+            super.onBackPressed()
+        }
     }
 
     private fun loadUrlAtIndex(index: Int) {
