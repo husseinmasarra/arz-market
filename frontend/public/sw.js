@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arzmart-pwa-v17';
+const CACHE_NAME = 'arzmart-pwa-v18';
 const OFFLINE_URL = '/index.html';
 
 const PRECACHE_ASSETS = [
@@ -9,18 +9,19 @@ const PRECACHE_ASSETS = [
   '/logo.png'
 ];
 
-// Install Event - Pre-cache essential app shell
+// Install Event - Pre-cache essential app shell & immediately activate
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(PRECACHE_ASSETS).catch((err) => {
         console.warn('[SW] Precache issue:', err);
       });
-    }).then(() => self.skipWaiting())
+    })
   );
 });
 
-// Activate Event - Clean old caches and claim clients
+// Activate Event - Clean old caches and claim clients immediately
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
