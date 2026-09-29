@@ -700,44 +700,122 @@ export default function App() {
       ) : currentView === 'login' || currentView === 'register' ? (
         
         /* AUTH VIEWS (LOGIN / REGISTER) */
-        <div style={{ flex: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+        <div style={{ flex: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px', minHeight: '80vh' }}>
           <div className="animate-fade dashboard-card" style={{
             width: '100%',
-            maxWidth: '400px',
-            padding: '30px',
+            maxWidth: '420px',
+            padding: '28px 24px',
             gap: '16px',
             backgroundColor: 'var(--bg-secondary)',
             border: '1px solid var(--border-color)',
-            boxShadow: 'var(--shadow-md)'
+            borderRadius: '20px',
+            boxShadow: 'var(--shadow-lg)'
           }}>
-            <div style={{ textAlign: 'center' }}>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--text-primary)' }}>
-                {currentView === 'login' ? t('login') : t('register')}
+            {/* Store Brand Icon Header */}
+            <div style={{ textAlign: 'center', marginBottom: '6px' }}>
+              <img src="/logo.png" alt="ArzMart" style={{ width: '56px', height: '56px', borderRadius: '14px', marginBottom: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+              <h2 style={{ fontSize: '1.4rem', fontWeight: '800', margin: 0, color: 'var(--text-primary)' }}>
+                {currentView === 'login' ? (lang === 'ar' ? 'أهلاً بك في أرز مارت' : 'Welcome to ArzMart') : (lang === 'ar' ? 'إنشاء حساب جديد' : 'Create New Account')}
               </h2>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginTop: '4px' }}>
-                {currentView === 'login' ? t('welcome_back') : t('create_account')}
+                {currentView === 'login' 
+                  ? (lang === 'ar' ? 'سجل دخولك لمتابعة طلباتك والاستفادة من العروض' : 'Login to manage your orders and discounts') 
+                  : (lang === 'ar' ? 'احصل فوراً على حسم 10% ترحيبي على أول طلبية 🎉' : 'Get an instant 10% welcome discount on your first order 🎉')}
               </p>
             </div>
 
+            {/* Segmented Switcher Tabs */}
+            <div style={{
+              display: 'flex',
+              backgroundColor: 'var(--bg-tertiary, #f1f5f9)',
+              padding: '4px',
+              borderRadius: '12px',
+              border: '1px solid var(--border-color)',
+              marginBottom: '12px'
+            }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthError('');
+                  setCurrentView('login');
+                }}
+                style={{
+                  flex: 1,
+                  padding: '8px 12px',
+                  borderRadius: '9px',
+                  border: 'none',
+                  fontSize: '0.84rem',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  backgroundColor: currentView === 'login' ? 'var(--bg-primary, #ffffff)' : 'transparent',
+                  color: currentView === 'login' ? 'var(--accent-blue, #2563eb)' : 'var(--text-secondary)',
+                  boxShadow: currentView === 'login' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none',
+                  transition: 'all 0.2s'
+                }}
+              >
+                {t('login')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthError('');
+                  setCurrentView('register');
+                }}
+                style={{
+                  flex: 1,
+                  padding: '8px 12px',
+                  borderRadius: '9px',
+                  border: 'none',
+                  fontSize: '0.84rem',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  backgroundColor: currentView === 'register' ? 'var(--bg-primary, #ffffff)' : 'transparent',
+                  color: currentView === 'register' ? '#10b981' : 'var(--text-secondary)',
+                  boxShadow: currentView === 'register' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none',
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px'
+                }}
+              >
+                <span>{t('register')}</span>
+                <span style={{ fontSize: '0.7rem', backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '1px 6px', borderRadius: '6px' }}>10% حسم</span>
+              </button>
+            </div>
+
             {authError && (
-              <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '8px 12px', borderRadius: '6px', fontSize: '0.8rem', fontWeight: '600' }}>
+              <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', padding: '10px 14px', borderRadius: '10px', fontSize: '0.82rem', fontWeight: '600' }}>
                 {authError}
               </div>
             )}
 
-            <form onSubmit={currentView === 'login' ? handleLoginSubmit : handleRegisterSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {/* Quick 1-Click Social Sign-In Buttons */}
+            <SocialAuthButtons 
+              onSuccess={(authData) => {
+                setAuthError('');
+                if (authData && authData.is_new_user) {
+                  setWelcomeUserName(authData.user?.full_name || authData.user?.username || '');
+                  setShowWelcomeModal(true);
+                }
+                setCurrentView('store');
+              }}
+              onError={(msg) => setAuthError(msg)}
+            />
+
+            <form onSubmit={currentView === 'login' ? handleLoginSubmit : handleRegisterSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '6px' }}>
               <div>
-                <label className="input-label">
-                  {currentView === 'login' ? (lang === 'ar' ? 'الاسم الكامل' : 'Full Name') : t('username')}
+                <label className="input-label" style={{ fontSize: '0.82rem', fontWeight: '700' }}>
+                  {currentView === 'login' ? (lang === 'ar' ? 'الاسم الكامل أو رقم الهاتف' : 'Full Name or Phone') : (lang === 'ar' ? 'اسم المستخدم' : 'Username')}
                 </label>
                 <div style={{ position: 'relative' }}>
                   <input
                     type="text"
                     required
-                    autoComplete="off" // No usernames hints
+                    autoComplete="off"
                     className="input-field"
                     placeholder={currentView === 'login' 
-                      ? (lang === 'ar' ? 'أدخل اسمك الكامل أو رقم الهاتف' : 'Enter your full name or phone') 
+                      ? (lang === 'ar' ? 'أدخل اسمك أو رقم هاتفك' : 'Enter your name or phone') 
                       : (lang === 'ar' ? 'اسم المستخدم' : 'Username')}
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
@@ -751,7 +829,7 @@ export default function App() {
                 <>
                   {/* Full Name */}
                   <div>
-                    <label className="input-label">{lang === 'ar' ? 'الاسم الكامل' : 'Full Name'}</label>
+                    <label className="input-label" style={{ fontSize: '0.82rem', fontWeight: '700' }}>{lang === 'ar' ? 'الاسم الكامل' : 'Full Name'}</label>
                     <div style={{ position: 'relative' }}>
                       <input
                         type="text"
@@ -760,7 +838,7 @@ export default function App() {
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
                         style={{ paddingStart: '36px' }}
-                        placeholder={lang === 'ar' ? 'الاسم الثلاثي مثلاً' : 'e.g. John Doe'}
+                        placeholder={lang === 'ar' ? 'الاسم الكريم' : 'e.g. John Doe'}
                       />
                       <User size={16} style={{ position: 'absolute', top: '12px', left: lang === 'ar' ? 'auto' : '12px', right: lang === 'ar' ? '12px' : 'auto', color: 'var(--text-light)' }} />
                     </div>
@@ -768,7 +846,7 @@ export default function App() {
 
                   {/* Phone */}
                   <div>
-                    <label className="input-label">{lang === 'ar' ? 'رقم الهاتف' : 'Phone Number'}</label>
+                    <label className="input-label" style={{ fontSize: '0.82rem', fontWeight: '700' }}>{lang === 'ar' ? 'رقم الهاتف' : 'Phone Number'}</label>
                     <div style={{ position: 'relative' }}>
                       <input
                         type="tel"
@@ -785,7 +863,7 @@ export default function App() {
 
                   {/* Email */}
                   <div>
-                    <label className="input-label">{lang === 'ar' ? 'البريد الإلكتروني' : 'Email Address'}</label>
+                    <label className="input-label" style={{ fontSize: '0.82rem', fontWeight: '700' }}>{lang === 'ar' ? 'البريد الإلكتروني' : 'Email Address'}</label>
                     <div style={{ position: 'relative' }}>
                       <input
                         type="email"
@@ -803,12 +881,12 @@ export default function App() {
               )}
 
               <div>
-                <label className="input-label">{t('password')}</label>
+                <label className="input-label" style={{ fontSize: '0.82rem', fontWeight: '700' }}>{t('password')}</label>
                 <div style={{ position: 'relative' }}>
                   <input
                     type="password"
                     required
-                    autocomplete="new-password" // No username auto-linking
+                    autoComplete="new-password"
                     className="input-field"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -820,7 +898,7 @@ export default function App() {
 
               {currentView === 'register' && (
                 <div>
-                  <label className="input-label">{lang === 'ar' ? 'تأكيد كلمة المرور' : 'Confirm Password'}</label>
+                  <label className="input-label" style={{ fontSize: '0.82rem', fontWeight: '700' }}>{lang === 'ar' ? 'تأكيد كلمة المرور' : 'Confirm Password'}</label>
                   <div style={{ position: 'relative' }}>
                     <input
                       type="password"
@@ -838,12 +916,23 @@ export default function App() {
               <button
                 type="submit"
                 className="input-field"
-                style={{ backgroundColor: 'var(--accent-blue)', color: 'white', border: 'none', fontWeight: '700', cursor: 'pointer', marginTop: '10px' }}
+                style={{
+                  backgroundColor: currentView === 'login' ? 'var(--accent-blue)' : '#10b981',
+                  color: 'white',
+                  border: 'none',
+                  fontWeight: '700',
+                  fontSize: '0.92rem',
+                  padding: '12px',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  marginTop: '6px',
+                  boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)'
+                }}
               >
-                {currentView === 'login' ? t('login') : t('register')}
+                {currentView === 'login' ? t('login') : (lang === 'ar' ? 'إنشاء الحساب والحصول على حسم 10% 🎉' : 'Register & Get 10% Discount 🎉')}
               </button>
 
-              {currentView === 'login' && window.AndroidApp && localStorage.getItem('biometric_username') && (
+              {currentView === 'login' && typeof window !== 'undefined' && window.AndroidApp && localStorage.getItem('biometric_username') && (
                 <button
                   type="button"
                   onClick={() => {
@@ -854,7 +943,7 @@ export default function App() {
                   }}
                   className="input-field animate-pulse"
                   style={{
-                    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                    backgroundColor: 'rgba(16, 185, 129, 0.12)',
                     color: '#10b981',
                     border: '1px solid #10b981',
                     fontWeight: '700',
@@ -863,7 +952,9 @@ export default function App() {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '8px'
+                    gap: '8px',
+                    borderRadius: '10px',
+                    padding: '10px'
                   }}
                 >
                   <Fingerprint size={18} />
@@ -871,44 +962,6 @@ export default function App() {
                 </button>
               )}
             </form>
-
-            {/* Google and Apple ID Sign In */}
-            <SocialAuthButtons 
-              onSuccess={(authData) => {
-                setAuthError('');
-                if (authData && authData.is_new_user) {
-                  setWelcomeUserName(authData.user?.full_name || authData.user?.username || '');
-                  setShowWelcomeModal(true);
-                }
-                setCurrentView('store');
-              }}
-              onError={(msg) => setAuthError(msg)}
-            />
-
-            <button
-              onClick={() => {
-                setAuthError('');
-                setUsername('');
-                setPassword('');
-                setFullName('');
-                setPhone('');
-                setEmail('');
-                setConfirmPassword('');
-                setCurrentView(currentView === 'login' ? 'register' : 'login');
-              }}
-              style={{
-                border: 'none',
-                backgroundColor: 'transparent',
-                color: 'var(--accent-blue)',
-                cursor: 'pointer',
-                fontSize: '0.8rem',
-                fontWeight: '700',
-                textAlign: 'center',
-                marginTop: '10px'
-              }}
-            >
-              {currentView === 'login' ? t('dont_have_account') : t('already_have_account')}
-            </button>
 
             <div style={{ fontSize: '0.72rem', color: 'var(--text-light)', textAlign: 'center', marginTop: '12px', borderTop: '1px solid var(--border-color)', paddingTop: '10px' }}>
               {lang === 'ar' ? (
