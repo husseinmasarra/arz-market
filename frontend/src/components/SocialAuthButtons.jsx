@@ -55,47 +55,29 @@ export default function SocialAuthButtons({ onSuccess, onError }) {
   const [promptEmail, setPromptEmail] = useState('');
   const [promptName, setPromptName] = useState('');
 
-  // Detect standalone PWA mode
-  const isStandalone = typeof window !== 'undefined' && (
+  // Detect standalone PWA mode or mobile device
+  const isMobileOrApp = typeof window !== 'undefined' && (
     window.matchMedia('(display-mode: standalone)').matches ||
     window.navigator.standalone === true ||
-    document.referrer.includes('android-app://')
+    (typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) ||
+    (typeof document !== 'undefined' && document.referrer.includes('android-app://'))
   );
-
-  // Handle redirect result if signInWithRedirect was used
-  React.useEffect(() => {
-    async function checkRedirect() {
-      try {
-        const fb = await loadFirebaseSdk();
-        const result = await fb.auth().getRedirectResult();
-        if (result && result.user) {
-          const fbUser = result.user;
-          const idToken = await fbUser.getIdToken();
-          const data = await loginWithGoogle({
-            email: fbUser.email,
-            name: fbUser.displayName || fbUser.email.split('@')[0],
-            google_id: fbUser.uid,
-            photo_url: fbUser.photoURL,
-            credential: idToken
-          });
-          if (onSuccess) onSuccess(data);
-        }
-      } catch (e) {
-        console.warn('Redirect auth check:', e);
-      }
-    }
-    checkRedirect();
-  }, []);
 
   // Handle Google Sign In
   const handleGoogleClick = async () => {
+    // If on mobile device or standalone PWA app, open fast in-app Google modal immediately to avoid Firebase broken redirect
+    if (isMobileOrApp) {
+      setPromptModal('google');
+      return;
+    }
+
     setLoadingProvider('google');
     try {
       let fb;
       try {
         fb = await loadFirebaseSdk();
       } catch (sdkErr) {
-        console.warn('Firebase SDK load failed, opening quick Google login:', sdkErr);
+        console.warn('Firebase SDK load skipped, using quick modal:', sdkErr);
         setPromptModal('google');
         return;
       }
@@ -105,7 +87,7 @@ export default function SocialAuthButtons({ onSuccess, onError }) {
       provider.setCustomParameters({ prompt: 'select_account' });
 
       try {
-        // Open Google Official Account Selector Popup
+        // Try popup on desktop
         const result = await auth.signInWithPopup(provider);
         const fbUser = result.user;
         if (!fbUser || !fbUser.email) {
@@ -124,35 +106,15 @@ export default function SocialAuthButtons({ onSuccess, onError }) {
 
         if (onSuccess) onSuccess(data);
       } catch (popupErr) {
-        console.warn('Popup attempt failed:', popupErr);
+        console.warn('Popup attempt failed, switching to quick Google modal:', popupErr);
         if (popupErr.code === 'auth/popup-closed-by-user' || popupErr.code === 'auth/cancelled-popup-request') {
           return;
         }
-
-        // In PWA standalone mode or if domain unauthorized or popup blocked, open seamless instant modal
-        if (
-          isStandalone ||
-          popupErr.code === 'auth/popup-blocked' ||
-          popupErr.code === 'auth/unauthorized-domain' ||
-          popupErr.code === 'auth/operation-not-allowed' ||
-          popupErr.code === 'auth/internal-error' ||
-          popupErr.code === 'auth/network-request-failed' ||
-          !auth.signInWithRedirect
-        ) {
-          setPromptModal('google');
-          return;
-        }
-
-        // Fallback to redirect if in regular web browser
-        try {
-          await auth.signInWithRedirect(provider);
-        } catch (redirErr) {
-          setPromptModal('google');
-        }
+        // Always fall back to smooth in-app modal instead of redirect
+        setPromptModal('google');
       }
     } catch (err) {
       console.error('Google sign in error:', err);
-      // Seamlessly fall back to Google instant modal so user is never blocked
       setPromptModal('google');
     } finally {
       setLoadingProvider(null);
@@ -390,6 +352,36 @@ export default function SocialAuthButtons({ onSuccess, onError }) {
                   onChange={(e) => setPromptEmail(e.target.value)}
                   className="input-field"
                 />
+                {/* Fast email suffix chips */}
+                <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+                  {['@gmail.com', '@hotmail.com', '@icloud.com', '@yahoo.com'].map((domain) => (
+                    <button
+                      key={domain}
+                      type="button"
+                      onClick={() => {
+                        const current = promptEmail.trim();
+                        if (!current) {
+                          setPromptEmail(domain);
+                        } else if (current.includes('@')) {
+                          setPromptEmail(current.split('@')[0] + domain);
+                        } else {
+                          setPromptEmail(current + domain);
+                        }
+                      }}
+                      style={{
+                        fontSize: '0.72rem',
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        border: '1px solid var(--border-color)',
+                        backgroundColor: 'var(--bg-secondary)',
+                        color: 'var(--text-secondary)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {domain}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div>
