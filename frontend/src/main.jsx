@@ -135,12 +135,25 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   </React.StrictMode>
 );
 
+// Automatically purge old caches and enforce live app update
+if (typeof window !== 'undefined' && 'caches' in window) {
+  try {
+    caches.keys().then((names) => {
+      names.forEach((name) => {
+        if (name !== 'arzmart-pwa-v18') {
+          console.log('[App] Purging stale cache:', name);
+          caches.delete(name);
+        }
+      });
+    }).catch(() => {});
+  } catch (e) {}
+}
+
 // Service worker registration
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
       .then((reg) => {
-        // Check for updates periodically
         reg.update().catch(() => {});
       })
       .catch((err) => {
