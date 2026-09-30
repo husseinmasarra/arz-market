@@ -201,7 +201,7 @@ export default function App() {
         }
       }
     });
-    return Array.from(catMap.values());
+    return Array.from(catMap.values()).sort((a, b) => (a.name || '').localeCompare(b.name || '', lang === 'ar' ? 'ar' : 'en', { sensitivity: 'base', numeric: true }));
   }, [searchVal, products, lang]);
 
   useEffect(() => {
@@ -1216,10 +1216,17 @@ export default function App() {
                     </div>
                   )}
 
-                  {(Array.isArray(categories) ? categories : []).filter(c => c && (c.parent_id === null || c.parent_id === undefined || c.parent_id === 0 || c.parent_id === 'null' || c.parent_id === '')).map((cat) => {
-                    const catName = getCategoryName(cat, lang);
-                    const subcategories = (Array.isArray(categories) ? categories : []).filter(c => c && String(c.parent_id) === String(cat.id));
-                    const subCount = subcategories.length;
+                  {(Array.isArray(categories) ? categories : [])
+                    .filter(c => c && (c.parent_id === null || c.parent_id === undefined || c.parent_id === 0 || c.parent_id === 'null' || c.parent_id === ''))
+                    .sort((a, b) => {
+                      const nameA = getCategoryName(a, lang) || '';
+                      const nameB = getCategoryName(b, lang) || '';
+                      return nameA.localeCompare(nameB, lang === 'ar' ? 'ar' : 'en', { sensitivity: 'base', numeric: true });
+                    })
+                    .map((cat) => {
+                      const catName = getCategoryName(cat, lang);
+                      const subcategories = (Array.isArray(categories) ? categories : []).filter(c => c && String(c.parent_id) === String(cat.id));
+                      const subCount = subcategories.length;
                     
                     const imageUrl = getImageUrl(cat.image_url, 'https://images.unsplash.com/photo-1550009158-9ebf69173e03?auto=format&fit=crop&w=500&q=80');
 
@@ -1331,8 +1338,14 @@ export default function App() {
                   const catList = Array.isArray(categories) ? categories : [];
                   const currentCat = catList.find(c => c && String(c.id) === String(selectedCategory));
                   const parentId = currentCat ? (currentCat.parent_id || currentCat.id) : null;
-                  const parentCat = parentId ? catList.find(c => c && String(c.id) === String(parentId)) : null;
-                  const availableSubCats = parentId ? catList.filter(c => c && String(c.parent_id) === String(parentId)) : [];
+                  const availableSubCats = parentId 
+                    ? catList.filter(c => c && String(c.parent_id) === String(parentId))
+                        .sort((a, b) => {
+                          const nameA = getCategoryName(a, lang) || '';
+                          const nameB = getCategoryName(b, lang) || '';
+                          return nameA.localeCompare(nameB, lang === 'ar' ? 'ar' : 'en', { sensitivity: 'base', numeric: true });
+                        })
+                    : [];
 
                   return (
                     <div style={{

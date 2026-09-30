@@ -18,13 +18,20 @@ export default function Header({ currentView, setCurrentView, searchVal, setSear
   const matchedCategories = React.useMemo(() => {
     if (!searchVal || searchVal.trim().length < 1 || !Array.isArray(categories)) return [];
     const query = searchVal.trim().toLowerCase();
-    return categories.filter(c => {
-      if (!c || c.active === 0) return false;
-      const nameAr = (c.name_ar || '').toLowerCase();
-      const nameEn = (c.name_en || '').toLowerCase();
-      return nameAr.includes(query) || nameEn.includes(query);
-    }).slice(0, 5);
-  }, [searchVal, categories]);
+    return categories
+      .filter(c => {
+        if (!c || c.active === 0) return false;
+        const nameAr = (c.name_ar || '').toLowerCase();
+        const nameEn = (c.name_en || '').toLowerCase();
+        return nameAr.includes(query) || nameEn.includes(query);
+      })
+      .sort((a, b) => {
+        const nameA = (lang === 'ar' ? a.name_ar : a.name_en) || a.name_ar || a.name_en || '';
+        const nameB = (lang === 'ar' ? b.name_ar : b.name_en) || b.name_ar || b.name_en || '';
+        return nameA.localeCompare(nameB, lang === 'ar' ? 'ar' : 'en', { sensitivity: 'base', numeric: true });
+      })
+      .slice(0, 5);
+  }, [searchVal, categories, lang]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
