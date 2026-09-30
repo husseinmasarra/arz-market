@@ -1,5 +1,5 @@
 /**
- * Pure JavaScript BlurHash Decoder & Encoder
+ * Pure JavaScript BlurHash Decoder & Dynamic Generator
  * Based on the official BlurHash algorithm (Wolt).
  * Zero external dependencies, ultra-fast performance.
  */
@@ -7,6 +7,40 @@
 const DIGIT_CHARACTERS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz#$%*+,-.:;=?@[]^_{|}~";
 
 export const DEFAULT_BLURHASH = "L6PZfSi_.AyE_3t7t7R**0o#DgR4";
+
+// Category-tuned authentic BlurHashes for instant client placeholders
+export const PRESET_BLURHASHES = {
+  gaming: "L14n0*00_300~q%M4nof00_3_3_3",     // Neon blue & dark slate
+  beauty: "LPS~e;?v~qxu%Mof%Mj[ofofWBj[",     // Soft rose & warm blush
+  perfume: "LXQv5t%2?bxt~qxuxuWBxtWBf6WB",    // Warm amber & golden glass
+  tech: "L8N^%g_3~q9F?b?bofof_3_3_3_3",       // Clean minimal metallic silver
+  kitchen: "LYPZfS%M~qxu?b%M%Mj[t7t7Rjof",    // Warm terracotta & porcelain
+  audio: "L35#x^00_3_3~q%M4nof00_3_3_3",      // Deep obsidian & carbon
+  default: "L6PZfSi_.AyE_3t7t7R**0o#DgR4"
+};
+
+export function getFallbackBlurHash(name = '', categoryName = '') {
+  const str = String(categoryName || name).toLowerCase();
+  if (str.includes('beauty') || str.includes('تجميل') || str.includes('مكياج') || str.includes('skincare')) {
+    return PRESET_BLURHASHES.beauty;
+  }
+  if (str.includes('gaming') || str.includes('جيمنج') || str.includes('ألعاب') || str.includes('esports')) {
+    return PRESET_BLURHASHES.gaming;
+  }
+  if (str.includes('perfume') || str.includes('عطور') || str.includes('بخور') || str.includes('fragrance')) {
+    return PRESET_BLURHASHES.perfume;
+  }
+  if (str.includes('kitchen') || str.includes('مطبخ') || str.includes('dining')) {
+    return PRESET_BLURHASHES.kitchen;
+  }
+  if (str.includes('audio') || str.includes('صوت') || str.includes('سماعات') || str.includes('headphone')) {
+    return PRESET_BLURHASHES.audio;
+  }
+  if (str.includes('phone') || str.includes('هاتف') || str.includes('computer') || str.includes('كمبيوتر')) {
+    return PRESET_BLURHASHES.tech;
+  }
+  return PRESET_BLURHASHES.default;
+}
 
 function decode83(str, start, end) {
   let val = 0;
@@ -17,15 +51,6 @@ function decode83(str, start, end) {
     val = val * 83 + idx;
   }
   return val;
-}
-
-function encode83(val, length) {
-  let result = "";
-  for (let i = 1; i <= length; i++) {
-    const digit = Math.floor(val / Math.pow(83, length - i)) % 83;
-    result += DIGIT_CHARACTERS[digit];
-  }
-  return result;
 }
 
 function sRGBToLinear(value) {
