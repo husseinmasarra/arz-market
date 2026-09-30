@@ -137,7 +137,7 @@ exports.getProducts = async (req, res) => {
   let query = `
     SELECT p.id, p.sku, p.name_ar, p.name_en, p.description_ar, p.description_en, p.price_usd, p.cost_price_usd, p.old_price_usd, 
            p.stock, p.category_id, p.merchant_id, p.is_new_arrival, p.rating_count, 
-           p.rating_sum, p.colors, p.sizes, p.created_at, p.sync_batch_time,
+           p.rating_sum, p.colors, p.sizes, p.created_at, p.sync_batch_time, p.blurhash,
            (CASE WHEN p.image_url LIKE 'data:image%' THEN CONCAT('/api/products/', p.id, '/image') ELSE p.image_url END) as image_url,
            (CASE WHEN p.images LIKE '%data:image%' THEN '[]' ELSE p.images END) as images,
            c.name_ar as category_name_ar, c.name_en as category_name_en, m.name as merchant_name 
@@ -392,7 +392,7 @@ exports.getRelatedProducts = async (req, res) => {
       relatedRows = await db.allAsync(`
         SELECT p.id, p.sku, p.name_ar, p.name_en, p.description_ar, p.description_en, p.price_usd, p.cost_price_usd, p.old_price_usd, 
                p.stock, p.category_id, p.merchant_id, p.is_new_arrival, p.rating_count, 
-               p.rating_sum, p.colors, p.sizes, p.created_at, p.sync_batch_time,
+               p.rating_sum, p.colors, p.sizes, p.created_at, p.sync_batch_time, p.blurhash,
                (CASE WHEN p.image_url LIKE 'data:image%' THEN CONCAT('/api/products/', p.id, '/image') ELSE p.image_url END) as image_url,
                (CASE WHEN p.images LIKE '%data:image%' THEN '[]' ELSE p.images END) as images,
                c.name_ar as category_name_ar, c.name_en as category_name_en, m.name as merchant_name 
@@ -414,7 +414,7 @@ exports.getRelatedProducts = async (req, res) => {
       const catRows = await db.allAsync(`
         SELECT p.id, p.sku, p.name_ar, p.name_en, p.description_ar, p.description_en, p.price_usd, p.cost_price_usd, p.old_price_usd, 
                p.stock, p.category_id, p.merchant_id, p.is_new_arrival, p.rating_count, 
-               p.rating_sum, p.colors, p.sizes, p.created_at, p.sync_batch_time,
+               p.rating_sum, p.colors, p.sizes, p.created_at, p.sync_batch_time, p.blurhash,
                (CASE WHEN p.image_url LIKE 'data:image%' THEN CONCAT('/api/products/', p.id, '/image') ELSE p.image_url END) as image_url,
                (CASE WHEN p.images LIKE '%data:image%' THEN '[]' ELSE p.images END) as images,
                c.name_ar as category_name_ar, c.name_en as category_name_en, m.name as merchant_name 
@@ -438,7 +438,7 @@ exports.getRelatedProducts = async (req, res) => {
       const generalRows = await db.allAsync(`
         SELECT p.id, p.sku, p.name_ar, p.name_en, p.description_ar, p.description_en, p.price_usd, p.cost_price_usd, p.old_price_usd, 
                p.stock, p.category_id, p.merchant_id, p.is_new_arrival, p.rating_count, 
-               p.rating_sum, p.colors, p.sizes, p.created_at, p.sync_batch_time,
+               p.rating_sum, p.colors, p.sizes, p.created_at, p.sync_batch_time, p.blurhash,
                (CASE WHEN p.image_url LIKE 'data:image%' THEN CONCAT('/api/products/', p.id, '/image') ELSE p.image_url END) as image_url,
                (CASE WHEN p.images LIKE '%data:image%' THEN '[]' ELSE p.images END) as images,
                c.name_ar as category_name_ar, c.name_en as category_name_en, m.name as merchant_name 
