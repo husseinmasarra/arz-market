@@ -556,7 +556,7 @@ async function syncDrPhoneToArzMart(options = {}) {
         } else {
           const cleanImg = p.image.split('?')[0];
           const imageFilename = cleanImg.split('/').pop();
-          finalImageUrl = imageFilename ? `/uploads/products/${imageFilename}` : '';
+          finalImageUrl = imageFilename ? `https://drphonewholesale.online/uploads/products/${imageFilename}` : '';
         }
       }
 

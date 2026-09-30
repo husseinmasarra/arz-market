@@ -20,6 +20,10 @@
       "destination": "/api/index.js"
     },
     {
+      "source": "/uploads/products/(.*)",
+      "destination": "https://drphonewholesale.online/uploads/products/$1"
+    },
+    {
       "source": "/uploads/(.*)",
       "destination": "https://raw.githubusercontent.com/husseinmasarra/arz-market/main/backend/uploads/$1"
     },
