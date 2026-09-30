@@ -204,6 +204,17 @@ export default function App() {
     return Array.from(catMap.values()).sort((a, b) => (a.name || '').localeCompare(b.name || '', lang === 'ar' ? 'ar' : 'en', { sensitivity: 'base', numeric: true }));
   }, [searchVal, products, lang]);
 
+  // Main Categories sorted strictly alphabetically by active language
+  const sortedMainCategories = React.useMemo(() => {
+    if (!Array.isArray(categories) || categories.length === 0) return [];
+    const mainList = categories.filter(c => c && (c.parent_id === null || c.parent_id === undefined || c.parent_id === 0 || c.parent_id === 'null' || c.parent_id === ''));
+    return [...mainList].sort((a, b) => {
+      const nameA = (lang === 'ar' ? a.name_ar : a.name_en) || a.name_en || a.name_ar || '';
+      const nameB = (lang === 'ar' ? b.name_ar : b.name_en) || b.name_en || b.name_ar || '';
+      return nameA.localeCompare(nameB, lang === 'ar' ? 'ar' : 'en', { sensitivity: 'base', numeric: true });
+    });
+  }, [categories, lang]);
+
   useEffect(() => {
     // Smooth debounced fetch when user is typing in search bar
     const delay = searchVal ? 220 : 0;
@@ -1216,17 +1227,10 @@ export default function App() {
                     </div>
                   )}
 
-                  {(Array.isArray(categories) ? categories : [])
-                    .filter(c => c && (c.parent_id === null || c.parent_id === undefined || c.parent_id === 0 || c.parent_id === 'null' || c.parent_id === ''))
-                    .sort((a, b) => {
-                      const nameA = getCategoryName(a, lang) || '';
-                      const nameB = getCategoryName(b, lang) || '';
-                      return nameA.localeCompare(nameB, lang === 'ar' ? 'ar' : 'en', { sensitivity: 'base', numeric: true });
-                    })
-                    .map((cat) => {
-                      const catName = getCategoryName(cat, lang);
-                      const subcategories = (Array.isArray(categories) ? categories : []).filter(c => c && String(c.parent_id) === String(cat.id));
-                      const subCount = subcategories.length;
+                  {sortedMainCategories.map((cat) => {
+                    const catName = getCategoryName(cat, lang);
+                    const subcategories = (Array.isArray(categories) ? categories : []).filter(c => c && String(c.parent_id) === String(cat.id));
+                    const subCount = subcategories.length;
                     
                     const imageUrl = getImageUrl(cat.image_url, 'https://images.unsplash.com/photo-1550009158-9ebf69173e03?auto=format&fit=crop&w=500&q=80');
 
@@ -1341,8 +1345,8 @@ export default function App() {
                   const availableSubCats = parentId 
                     ? catList.filter(c => c && String(c.parent_id) === String(parentId))
                         .sort((a, b) => {
-                          const nameA = getCategoryName(a, lang) || '';
-                          const nameB = getCategoryName(b, lang) || '';
+                          const nameA = (lang === 'ar' ? a.name_ar : a.name_en) || a.name_en || a.name_ar || '';
+                          const nameB = (lang === 'ar' ? b.name_ar : b.name_en) || b.name_en || b.name_ar || '';
                           return nameA.localeCompare(nameB, lang === 'ar' ? 'ar' : 'en', { sensitivity: 'base', numeric: true });
                         })
                     : [];
