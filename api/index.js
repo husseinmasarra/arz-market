@@ -23,6 +23,16 @@ app.get('/api/debug-status', (req, res) => {
   });
 });
 
+app.get('/api/test-blurhash', async (req, res) => {
+  try {
+    const db = require('./_src/config/db');
+    const rows = await db.allAsync('SELECT id, name_en, blurhash FROM products LIMIT 3');
+    res.json({ success: true, rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 try {
   const apiRoutes = require('./_src/routes/api');
   app.use('/api', apiRoutes);
