@@ -1095,6 +1095,10 @@ exports.visualSearch = async (req, res) => {
       const rating = ratingCount > 0 ? Math.round((ratingSum / ratingCount) * 10) / 10 : 0;
       let parsedImages = parseImagesForClient(p.images, p.image_url, p.id);
       let parsedSizes = formatSizesForClient(p.sizes);
+      let parsedColors = [];
+      try { parsedColors = typeof p.colors === 'string' ? JSON.parse(p.colors || '[]'); } catch (e) { parsedColors = []; }
+      if (!Array.isArray(parsedColors)) parsedColors = [];
+
       return {
         ...p,
         rating,
@@ -1102,7 +1106,8 @@ exports.visualSearch = async (req, res) => {
         old_price_usd: p.old_price_usd ? Number(p.old_price_usd) : null,
         image_url: sanitizeImageUrl(p.image_url, p.id),
         images: parsedImages,
-        sizes: parsedSizes
+        sizes: parsedSizes,
+        colors: parsedColors
       };
     });
 

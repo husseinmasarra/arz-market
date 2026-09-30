@@ -277,11 +277,20 @@ export default function ProductDetails({ product, onClose, onRefresh, onCategory
   const productOptions = parseProductOptions(product?.sizes, product?.price_usd || 0, allImages, getImageUrl);
   const hasOptions = productOptions.length > 0;
 
+  const parsedColors = React.useMemo(() => {
+    if (!product?.colors) return [];
+    let arr = product.colors;
+    if (typeof arr === 'string') {
+      try { arr = JSON.parse(arr); } catch (e) { arr = []; }
+    }
+    return Array.isArray(arr) ? arr.filter(Boolean) : [];
+  }, [product?.colors]);
+
   const [selectedOptId, setSelectedOptId] = useState(() => (hasOptions ? productOptions[0].id : null));
   const selectedOption = productOptions.find(o => o.id === selectedOptId) || (hasOptions ? productOptions[0] : null);
 
   const [selectedColor, setSelectedColor] = useState(() => {
-    return (product && product.colors && product.colors.length > 0) ? product.colors[0] : null;
+    return parsedColors.length > 0 ? parsedColors[0] : null;
   });
 
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -714,7 +723,7 @@ export default function ProductDetails({ product, onClose, onRefresh, onCategory
             </div>
 
             {/* Color Selector as Color Swatch Circles */}
-            {product.colors && product.colors.length > 0 && (
+            {parsedColors && parsedColors.length > 0 && (
               <div style={{ margin: '8px 0' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                   <span className="input-label" style={{ fontWeight: '800', fontSize: '0.88rem', margin: 0, color: 'var(--text-primary)' }}>
@@ -735,7 +744,7 @@ export default function ProductDetails({ product, onClose, onRefresh, onCategory
                 </div>
                 
                 <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', paddingTop: '4px' }}>
-                  {product.colors.map(color => {
+                  {parsedColors.map(color => {
                     const hex = resolveColorHex(color);
                     const isSelected = selectedColor === color;
                     const isLight = isLightColor(hex);
