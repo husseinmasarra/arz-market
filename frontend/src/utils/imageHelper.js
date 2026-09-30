@@ -12,14 +12,21 @@ export function getImageUrl(url, fallback = DEFAULT_PLACEHOLDER) {
   const trimmed = url.trim();
   if (trimmed.length === 0) return fallback;
 
+  // If absolute supplier URL is passed, rewrite it to same-origin /uploads/products/
+  // to avoid ERR_BLOCKED_BY_RESPONSE.NotSameOrigin from foreign server!
+  if (trimmed.includes('drphonewholesale.online/uploads/products/')) {
+    const filename = trimmed.split('/uploads/products/')[1];
+    return `/uploads/products/${filename}`;
+  }
+
   // External absolute URLs or inline base64
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:')) {
     return trimmed;
   }
 
-  // Uploads directory path for products
+  // Uploads directory path for products (same-origin relative URL)
   if (trimmed.startsWith('/uploads/products/')) {
-    return `${SUPPLIER_CDN_BASE}${trimmed}`;
+    return trimmed;
   }
 
   // General uploads directory path (logos, custom uploaded banners)
@@ -34,7 +41,7 @@ export function getImageUrl(url, fallback = DEFAULT_PLACEHOLDER) {
 
   // Bare filenames like '03-075-073.webp'
   if (trimmed.endsWith('.webp') || trimmed.endsWith('.png') || trimmed.endsWith('.jpg') || trimmed.endsWith('.jpeg')) {
-    return `${SUPPLIER_CDN_BASE}/uploads/products/${trimmed}`;
+    return `/uploads/products/${trimmed}`;
   }
 
   return `${GITHUB_RAW_BASE}/uploads/products/${trimmed}`;
