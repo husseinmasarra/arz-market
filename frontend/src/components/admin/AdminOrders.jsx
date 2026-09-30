@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
-import { Printer, Eye, CheckCircle2, MessageCircle, Mail, DollarSign, PackageCheck, Send, MessageSquare, Download, Search, RotateCcw, ShieldCheck, Edit3, Save, X, Tag } from 'lucide-react';
+import { Printer, Eye, CheckCircle2, MessageCircle, Mail, DollarSign, PackageCheck, Send, MessageSquare, Download, Search, RotateCcw, ShieldCheck, Edit3, Save, X, Tag, ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function AdminOrders() {
   const { lang, formatPrice, apiBase, settings, apiHost, getImageUrl, handleImageError } = useApp();
@@ -13,6 +13,7 @@ export default function AdminOrders() {
   const [dateFilter, setDateFilter] = useState('all'); // 'all', 'today', 'week', 'month'
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [hidePricesInPrint, setHidePricesInPrint] = useState(false);
+  const [showDropshipPanel, setShowDropshipPanel] = useState(false);
 
   // Price editing states (Admin Only)
   const [isEditingPrices, setIsEditingPrices] = useState(false);
@@ -753,7 +754,7 @@ ${order.notes ? `*ملاحظات الزبون:* ${order.notes}\n` : ''}*طريق
                     gap: '16px'
                   }}>
                     {/* Header with Profit Summary */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '1.4rem' }}>📦</span>
                         <div>
@@ -766,183 +767,203 @@ ${order.notes ? `*ملاحظات الزبون:* ${order.notes}\n` : ''}*طريق
                         </div>
                       </div>
 
-                      {/* Financial Profit Pills */}
-                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-                        <div style={{ padding: '6px 12px', borderRadius: '8px', backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', textAlign: 'center' }}>
-                          <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-light)' }}>{lang === 'ar' ? 'تكلفة الموردين' : 'Wholesale Cost'}</span>
-                          <strong style={{ fontSize: '0.9rem', color: '#64748b' }}>${overallOrderWholesale.toFixed(2)}</strong>
-                        </div>
-                        <div style={{ padding: '6px 12px', borderRadius: '8px', backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', textAlign: 'center' }}>
-                          <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-light)' }}>{lang === 'ar' ? 'سعر المنتجات الأصلي' : 'Subtotal'}</span>
-                          <strong style={{ fontSize: '0.9rem', color: 'var(--accent-blue)' }}>${overallOrderRetail.toFixed(2)}</strong>
-                        </div>
-                        {discountAmount > 0.009 && (
-                          <div style={{ padding: '6px 12px', borderRadius: '8px', backgroundColor: 'rgba(239, 68, 68, 0.08)', border: '1px solid #ef4444', textAlign: 'center' }}>
-                            <span style={{ display: 'block', fontSize: '0.7rem', color: '#dc2626', fontWeight: '700' }}>{lang === 'ar' ? 'حسم الزبون' : 'Discount'}</span>
-                            <strong style={{ fontSize: '0.9rem', color: '#dc2626', fontWeight: '800' }}>-${discountAmount.toFixed(2)}</strong>
-                          </div>
-                        )}
-                        <div style={{ padding: '6px 12px', borderRadius: '8px', backgroundColor: 'rgba(16, 185, 129, 0.12)', border: '1px solid #10b981', textAlign: 'center' }}>
-                          <span style={{ display: 'block', fontSize: '0.7rem', color: '#047857', fontWeight: '700' }}>{lang === 'ar' ? 'صافي الربح الفعلي' : 'Net Profit'}</span>
-                          <strong style={{ fontSize: '1rem', color: '#059669', fontWeight: '900' }}>{actualProfit >= 0 ? `+$${actualProfit.toFixed(2)}` : `-$${Math.abs(actualProfit).toFixed(2)}`}</strong>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Status with Supplier Dropdown */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', backgroundColor: 'var(--bg-primary)', padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-                      <span style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-primary)' }}>
-                        {lang === 'ar' ? 'حالة التوريد الحالية:' : 'Supplier Fulfillment Status:'}
-                      </span>
-                      <select
-                        className="input-field"
-                        style={{ width: 'auto', padding: '6px 14px', fontSize: '0.85rem', fontWeight: '800' }}
-                        value={selectedOrder.supplier_fulfillment_status || 'pending_supplier'}
-                        onChange={(e) => handleUpdateSupplierStatus(selectedOrder.id, e.target.value)}
+                      <button
+                        type="button"
+                        onClick={() => setShowDropshipPanel(prev => !prev)}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          border: '1px solid var(--border-color)',
+                          backgroundColor: 'var(--bg-primary)',
+                          color: 'var(--text-primary)',
+                          fontSize: '0.8rem',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
                       >
-                        <option value="pending_supplier">⏳ {lang === 'ar' ? 'بانتظار الإرسال للمورد (Pending Supplier)' : 'Pending Supplier'}</option>
-                        <option value="forwarded_to_supplier">{lang === 'ar' ? 'تم إرسال الطلب للمورد (Forwarded to Supplier)' : 'Forwarded to Supplier'}</option>
-                        <option value="shipped_by_supplier">{lang === 'ar' ? 'تم الشحن من المورد (Shipped by Supplier)' : 'Shipped by Supplier'}</option>
-                        <option value="delivered_settled">{lang === 'ar' ? 'تم التسليم والتحصيل (Settled & Complete)' : 'Settled & Complete'}</option>
-                      </select>
+                        {showDropshipPanel ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        <span>{showDropshipPanel ? (lang === 'ar' ? 'إخفاء التفاصيل' : 'Hide') : (lang === 'ar' ? 'عرض تفاصيل الموردين والأرباح' : 'Show Details')}</span>
+                      </button>
                     </div>
 
-                    {/* Each Supplier Card */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      {groupKeys.map(k => {
-                        const group = supplierGroups[k];
-                        const groupProfit = group.totalRetail - group.totalWholesale;
-
-                        return (
-                          <div 
-                            key={k} 
-                            style={{ 
-                              padding: '14px 16px', 
-                              borderRadius: '12px', 
-                              backgroundColor: 'var(--bg-primary)', 
-                              border: '1px solid var(--border-color)',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: '12px'
-                            }}
-                          >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                              <div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  <strong style={{ fontSize: '1rem', color: '#2563eb' }}>{group.name}</strong>
-                                  <span style={{ fontSize: '0.75rem', backgroundColor: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '6px', color: 'var(--text-light)' }}>
-                                    {group.items.length} {lang === 'ar' ? 'منتج' : 'items'}
-                                  </span>
-                                </div>
-                                {(group.whatsapp || group.phone) && (
-                                  <div style={{ fontSize: '0.78rem', color: '#16a34a', marginTop: '2px', fontWeight: '700', direction: 'ltr' }}>
-                                    {group.whatsapp || group.phone}
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Supplier Action Buttons: 1-Click WhatsApp & Email */}
-                              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDispatchToSupplierWhatsApp(group.name, group.whatsapp, group.items, selectedOrder)}
-                                  title={lang === 'ar' ? 'إرسال تفاصيل المنتجات والشحن للمورد عبر واتساب بنقرة واحدة' : 'Send order & shipping details to supplier via WhatsApp'}
-                                  style={{
-                                    padding: '8px 16px',
-                                    backgroundColor: '#25D366',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    fontWeight: '800',
-                                    fontSize: '0.85rem',
-                                    cursor: 'pointer',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                    boxShadow: '0 3px 10px rgba(37, 211, 102, 0.35)',
-                                    transition: 'transform 0.15s ease'
-                                  }}
-                                  onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                                  onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-                                >
-                                  <MessageCircle size={16} />
-                                  <span>{lang === 'ar' ? 'إرسال للمورد عبر واتساب ' : 'Send to Supplier via WhatsApp'}</span>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  onClick={() => handleDispatchToSupplierEmail(group.name, group.email, group.items, selectedOrder)}
-                                  title={lang === 'ar' ? 'إرسال بوليصة الطلب عبر البريد للمورد' : 'Send via email'}
-                                  style={{
-                                    padding: '8px 14px',
-                                    backgroundColor: 'var(--bg-secondary)',
-                                    color: 'var(--text-primary)',
-                                    border: '1px solid var(--border-color)',
-                                    borderRadius: '8px',
-                                    fontWeight: '700',
-                                    fontSize: '0.82rem',
-                                    cursor: 'pointer',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '6px'
-                                  }}
-                                >
-                                  <Mail size={14} />
-                                  <span>{lang === 'ar' ? 'إيميل' : 'Email'}</span>
-                                </button>
-                              </div>
+                    {/* Collapsible Content */}
+                    {showDropshipPanel && (
+                      <>
+                        {/* Financial Profit Pills */}
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
+                          <div style={{ padding: '6px 12px', borderRadius: '8px', backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', textAlign: 'center' }}>
+                            <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-light)' }}>{lang === 'ar' ? 'تكلفة الموردين' : 'Wholesale Cost'}</span>
+                            <strong style={{ fontSize: '0.9rem', color: '#64748b' }}>${overallOrderWholesale.toFixed(2)}</strong>
+                          </div>
+                          <div style={{ padding: '6px 12px', borderRadius: '8px', backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', textAlign: 'center' }}>
+                            <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-light)' }}>{lang === 'ar' ? 'سعر المنتجات الأصلي' : 'Subtotal'}</span>
+                            <strong style={{ fontSize: '0.9rem', color: 'var(--accent-blue)' }}>${overallOrderRetail.toFixed(2)}</strong>
+                          </div>
+                          {discountAmount > 0.009 && (
+                            <div style={{ padding: '6px 12px', borderRadius: '8px', backgroundColor: 'rgba(239, 68, 68, 0.08)', border: '1px solid #ef4444', textAlign: 'center' }}>
+                              <span style={{ display: 'block', fontSize: '0.7rem', color: '#dc2626', fontWeight: '700' }}>{lang === 'ar' ? 'حسم الزبون' : 'Discount'}</span>
+                              <strong style={{ fontSize: '0.9rem', color: '#dc2626', fontWeight: '800' }}>-${discountAmount.toFixed(2)}</strong>
                             </div>
+                          )}
+                          <div style={{ padding: '6px 12px', borderRadius: '8px', backgroundColor: 'rgba(16, 185, 129, 0.12)', border: '1px solid #10b981', textAlign: 'center' }}>
+                            <span style={{ display: 'block', fontSize: '0.7rem', color: '#047857', fontWeight: '700' }}>{lang === 'ar' ? 'صافي الربح الفعلي' : 'Net Profit'}</span>
+                            <strong style={{ fontSize: '1rem', color: '#059669', fontWeight: '900' }}>{actualProfit >= 0 ? `+$${actualProfit.toFixed(2)}` : `-$${Math.abs(actualProfit).toFixed(2)}`}</strong>
+                          </div>
+                        </div>
 
-                            {/* Items List from this supplier */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px dashed var(--border-color)', paddingTop: '10px' }}>
-                              {group.items.map((it, iIdx) => (
-                                <div key={iIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem' }}>
+                        {/* Status with Supplier Dropdown */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', backgroundColor: 'var(--bg-primary)', padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                          <span style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--text-primary)' }}>
+                            {lang === 'ar' ? 'حالة التوريد الحالية:' : 'Supplier Fulfillment Status:'}
+                          </span>
+                          <select
+                            className="input-field"
+                            style={{ width: 'auto', padding: '6px 14px', fontSize: '0.85rem', fontWeight: '800' }}
+                            value={selectedOrder.supplier_fulfillment_status || 'pending_supplier'}
+                            onChange={(e) => handleUpdateSupplierStatus(selectedOrder.id, e.target.value)}
+                          >
+                            <option value="pending_supplier">⏳ {lang === 'ar' ? 'بانتظار الإرسال للمورد (Pending Supplier)' : 'Pending Supplier'}</option>
+                            <option value="forwarded_to_supplier">{lang === 'ar' ? 'تم إرسال الطلب للمورد (Forwarded to Supplier)' : 'Forwarded to Supplier'}</option>
+                            <option value="shipped_by_supplier">{lang === 'ar' ? 'تم الشحن من المورد (Shipped by Supplier)' : 'Shipped by Supplier'}</option>
+                            <option value="delivered_settled">{lang === 'ar' ? 'تم التسليم والتحصيل (Settled & Complete)' : 'Settled & Complete'}</option>
+                          </select>
+                        </div>
+
+                        {/* Each Supplier Card */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                          {groupKeys.map(k => {
+                            const group = supplierGroups[k];
+                            const groupProfit = group.totalRetail - group.totalWholesale;
+
+                            return (
+                              <div 
+                                key={k} 
+                                style={{ 
+                                  padding: '14px 16px', 
+                                  borderRadius: '12px', 
+                                  backgroundColor: 'var(--bg-primary)', 
+                                  border: '1px solid var(--border-color)',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '12px'
+                                }}
+                              >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                                   <div>
-                                    <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>
-                                      {lang === 'ar' ? it.name_ar : it.name_en}
-                                    </span>
-                                    <span style={{ color: 'var(--text-light)', margin: '0 6px' }}>× {it.quantity}</span>
-                                    {(it.selectedColor || it.selectedSize) && (
-                                      <span style={{ fontSize: '0.74rem', color: 'var(--accent-blue)', opacity: 0.9 }}>
-                                        ({[it.selectedColor, it.selectedSize].filter(Boolean).join(' - ')})
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      <strong style={{ fontSize: '1rem', color: '#2563eb' }}>{group.name}</strong>
+                                      <span style={{ fontSize: '0.75rem', backgroundColor: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '6px', color: 'var(--text-light)' }}>
+                                        {group.items.length} {lang === 'ar' ? 'منتج' : 'items'}
                                       </span>
+                                    </div>
+                                    {(group.whatsapp || group.phone) && (
+                                      <div style={{ fontSize: '0.78rem', color: '#16a34a', marginTop: '2px', fontWeight: '700', direction: 'ltr' }}>
+                                        {group.whatsapp || group.phone}
+                                      </div>
                                     )}
                                   </div>
-                                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                                    <span style={{ color: 'var(--text-light)', fontSize: '0.78rem' }}>
-                                      {lang === 'ar' ? 'جملة:' : 'Cost:'} ${Number(it.cost_price_usd || 0).toFixed(2)}
-                                    </span>
-                                    <span style={{ fontWeight: '700', color: 'var(--accent-blue)' }}>
-                                      {lang === 'ar' ? 'بيع:' : 'Retail:'} ${Number(it.price_usd || 0).toFixed(2)}
-                                    </span>
-                                    <span style={{ fontWeight: '800', color: '#059669', fontSize: '0.8rem' }}>
-                                      +{((Number(it.price_usd || 0) - Number(it.cost_price_usd || 0)) * it.quantity).toFixed(2)}$
-                                    </span>
+
+                                  {/* Supplier Action Buttons */}
+                                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDispatchToSupplierWhatsApp(group.name, group.whatsapp, group.items, selectedOrder)}
+                                      style={{
+                                        padding: '8px 16px',
+                                        backgroundColor: '#25D366',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        fontWeight: '800',
+                                        fontSize: '0.85rem',
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        boxShadow: '0 3px 10px rgba(37, 211, 102, 0.35)'
+                                      }}
+                                    >
+                                      <MessageCircle size={16} />
+                                      <span>{lang === 'ar' ? 'إرسال للمورد عبر واتساب' : 'WhatsApp'}</span>
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDispatchToSupplierEmail(group.name, group.email, group.items, selectedOrder)}
+                                      style={{
+                                        padding: '8px 14px',
+                                        backgroundColor: 'var(--bg-secondary)',
+                                        color: 'var(--text-primary)',
+                                        border: '1px solid var(--border-color)',
+                                        borderRadius: '8px',
+                                        fontWeight: '700',
+                                        fontSize: '0.82rem',
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px'
+                                      }}
+                                    >
+                                      <Mail size={14} />
+                                      <span>{lang === 'ar' ? 'إيميل' : 'Email'}</span>
+                                    </button>
                                   </div>
                                 </div>
-                              ))}
-                            </div>
 
-                            {/* Group Subtotals */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-secondary)', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem' }}>
-                              <span style={{ color: 'var(--text-secondary)' }}>
-                                {lang === 'ar' ? `مجموع مستحقات ${group.name}: ` : `Total for ${group.name}: `}
-                                <strong style={{ color: 'var(--text-primary)' }}>${group.totalWholesale.toFixed(2)}</strong>
-                              </span>
-                              <span style={{ color: '#059669', fontWeight: '800' }}>
-                                {lang === 'ar' ? 'ربحك من هذا المورد: ' : 'Your profit from supplier: '}
-                                +${groupProfit.toFixed(2)}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                                {/* Items List */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px dashed var(--border-color)', paddingTop: '10px' }}>
+                                  {group.items.map((it, iIdx) => (
+                                    <div key={iIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem' }}>
+                                      <div>
+                                        <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>
+                                          {lang === 'ar' ? it.name_ar : it.name_en}
+                                        </span>
+                                        <span style={{ color: 'var(--text-light)', margin: '0 6px' }}>× {it.quantity}</span>
+                                        {(it.selectedColor || it.selectedSize) && (
+                                          <span style={{ fontSize: '0.74rem', color: 'var(--accent-blue)', opacity: 0.9 }}>
+                                            ({[it.selectedColor, it.selectedSize].filter(Boolean).join(' - ')})
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                        <span style={{ color: 'var(--text-light)', fontSize: '0.78rem' }}>
+                                          {lang === 'ar' ? 'جملة:' : 'Cost:'} ${Number(it.cost_price_usd || 0).toFixed(2)}
+                                        </span>
+                                        <span style={{ fontWeight: '700', color: 'var(--accent-blue)' }}>
+                                          {lang === 'ar' ? 'بيع:' : 'Retail:'} ${Number(it.price_usd || 0).toFixed(2)}
+                                        </span>
+                                        <span style={{ fontWeight: '800', color: '#059669', fontSize: '0.8rem' }}>
+                                          +{((Number(it.price_usd || 0) - Number(it.cost_price_usd || 0)) * it.quantity).toFixed(2)}$
+                                        </span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+
+                                {/* Group Subtotals */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-secondary)', padding: '8px 12px', borderRadius: '8px', fontSize: '0.82rem' }}>
+                                  <span style={{ color: 'var(--text-secondary)' }}>
+                                    {lang === 'ar' ? `مجموع مستحقات ${group.name}: ` : `Total for ${group.name}: `}
+                                    <strong style={{ color: 'var(--text-primary)' }}>${group.totalWholesale.toFixed(2)}</strong>
+                                  </span>
+                                  <span style={{ color: '#059669', fontWeight: '800' }}>
+                                    {lang === 'ar' ? 'ربحك من هذا المورد: ' : 'Your profit from supplier: '}
+                                    +${groupProfit.toFixed(2)}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
                   </div>
                 );
               })()}
 
-              {/* Printable Invoice Container */}
               {/* Printable Invoice Container */}
               <div className={`invoice-box ${hidePricesInPrint ? 'hide-price-on-print' : ''}`} style={{ 
                 padding: '24px', 
@@ -988,12 +1009,41 @@ ${order.notes ? `*ملاحظات الزبون:* ${order.notes}\n` : ''}*طريق
                     </div>
                   </div>
                   
-                  <div style={{ textAlign: lang === 'ar' ? 'left' : 'right', direction: 'ltr' }}>
-                    <h1 style={{ fontSize: '1.3rem', fontWeight: '900', color: 'var(--accent-blue)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      {lang === 'ar' ? 'وصل استلام طلبية' : 'ORDER RECEIPT'}
-                    </h1>
-                    <div style={{ fontSize: '0.8rem', fontWeight: '700', marginTop: '4px', color: 'var(--text-primary)' }}>
-                      #{selectedOrder.id}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    {/* Direct Admin Price Edit Button in Invoice Header */}
+                    {user?.role === 'admin' && (
+                      <button
+                        type="button"
+                        onClick={isEditingPrices ? handleSavePricing : handleStartEditPricing}
+                        className="no-print animate-scale"
+                        style={{
+                          padding: '7px 14px',
+                          backgroundColor: isEditingPrices ? '#10b981' : '#f59e0b',
+                          color: '#ffffff',
+                          border: 'none',
+                          borderRadius: '8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          cursor: isSavingPricing ? 'not-allowed' : 'pointer',
+                          fontSize: '0.82rem',
+                          fontWeight: '800',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                        }}
+                        title={lang === 'ar' ? 'تعديل أسعار الفاتورة للزبون (للمدير فقط)' : 'Edit invoice prices'}
+                      >
+                        {isEditingPrices ? <Save size={15} /> : <Edit3 size={15} />}
+                        <span>{isEditingPrices ? (isSavingPricing ? (lang === 'ar' ? 'جاري الحفظ...' : 'Saving...') : (lang === 'ar' ? 'حفظ الأسعار' : 'Save Prices')) : (lang === 'ar' ? 'تعديل أسعار الفاتورة' : 'Edit Prices')}</span>
+                      </button>
+                    )}
+
+                    <div style={{ textAlign: lang === 'ar' ? 'left' : 'right', direction: 'ltr' }}>
+                      <h1 style={{ fontSize: '1.3rem', fontWeight: '900', color: 'var(--accent-blue)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        {lang === 'ar' ? 'وصل استلام طلبية' : 'ORDER RECEIPT'}
+                      </h1>
+                      <div style={{ fontSize: '0.8rem', fontWeight: '700', marginTop: '4px', color: 'var(--text-primary)' }}>
+                        #{selectedOrder.id}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1145,7 +1195,22 @@ ${order.notes ? `*ملاحظات الزبون:* ${order.notes}\n` : ''}*طريق
                           <td style={{ padding: '8px', textAlign: 'center', fontWeight: '700', color: 'var(--text-primary)' }}>
                             {item.quantity}
                           </td>
-                          <td className="price-col" style={{ padding: '8px', textAlign: 'end', fontWeight: '600', color: 'var(--text-secondary)' }}>
+                          <td 
+                            className="price-col" 
+                            style={{ 
+                              padding: '8px', 
+                              textAlign: 'end', 
+                              fontWeight: '600', 
+                              color: 'var(--text-secondary)',
+                              cursor: user?.role === 'admin' && !isEditingPrices ? 'pointer' : 'default'
+                            }}
+                            onClick={() => {
+                              if (user?.role === 'admin' && !isEditingPrices) {
+                                handleStartEditPricing();
+                              }
+                            }}
+                            title={user?.role === 'admin' && !isEditingPrices ? (lang === 'ar' ? 'انقر لتعديل السعر (المدير)' : 'Click to edit price (Admin)') : ''}
+                          >
                             {isEditingPrices ? (
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
                                 <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>$</span>
@@ -1170,7 +1235,14 @@ ${order.notes ? `*ملاحظات الزبون:* ${order.notes}\n` : ''}*طريق
                                 />
                               </div>
                             ) : (
-                              formatPrice(item.price_usd)
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', justifyContent: 'flex-end' }}>
+                                <span>{formatPrice(item.price_usd)}</span>
+                                {user?.role === 'admin' && (
+                                  <span className="no-print" style={{ color: '#f59e0b', display: 'flex', alignItems: 'center', cursor: 'pointer' }} title={lang === 'ar' ? 'تعديل السعر' : 'Edit price'}>
+                                    <Edit3 size={13} />
+                                  </span>
+                                )}
+                              </div>
                             )}
                           </td>
                           <td className="total-col" style={{ padding: '8px', textAlign: 'end', fontWeight: '700', color: 'var(--text-primary)' }}>
@@ -1286,6 +1358,74 @@ ${order.notes ? `*ملاحظات الزبون:* ${order.notes}\n` : ''}*طريق
                     })()}
                   </div>
                 </div>
+
+                {/* Floating Bottom Sticky Save Bar when in Edit Mode */}
+                {isEditingPrices && (
+                  <div className="no-print animate-fade" style={{
+                    position: 'sticky',
+                    bottom: '12px',
+                    backgroundColor: 'var(--bg-primary)',
+                    border: '2px solid #f59e0b',
+                    borderRadius: '12px',
+                    padding: '12px 18px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    boxShadow: '0 8px 30px rgba(0,0,0,0.35)',
+                    zIndex: 200,
+                    marginTop: '20px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#b45309', fontWeight: '800', fontSize: '0.9rem' }}>
+                      <Edit3 size={18} />
+                      <span>{lang === 'ar' ? 'وضع تعديل الأسعار نشط: بعد الانتهاء اضغط حفظ لتطبيق الأسعار الجديدة' : 'Editing mode active: Click save when done'}</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button
+                        type="button"
+                        onClick={handleSavePricing}
+                        disabled={isSavingPricing}
+                        style={{
+                          padding: '8px 20px',
+                          backgroundColor: '#10b981',
+                          color: '#ffffff',
+                          border: 'none',
+                          borderRadius: '8px',
+                          fontWeight: '800',
+                          cursor: isSavingPricing ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontSize: '0.88rem',
+                          boxShadow: '0 2px 8px rgba(16, 185, 129, 0.4)'
+                        }}
+                      >
+                        <Save size={16} />
+                        <span>{isSavingPricing ? (lang === 'ar' ? 'جاري الحفظ...' : 'Saving...') : (lang === 'ar' ? 'حفظ الأسعار' : 'Save Prices')}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCancelEditPricing}
+                        disabled={isSavingPricing}
+                        style={{
+                          padding: '8px 16px',
+                          backgroundColor: 'var(--bg-tertiary)',
+                          color: 'var(--text-primary)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontSize: '0.88rem',
+                          fontWeight: '700'
+                        }}
+                      >
+                        <X size={16} />
+                        <span>{lang === 'ar' ? 'إلغاء' : 'Cancel'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Footer Notes */}
                 <div style={{ borderTop: '1px solid var(--border-color)', marginTop: '30px', paddingTop: '10px', textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-light)' }}>
