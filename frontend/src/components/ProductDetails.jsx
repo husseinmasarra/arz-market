@@ -646,17 +646,35 @@ export default function ProductDetails({ product, onClose, onRefresh, onCategory
                 </button>
               ) : <div />}
 
-              <span style={{
-                padding: '3px 10px',
-                borderRadius: '12px',
-                fontSize: '0.75rem',
-                fontWeight: '800',
-                backgroundColor: product.stock > 0 ? '#dcfce7' : '#fee2e2',
-                color: product.stock > 0 ? '#15803d' : '#b91c1c',
-                letterSpacing: '0.5px'
-              }}>
-                {product.stock > 0 ? (lang === 'ar' ? 'متوفر بالمخزون' : 'IN STOCK') : (lang === 'ar' ? 'نفذ من المخزون' : 'OUT OF STOCK')}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{
+                  fontSize: '0.74rem',
+                  fontFamily: 'monospace',
+                  fontWeight: '800',
+                  backgroundColor: 'var(--bg-tertiary)',
+                  color: 'var(--accent-blue)',
+                  border: '1px solid var(--border-color)',
+                  padding: '3px 8px',
+                  borderRadius: '6px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}>
+                  🏷️ {product?.sku || ('ARZ-P' + String(product?.id || 0).padStart(4, '0'))}
+                </span>
+
+                <span style={{
+                  padding: '3px 10px',
+                  borderRadius: '12px',
+                  fontSize: '0.75rem',
+                  fontWeight: '800',
+                  backgroundColor: product.stock > 0 ? '#dcfce7' : '#fee2e2',
+                  color: product.stock > 0 ? '#15803d' : '#b91c1c',
+                  letterSpacing: '0.5px'
+                }}>
+                  {product.stock > 0 ? (lang === 'ar' ? 'متوفر بالمخزون' : 'IN STOCK') : (lang === 'ar' ? 'نفذ من المخزون' : 'OUT OF STOCK')}
+                </span>
+              </div>
             </div>
 
             <h2 style={{ fontSize: '1.35rem', fontWeight: '800', color: 'var(--text-primary)', lineHeight: '1.3', margin: 0 }}>

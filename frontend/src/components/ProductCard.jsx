@@ -107,9 +107,9 @@ export default function ProductCard({ product, onDetailsClick, onCategoryClick }
         gap: '8px',
         flex: '1'
       }}>
-        {/* Category Label */}
-        {categoryName && (
-          <div style={{ display: 'flex', alignItems: 'center' }}>
+        {/* Category Label & SKU Code */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px' }}>
+          {categoryName ? (
             <span 
               onClick={(e) => {
                 if (onCategoryClick && product?.category_id) {
@@ -130,7 +130,7 @@ export default function ProductCard({ product, onDetailsClick, onCategoryClick }
                 gap: '4px',
                 cursor: onCategoryClick ? 'pointer' : 'default',
                 transition: 'all 0.2s ease',
-                maxWidth: '100%',
+                maxWidth: '65%',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap'
@@ -151,8 +151,25 @@ export default function ProductCard({ product, onDetailsClick, onCategoryClick }
               <Tag size={11} style={{ flexShrink: 0 }} />
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{categoryName}</span>
             </span>
-          </div>
-        )}
+          ) : <div />}
+
+          <span 
+            title={lang === 'ar' ? 'كود المنتج / الفاتورة' : 'Product SKU'}
+            style={{
+              fontSize: '0.68rem',
+              fontFamily: 'monospace',
+              fontWeight: '700',
+              color: 'var(--text-light)',
+              backgroundColor: 'var(--bg-tertiary)',
+              padding: '2px 5px',
+              borderRadius: '4px',
+              border: '1px solid var(--border-color)',
+              flexShrink: 0
+            }}
+          >
+            {product?.sku || ('ARZ-P' + String(product?.id || 0).padStart(4, '0'))}
+          </span>
+        </div>
 
         {/* Title */}
         <h3 
