@@ -405,6 +405,88 @@ exports.deleteOrder = async (req, res) => {
   }
 };
 
+exports.updateOrderPricing = async (req, res) => {
+  const { id } = req.params;
+  const { items, delivery_fee_usd, total_usd } = req.body;
+
+  // Strict check: Only admin role can change prices on invoices
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({
+      error_ar: 'عذراً، تعديل أسعار الفواتير مسموح به حصراً للمدير العام',
+      error_en: 'Forbidden: Only the general manager can modify invoice prices'
+    });
+  }
+
+  try {
+    const order = await db.getAsync('SELECT * FROM orders WHERE id = ?', [id]);
+    if (!order) {
+      return res.status(404).json({ error_ar: 'الطلبية غير موجودة', error_en: 'Order not found' });
+    }
+
+    const settings = await db.getAsync('SELECT exchange_rate FROM settings ORDER BY id DESC LIMIT 1');
+    const exchangeRate = order.exchange_rate || (settings ? settings.exchange_rate : 89500);
+
+    let updatedItems = [];
+    let subtotalUsd = 0;
+
+    if (Array.isArray(items)) {
+      updatedItems = items.map(it => {
+        const price = Math.max(0, Number(it.price_usd) || 0);
+        const qty = Math.max(1, parseInt(it.quantity) || 1);
+        subtotalUsd += price * qty;
+        return {
+          ...it,
+          price_usd: price,
+          quantity: qty
+        };
+      });
+    } else {
+      updatedItems = JSON.parse(order.items || '[]');
+      subtotalUsd = updatedItems.reduce((sum, i) => sum + (Number(i.price_usd || 0) * (i.quantity || 1)), 0);
+    }
+
+    const finalDeliveryFeeUsd = delivery_fee_usd !== undefined ? Math.max(0, Number(delivery_fee_usd)) : Number(order.delivery_fee_usd || 0);
+    
+    // Calculated or custom total
+    let finalTotalUsd = total_usd !== undefined && total_usd !== null 
+      ? Math.max(0, Number(total_usd)) 
+      : (subtotalUsd + finalDeliveryFeeUsd);
+
+    const finalTotalLbp = Math.round(finalTotalUsd * exchangeRate);
+    const finalDeliveryFeeLbp = Math.round(finalDeliveryFeeUsd * exchangeRate);
+
+    await db.runAsync(`
+      UPDATE orders 
+      SET items = ?, total_usd = ?, total_lbp = ?, delivery_fee_usd = ?, delivery_fee_lbp = ?
+      WHERE id = ?
+    `, [
+      JSON.stringify(updatedItems),
+      finalTotalUsd,
+      finalTotalLbp,
+      finalDeliveryFeeUsd,
+      finalDeliveryFeeLbp,
+      id
+    ]);
+
+    res.json({
+      success: true,
+      message_ar: 'تم تعديل أسعار الفاتورة وتحديث الإجمالي بنجاح!',
+      message_en: 'Invoice prices and totals successfully updated!',
+      order: {
+        id: order.id,
+        items: updatedItems,
+        total_usd: finalTotalUsd,
+        total_lbp: finalTotalLbp,
+        delivery_fee_usd: finalDeliveryFeeUsd,
+        delivery_fee_lbp: finalDeliveryFeeLbp
+      }
+    });
+  } catch (err) {
+    console.error('Update order pricing error:', err);
+    res.status(500).json({ error_ar: 'خطأ أثناء تعديل أسعار الفاتورة', error_en: 'Error updating invoice pricing' });
+  }
+};
+
 
 exports.getReports = async (req, res) => {
   try {

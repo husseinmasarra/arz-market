@@ -63,6 +63,7 @@ router.get('/orders', authenticateToken, requirePermission('orders'), orderContr
 router.get('/orders/history', authenticateToken, orderController.getUserOrders);
 router.get('/orders/:id', authenticateToken, orderController.getOrderById);
 router.put('/orders/:id/status', authenticateToken, requirePermission('orders'), orderController.updateOrderStatus);
+router.put('/orders/:id/pricing', authenticateToken, requireAdmin, orderController.updateOrderPricing);
 router.delete('/orders/:id', authenticateToken, requireAdmin, orderController.deleteOrder);
 
 // --- Coupon Routes ---

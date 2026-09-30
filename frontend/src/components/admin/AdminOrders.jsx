@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
-import { Printer, Eye, CheckCircle2, MessageCircle, Mail, DollarSign, PackageCheck, Send, MessageSquare, Download, Search, RotateCcw, ShieldCheck } from 'lucide-react';
+import { Printer, Eye, CheckCircle2, MessageCircle, Mail, DollarSign, PackageCheck, Send, MessageSquare, Download, Search, RotateCcw, ShieldCheck, Edit3, Save, X, Tag } from 'lucide-react';
 
 export default function AdminOrders() {
   const { lang, formatPrice, apiBase, settings, apiHost, getImageUrl, handleImageError } = useApp();
@@ -13,6 +13,94 @@ export default function AdminOrders() {
   const [dateFilter, setDateFilter] = useState('all'); // 'all', 'today', 'week', 'month'
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [hidePricesInPrint, setHidePricesInPrint] = useState(false);
+
+  // Price editing states (Admin Only)
+  const [isEditingPrices, setIsEditingPrices] = useState(false);
+  const [editingItems, setEditingItems] = useState([]);
+  const [editingDeliveryFee, setEditingDeliveryFee] = useState(0);
+  const [isSavingPricing, setIsSavingPricing] = useState(false);
+
+  useEffect(() => {
+    setIsEditingPrices(false);
+    setEditingItems([]);
+  }, [selectedOrder?.id]);
+
+  const handleStartEditPricing = () => {
+    if (!selectedOrder) return;
+    const clonedItems = (selectedOrder.items || []).map(i => ({
+      ...i,
+      price_usd: Number(i.price_usd) || 0
+    }));
+    setEditingItems(clonedItems);
+    setEditingDeliveryFee(Number(selectedOrder.delivery_fee_usd) || 0);
+    setIsEditingPrices(true);
+  };
+
+  const handleCancelEditPricing = () => {
+    setIsEditingPrices(false);
+    setEditingItems([]);
+  };
+
+  const handleItemPriceChange = (index, newPrice) => {
+    setEditingItems(prev => {
+      const updated = [...prev];
+      updated[index] = {
+        ...updated[index],
+        price_usd: newPrice === '' ? '' : Math.max(0, parseFloat(newPrice) || 0)
+      };
+      return updated;
+    });
+  };
+
+  const handleSavePricing = async () => {
+    if (!selectedOrder) return;
+    setIsSavingPricing(true);
+    try {
+      const cleanItems = editingItems.map(i => ({
+        ...i,
+        price_usd: Math.max(0, Number(i.price_usd) || 0)
+      }));
+      const res = await fetch(`${apiBase}/orders/${selectedOrder.id}/pricing`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          items: cleanItems,
+          delivery_fee_usd: Math.max(0, Number(editingDeliveryFee) || 0)
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSelectedOrder(prev => ({
+          ...prev,
+          items: data.order.items,
+          total_usd: data.order.total_usd,
+          total_lbp: data.order.total_lbp,
+          delivery_fee_usd: data.order.delivery_fee_usd,
+          delivery_fee_lbp: data.order.delivery_fee_lbp
+        }));
+        setOrders(prev => prev.map(o => o.id === selectedOrder.id ? {
+          ...o,
+          items: data.order.items,
+          total_usd: data.order.total_usd,
+          total_lbp: data.order.total_lbp,
+          delivery_fee_usd: data.order.delivery_fee_usd,
+          delivery_fee_lbp: data.order.delivery_fee_lbp
+        } : o));
+        setIsEditingPrices(false);
+        alert(lang === 'ar' ? 'تم تحديث أسعار الفاتورة والمجموع بنجاح!' : 'Invoice pricing updated successfully!');
+      } else {
+        alert(data.error_ar || data.error_en || 'Error saving prices');
+      }
+    } catch (err) {
+      console.error('Save pricing error:', err);
+      alert(lang === 'ar' ? 'خطأ أثناء حفظ الأسعار' : 'Error saving prices');
+    } finally {
+      setIsSavingPricing(false);
+    }
+  };
 
   const fetchOrders = async () => {
     try {
@@ -502,6 +590,80 @@ ${order.notes ? `*ملاحظات الزبون:* ${order.notes}\n` : ''}*طريق
                     <Printer size={14} />
                     <span>طباعة بدون سعر</span>
                   </button>
+
+                  {/* Admin-Only: Edit Invoice Prices Button */}
+                  {user?.role === 'admin' && (
+                    !isEditingPrices ? (
+                      <button
+                        onClick={handleStartEditPricing}
+                        className="input-field animate-scale"
+                        style={{
+                          width: 'auto',
+                          padding: '6px 14px',
+                          backgroundColor: '#f59e0b',
+                          color: '#ffffff',
+                          border: 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          cursor: 'pointer',
+                          fontSize: '0.8rem',
+                          fontWeight: 'bold',
+                          boxShadow: '0 2px 4px rgba(245, 158, 11, 0.3)'
+                        }}
+                        title={lang === 'ar' ? 'تعديل أسعار الفاتورة للزبون (للمدير فقط)' : 'Edit invoice prices (Admin only)'}
+                      >
+                        <Edit3 size={14} />
+                        <span>{lang === 'ar' ? 'تعديل أسعار الفاتورة' : 'Edit Invoice Prices'}</span>
+                      </button>
+                    ) : (
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button
+                          onClick={handleSavePricing}
+                          disabled={isSavingPricing}
+                          className="input-field animate-scale"
+                          style={{
+                            width: 'auto',
+                            padding: '6px 14px',
+                            backgroundColor: '#10b981',
+                            color: 'white',
+                            border: 'none',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            cursor: isSavingPricing ? 'not-allowed' : 'pointer',
+                            fontSize: '0.8rem',
+                            fontWeight: 'bold',
+                            boxShadow: '0 2px 4px rgba(16, 185, 129, 0.3)'
+                          }}
+                        >
+                          <Save size={14} />
+                          <span>{isSavingPricing ? (lang === 'ar' ? 'جاري الحفظ...' : 'Saving...') : (lang === 'ar' ? 'حفظ الأسعار' : 'Save Prices')}</span>
+                        </button>
+                        <button
+                          onClick={handleCancelEditPricing}
+                          disabled={isSavingPricing}
+                          className="input-field"
+                          style={{
+                            width: 'auto',
+                            padding: '6px 12px',
+                            backgroundColor: 'var(--bg-tertiary)',
+                            color: 'var(--text-primary)',
+                            border: '1px solid var(--border-color)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            cursor: 'pointer',
+                            fontSize: '0.8rem'
+                          }}
+                        >
+                          <X size={14} />
+                          <span>{lang === 'ar' ? 'إلغاء' : 'Cancel'}</span>
+                        </button>
+                      </div>
+                    )
+                  )}
+
                   {user?.role === 'admin' && selectedOrder.status !== 'archived' && (
                     <button
                       onClick={() => handleDeleteOrder(selectedOrder.id)}
@@ -893,6 +1055,27 @@ ${order.notes ? `*ملاحظات الزبون:* ${order.notes}\n` : ''}*طريق
                   </div>
                 </div>
 
+                {/* Price Edit Mode Banner (Admin Only) */}
+                {isEditingPrices && (
+                  <div className="no-print animate-fade" style={{
+                    marginBottom: '16px',
+                    padding: '12px 16px',
+                    borderRadius: '10px',
+                    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                    border: '2px solid #f59e0b',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '10px',
+                    fontSize: '0.85rem'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#b45309', fontWeight: 'bold' }}>
+                      <Edit3 size={18} />
+                      <span>{lang === 'ar' ? 'وضع تعديل الأسعار نشط (المدير العام فقط): يمكنك تعديل سعر كل منتج ورسوم التوصيل مباشرة أدناه ثم حفظ التعديلات.' : 'Price Editing Mode Active (Admin Only): Edit individual item prices and delivery fee below, then click Save.'}</span>
+                    </div>
+                  </div>
+                )}
+
                 {/* Items Table */}
                 <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '24px' }}>
                   <thead>
@@ -900,15 +1083,22 @@ ${order.notes ? `*ملاحظات الزبون:* ${order.notes}\n` : ''}*طريق
                       <th style={{ padding: '10px 8px', textAlign: 'center', width: '60px' }}>{lang === 'ar' ? 'الصورة' : 'Image'}</th>
                       <th style={{ padding: '10px 8px', textAlign: 'start' }}>{lang === 'ar' ? 'المنتج وصف' : 'Item Description'}</th>
                       <th style={{ padding: '10px 8px', textAlign: 'center', width: '70px' }}>{lang === 'ar' ? 'الكمية' : 'Qty'}</th>
-                      <th className="price-col" style={{ padding: '10px 8px', textAlign: 'end', width: '100px' }}>{lang === 'ar' ? 'سعر الوحدة' : 'Unit Price'}</th>
+                      <th className="price-col" style={{ padding: '10px 8px', textAlign: 'end', width: '110px' }}>
+                        {lang === 'ar' ? (isEditingPrices ? 'سعر الوحدة ($)' : 'سعر الوحدة') : (isEditingPrices ? 'Unit Price ($)' : 'Unit Price')}
+                      </th>
                       <th className="total-col" style={{ padding: '10px 8px', textAlign: 'end', width: '110px' }}>{lang === 'ar' ? 'المجموع' : 'Total'}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {selectedOrder.items.map((item, idx) => {
+                    {(selectedOrder.items || []).map((item, idx) => {
                       const itemImg = item.image_url ? getImageUrl(item.image_url) : '';
+                      const livePrice = isEditingPrices && editingItems[idx]?.price_usd !== undefined
+                        ? editingItems[idx].price_usd
+                        : Number(item.price_usd || 0);
+                      const liveTotal = (parseFloat(livePrice) || 0) * (item.quantity || 1);
+
                       return (
-                        <tr key={idx} style={{ borderBottom: '1px solid var(--border-color)', fontSize: '0.85rem', verticalAlign: 'middle' }}>
+                        <tr key={idx} style={{ borderBottom: '1px solid var(--border-color)', fontSize: '0.85rem', verticalAlign: 'middle', backgroundColor: isEditingPrices ? 'rgba(245, 158, 11, 0.03)' : 'transparent' }}>
                           {/* Product Image Column */}
                           <td style={{ padding: '8px', textAlign: 'center' }}>
                             {itemImg ? (
@@ -956,10 +1146,35 @@ ${order.notes ? `*ملاحظات الزبون:* ${order.notes}\n` : ''}*طريق
                             {item.quantity}
                           </td>
                           <td className="price-col" style={{ padding: '8px', textAlign: 'end', fontWeight: '600', color: 'var(--text-secondary)' }}>
-                            {formatPrice(item.price_usd)}
+                            {isEditingPrices ? (
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
+                                <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>$</span>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  className="input-field"
+                                  value={editingItems[idx]?.price_usd !== undefined ? editingItems[idx].price_usd : item.price_usd}
+                                  onChange={(e) => handleItemPriceChange(idx, e.target.value)}
+                                  style={{
+                                    width: '85px',
+                                    padding: '4px 6px',
+                                    fontSize: '0.88rem',
+                                    fontWeight: '800',
+                                    textAlign: 'center',
+                                    borderColor: '#f59e0b',
+                                    backgroundColor: 'var(--bg-primary)',
+                                    color: 'var(--text-primary)',
+                                    borderRadius: '6px'
+                                  }}
+                                />
+                              </div>
+                            ) : (
+                              formatPrice(item.price_usd)
+                            )}
                           </td>
                           <td className="total-col" style={{ padding: '8px', textAlign: 'end', fontWeight: '700', color: 'var(--text-primary)' }}>
-                            {formatPrice(item.price_usd * item.quantity)}
+                            {formatPrice(liveTotal)}
                           </td>
                         </tr>
                       );
@@ -984,63 +1199,89 @@ ${order.notes ? `*ملاحظات الزبون:* ${order.notes}\n` : ''}*طريق
                   {/* Right: Subtotal and Total calculations */}
                   <div className="total-col" style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end', minWidth: '240px' }}>
                     {(() => {
-                      const itemsSubtotal = (selectedOrder.items || []).reduce((sum, it) => sum + (Number(it.price_usd || 0) * (it.quantity || 1)), 0);
-                      const deliveryFee = Number(selectedOrder.delivery_fee_usd) || 0;
-                      const orderTotal = Number(selectedOrder.total_usd) || 0;
-                      const discountVal = Math.max(0, (itemsSubtotal + deliveryFee) - orderTotal);
+                      const activeItems = isEditingPrices ? editingItems : (selectedOrder.items || []);
+                      const itemsSubtotal = activeItems.reduce((sum, it) => sum + ((parseFloat(it.price_usd) || 0) * (it.quantity || 1)), 0);
+                      const deliveryFee = isEditingPrices 
+                        ? (parseFloat(editingDeliveryFee) || 0) 
+                        : (Number(selectedOrder.delivery_fee_usd) || 0);
+                      const computedGrandTotalUsd = isEditingPrices 
+                        ? (itemsSubtotal + deliveryFee)
+                        : Number(selectedOrder.total_usd || 0);
+                      const rate = selectedOrder.exchange_rate || settings?.exchange_rate || 89500;
+                      const computedGrandTotalLbp = computedGrandTotalUsd * rate;
+                      const originalDiscount = Math.max(0, (itemsSubtotal + deliveryFee) - Number(selectedOrder.total_usd || 0));
 
                       return (
                         <>
                           {/* Subtotal */}
-                          <div style={{ display: 'flex', justifyContent: 'space-between', width: '250px', fontSize: '0.85rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', width: '260px', fontSize: '0.85rem' }}>
                             <span style={{ color: 'var(--text-light)' }}>{lang === 'ar' ? 'المجموع الفرعي:' : 'Subtotal:'}</span>
                             <strong style={{ fontWeight: '700', color: 'var(--text-primary)' }}>
                               {formatPrice(itemsSubtotal)}
                             </strong>
                           </div>
 
-                          {/* Discount if present */}
-                          {discountVal > 0.009 && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between', width: '250px', fontSize: '0.85rem', color: '#dc2626' }}>
+                          {/* Discount if present and not currently in edit mode */}
+                          {!isEditingPrices && originalDiscount > 0.009 && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', width: '260px', fontSize: '0.85rem', color: '#dc2626' }}>
                               <span>{lang === 'ar' ? 'حسم ترحيبي / كود خصم:' : 'Discount:'}</span>
                               <strong style={{ fontWeight: '800' }}>
-                                -{formatPrice(discountVal)}
+                                -{formatPrice(originalDiscount)}
                               </strong>
                             </div>
                           )}
 
-                          {/* Delivery */}
-                          <div style={{ display: 'flex', justifyContent: 'space-between', width: '250px', fontSize: '0.85rem' }}>
+                          {/* Delivery Fee */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '260px', fontSize: '0.85rem' }}>
                             <span style={{ color: 'var(--text-light)' }}>{lang === 'ar' ? 'التوصيل:' : 'Delivery:'}</span>
-                            <strong style={{ fontWeight: '700', color: 'var(--text-primary)' }}>
-                              {deliveryFee === 0 
-                                ? (lang === 'ar' ? 'مجاني' : 'Free') 
-                                : formatPrice(deliveryFee)}
-                            </strong>
+                            {isEditingPrices ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>$</span>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  className="input-field"
+                                  value={editingDeliveryFee}
+                                  onChange={(e) => setEditingDeliveryFee(e.target.value)}
+                                  style={{
+                                    width: '75px',
+                                    padding: '3px 6px',
+                                    fontSize: '0.85rem',
+                                    fontWeight: '800',
+                                    textAlign: 'center',
+                                    borderColor: '#f59e0b',
+                                    backgroundColor: 'var(--bg-primary)',
+                                    color: 'var(--text-primary)',
+                                    borderRadius: '6px'
+                                  }}
+                                />
+                              </div>
+                            ) : (
+                              <strong style={{ fontWeight: '700', color: 'var(--text-primary)' }}>
+                                {deliveryFee === 0 
+                                  ? (lang === 'ar' ? 'مجاني' : 'Free') 
+                                  : formatPrice(deliveryFee)}
+                              </strong>
+                            )}
+                          </div>
+
+                          {/* Grand Total USD */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', width: '260px', fontSize: '1.15rem', fontWeight: '900', borderTop: '2px solid var(--text-primary)', paddingTop: '8px', marginTop: '4px' }}>
+                            <span>{lang === 'ar' ? 'الإجمالي النهائي (USD):' : 'Grand Total (USD):'}</span>
+                            <span style={{ color: 'var(--accent-red-gold)' }}>
+                              {formatPrice(computedGrandTotalUsd)}
+                            </span>
+                          </div>
+
+                          {/* Grand Total LBP (Lebanese Lira) */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', width: '260px', fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-secondary)', borderTop: '1px dashed var(--border-color)', paddingTop: '4px' }}>
+                            <span>{lang === 'ar' ? 'المعادل بالليرة اللبنانية:' : 'Equivalent in LBP:'}</span>
+                            <span>
+                              {Math.round(computedGrandTotalLbp).toLocaleString()} ل.ل.
+                            </span>
                           </div>
                         </>
-                      );
-                    })()}
-                    
-                    {/* Grand Total USD */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', width: '250px', fontSize: '1.1rem', fontWeight: '900', borderTop: '2px solid var(--text-primary)', paddingTop: '8px', marginTop: '4px' }}>
-                      <span>{lang === 'ar' ? 'الإجمالي النهائي (USD):' : 'Grand Total (USD):'}</span>
-                      <span style={{ color: 'var(--accent-red-gold)' }}>
-                        {formatPrice(selectedOrder.total_usd)}
-                      </span>
-                    </div>
-
-                    {/* Grand Total LBP (Lebanese Lira) */}
-                    {(() => {
-                      const rate = selectedOrder.exchange_rate || settings?.exchange_rate || 89500;
-                      const totalLbp = selectedOrder.total_usd * rate;
-                      return (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', width: '250px', fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-secondary)', borderTop: '1px dashed var(--border-color)', paddingTop: '4px' }}>
-                          <span>{lang === 'ar' ? 'المعادل بالليرة اللبنانية:' : 'Equivalent in LBP:'}</span>
-                          <span>
-                            {totalLbp.toLocaleString()} ل.ل.
-                          </span>
-                        </div>
                       );
                     })()}
                   </div>
