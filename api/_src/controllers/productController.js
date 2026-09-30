@@ -1096,7 +1096,15 @@ exports.visualSearch = async (req, res) => {
       let parsedImages = parseImagesForClient(p.images, p.image_url, p.id);
       let parsedSizes = formatSizesForClient(p.sizes);
       let parsedColors = [];
-      try { parsedColors = typeof p.colors === 'string' ? JSON.parse(p.colors || '[]'); } catch (e) { parsedColors = []; }
+      try {
+        if (typeof p.colors === 'string') {
+          parsedColors = JSON.parse(p.colors || '[]');
+        } else if (Array.isArray(p.colors)) {
+          parsedColors = p.colors;
+        }
+      } catch (e) {
+        parsedColors = [];
+      }
       if (!Array.isArray(parsedColors)) parsedColors = [];
 
       return {
