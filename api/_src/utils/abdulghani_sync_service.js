@@ -17,7 +17,9 @@ class CookieJar {
     for (const c of list) {
       const parts = c.split(';')[0].split('=');
       if (parts.length >= 2) {
-        this.cookies.set(parts[0].trim(), parts.slice(1).join('=').trim());
+        const name = parts[0].trim();
+        const value = parts.slice(1).join('=').trim();
+        this.cookies.set(name, value);
       }
     }
   }
@@ -238,6 +240,7 @@ async function syncAbdulGhani({ maxPages = 62, vatPercent = 12 } = {}) {
                     || prodDetail.body.match(/src="(\/web\/image\/[^\"]+)"/i);
 
         if (imgMatch) {
+          // Replace with 1920 for maximum sharpness and clarity
           let targetImgUrl = imgMatch[1].replace(/image_\d+/, 'image_1920');
           const fullImgUrl = `https://www.abdulghanitrading.com${targetImgUrl.replace(/&amp;/g, '&')}`;
           
@@ -247,6 +250,7 @@ async function syncAbdulGhani({ maxPages = 62, vatPercent = 12 } = {}) {
               imageBase64 = `data:image/jpeg;base64,${buf.toString('base64')}`;
             }
           } catch(e) {
+            // fallback to original match
             const bufFallback = await fetchImageBuffer(`https://www.abdulghanitrading.com${imgMatch[1].replace(/&amp;/g, '&')}`);
             if (bufFallback && bufFallback.length > 500) {
               imageBase64 = `data:image/jpeg;base64,${bufFallback.toString('base64')}`;
@@ -318,3 +322,13 @@ async function syncAbdulGhani({ maxPages = 62, vatPercent = 12 } = {}) {
 module.exports = {
   syncAbdulGhani
 };
+
+if (require.main === module) {
+  const pages = parseInt(process.argv[2]) || 62;
+  syncAbdulGhani({ maxPages: pages, vatPercent: 12 })
+    .then(() => process.exit(0))
+    .catch(err => {
+      console.error('Sync error:', err);
+      process.exit(1);
+    });
+}

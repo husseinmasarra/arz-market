@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arzmart-pwa-v18';
+const CACHE_NAME = 'arzmart-pwa-v25';
 const OFFLINE_URL = '/index.html';
 
 const PRECACHE_ASSETS = [
@@ -37,7 +37,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch Event - Smart caching
+// Fetch Event - Network-First for HTML/JS/CSS to guarantee latest updates
 self.addEventListener('fetch', (event) => {
   const request = event.request;
 
@@ -51,42 +51,25 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. Navigation requests (HTML page visits / PWA launch)
-  if (request.mode === 'navigate' || request.headers.get('accept')?.includes('text/html')) {
-    event.respondWith(
-      fetch(request)
-        .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            const copy = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)).catch(() => {});
-          }
-          return networkResponse;
-        })
-        .catch(() => {
-          // If offline or network fails on PWA launch, return cached index.html app shell
-          return caches.match(OFFLINE_URL).then((cached) => {
-            return cached || caches.match('/') || new Response('Network Error', { status: 503 });
-          });
-        })
-    );
-    return;
-  }
-
-  // 4. Static assets (JS, CSS, images, fonts)
-  // Stale-while-revalidate / Cache-first
+  // 3. Network-First Strategy for all app assets
   event.respondWith(
-    caches.match(request).then((cachedResponse) => {
-      const fetchPromise = fetch(request)
-        .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            const copy = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)).catch(() => {});
+    fetch(request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const copy = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)).catch(() => {});
+        }
+        return networkResponse;
+      })
+      .catch(() => {
+        // Fallback to cache when offline
+        return caches.match(request).then((cached) => {
+          if (cached) return cached;
+          if (request.mode === 'navigate' || request.headers.get('accept')?.includes('text/html')) {
+            return caches.match(OFFLINE_URL) || caches.match('/');
           }
-          return networkResponse;
-        })
-        .catch(() => cachedResponse);
-
-      return cachedResponse || fetchPromise;
-    })
+          return new Response('Offline', { status: 503 });
+        });
+      })
   );
 });

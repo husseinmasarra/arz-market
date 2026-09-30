@@ -140,7 +140,7 @@ if (typeof window !== 'undefined' && 'caches' in window) {
   try {
     caches.keys().then((names) => {
       names.forEach((name) => {
-        if (name !== 'arzmart-pwa-v18') {
+        if (name !== 'arzmart-pwa-v25') {
           console.log('[App] Purging stale cache:', name);
           caches.delete(name);
         }
@@ -149,12 +149,23 @@ if (typeof window !== 'undefined' && 'caches' in window) {
   } catch (e) {}
 }
 
-// Service worker registration
+// Service worker registration with instant update handling
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
       .then((reg) => {
         reg.update().catch(() => {});
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          if (newWorker) {
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'activated') {
+                console.log('[SW] New version activated, refreshing...');
+                window.location.reload();
+              }
+            });
+          }
+        });
       })
       .catch((err) => {
         console.warn('SW registration failed:', err);
