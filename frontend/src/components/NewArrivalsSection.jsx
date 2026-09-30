@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useApp } from "../context/AppContext";
 import { Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
+import BlurImage from "./BlurImage";
 
 export default function NewArrivalsSection({ onProductClick }) {
   const { lang, apiBase, formatPrice, getImageUrl, handleImageError } = useApp();
@@ -71,7 +72,7 @@ export default function NewArrivalsSection({ onProductClick }) {
               </div>
               {hasDiscount && <div style={{ position: "absolute", top: "8px", right: "8px", zIndex: 2, backgroundColor: "rgba(16,185,129,0.9)", color: "white", fontSize: "0.62rem", fontWeight: "800", padding: "2px 6px", borderRadius: "8px" }}>خصم</div>}
               <div style={{ width: "100%", height: "130px", overflow: "hidden", backgroundColor: "var(--bg-primary)" }}>
-                <img src={imageUrl} alt={name} onError={handleImageError} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <BlurImage src={imageUrl} alt={name} blurhash={p.blurhash} onError={handleImageError} objectFit="cover" />
               </div>
               <div style={{ padding: "10px" }}>
                 <p style={{ fontSize: "0.78rem", fontWeight: "600", color: "var(--text-primary)", margin: "0 0 6px", lineHeight: "1.3", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{name}</p>

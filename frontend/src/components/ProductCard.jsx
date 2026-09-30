@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 import { Star, ShoppingCart, Eye, Share2, Check, Tag } from 'lucide-react';
+import BlurImage from './BlurImage';
 
 export default function ProductCard({ product, onDetailsClick, onCategoryClick }) {
   const { lang, formatPrice, t, getImageUrl, handleImageError } = useApp();
@@ -60,18 +61,23 @@ export default function ProductCard({ product, onDetailsClick, onCategoryClick }
           padding: '8px'
         }}
       >
-        <img
+        <BlurImage
           src={imageUrl}
           alt={name}
+          blurhash={product?.blurhash}
+          objectFit="contain"
           onError={handleImageError}
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'contain',
+          imgStyle={{
             transition: 'transform 0.3s ease'
           }}
-          onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
-          onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+          onMouseEnter={(e) => {
+            const img = e.currentTarget.querySelector('img');
+            if (img) img.style.transform = 'scale(1.05)';
+          }}
+          onMouseLeave={(e) => {
+            const img = e.currentTarget.querySelector('img');
+            if (img) img.style.transform = 'scale(1)';
+          }}
         />
         {/* Discount Badge */}
         {hasDiscount && (

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useApp } from "../context/AppContext";
 import { Flame, ChevronLeft, ChevronRight } from "lucide-react";
+import BlurImage from "./BlurImage";
 
 export default function BestSellersSection({ onProductClick }) {
   const { lang, apiBase, formatPrice, getImageUrl, handleImageError } = useApp();
@@ -68,7 +69,7 @@ export default function BestSellersSection({ onProductClick }) {
               <div style={{ position: "absolute", top: "8px", left: "8px", zIndex: 2, width: "24px", height: "24px", borderRadius: "50%", backgroundColor: idx === 0 ? "#f59e0b" : idx === 1 ? "#9ca3af" : idx === 2 ? "#b45309" : "rgba(239,68,68,0.85)", color: "white", fontSize: "0.7rem", fontWeight: "800", display: "flex", alignItems: "center", justifyContent: "center" }}>{idx + 1}</div>
               {idx < 3 && <div style={{ position: "absolute", top: "8px", right: "8px", zIndex: 2, backgroundColor: "rgba(239,68,68,0.9)", color: "white", fontSize: "0.62rem", fontWeight: "800", padding: "2px 6px", borderRadius: "8px" }}>HOT</div>}
               <div style={{ width: "100%", height: "130px", overflow: "hidden", backgroundColor: "var(--bg-primary)" }}>
-                <img src={imageUrl} alt={name} onError={handleImageError} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <BlurImage src={imageUrl} alt={name} blurhash={p.blurhash} onError={handleImageError} objectFit="cover" />
               </div>
               <div style={{ padding: "10px" }}>
                 <p style={{ fontSize: "0.78rem", fontWeight: "600", color: "var(--text-primary)", margin: "0 0 6px", lineHeight: "1.3", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{name}</p>

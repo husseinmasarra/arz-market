@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart, getOptionPrice } from '../context/CartContext';
 import { Star, ShoppingCart, X, ZoomIn, ZoomOut, RotateCcw, Move, MessageSquare, Check, ChevronLeft, ChevronRight, Images, Share2, Copy, Send, Tag, Sparkles, Plus, Layers, ShoppingBag } from 'lucide-react';
+import BlurImage from './BlurImage';
 
 const COLOR_HEX_MAP = {
   'black': '#18181b', 'أسود': '#18181b', 'noir': '#18181b', 'dark': '#27272a', 'غامق': '#27272a',
@@ -418,20 +419,25 @@ export default function ProductDetails({ product, onClose, onRefresh, onCategory
               }}
               title={lang === 'ar' ? 'انقر لتكبير ومعاينة الصورة' : 'Click to enlarge image'}
             >
-              <img 
+              <BlurImage 
                 src={imageUrl} 
                 alt={name} 
+                blurhash={product?.blurhash}
+                objectFit="contain"
                 onError={handleImageError}
-                style={{
-                  width: '100%',
-                  height: '100%',
+                imgStyle={{
                   maxHeight: '430px',
-                  objectFit: 'contain',
                   borderRadius: '10px',
                   transition: 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)'
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.04)'}
-                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                onMouseEnter={(e) => {
+                  const img = e.currentTarget.querySelector('img');
+                  if (img) img.style.transform = 'scale(1.04)';
+                }}
+                onMouseLeave={(e) => {
+                  const img = e.currentTarget.querySelector('img');
+                  if (img) img.style.transform = 'scale(1)';
+                }}
               />
 
               {/* Multi-Image Counter Badge */}
