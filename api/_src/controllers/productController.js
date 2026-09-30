@@ -1007,4 +1007,110 @@ exports.deduplicateProducts = async (req, res) => {
   }
 };
 
+exports.visualSearch = async (req, res) => {
+  try {
+    const body = req.method === 'POST' ? req.body : req.query;
+    let keywords = body.keywords || body.tags || body.query || '';
+    if (Array.isArray(keywords)) {
+      keywords = keywords.filter(Boolean).join(' ');
+    }
+    const categoryId = body.category_id ? parseInt(body.category_id) : null;
+    const limit = Math.min(60, parseInt(body.limit) || 24);
+
+    const terms = String(keywords)
+      .toLowerCase()
+      .split(/[\s,،+]+/)
+      .map(t => t.trim())
+      .filter(t => t.length >= 2);
+
+    let query = `
+      SELECT p.id, p.name_ar, p.name_en, p.description_ar, p.description_en, 
+             p.price, p.cost_price, p.stock_quantity, p.category_id, 
+             p.image_url, p.images, p.sizes, p.rating, p.rating_count, 
+             p.is_best_seller, p.is_new_arrival, p.discount_price, p.blurhash,
+             c.name_ar as category_name_ar, c.name_en as category_name_en
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+    `;
+    const params = [];
+    const conditions = [];
+
+    if (terms.length > 0) {
+      const termConditions = [];
+      terms.forEach(term => {
+        termConditions.push(`(
+          LOWER(p.name_ar) LIKE ? OR 
+          LOWER(p.name_en) LIKE ? OR 
+          LOWER(c.name_ar) LIKE ? OR 
+          LOWER(c.name_en) LIKE ? OR 
+          LOWER(COALESCE(p.description_ar, '')) LIKE ? OR 
+          LOWER(COALESCE(p.description_en, '')) LIKE ?
+        )`);
+        const pattern = `%${term}%`;
+        params.push(pattern, pattern, pattern, pattern, pattern, pattern);
+      });
+      conditions.push(`(${termConditions.join(' OR ')})`);
+    }
+
+    if (categoryId) {
+      conditions.push(`(p.category_id = ? OR c.parent_id = ?)`);
+      params.push(categoryId, categoryId);
+    }
+
+    if (conditions.length > 0) {
+      query += ` WHERE ${conditions.join(' AND ')}`;
+    }
+
+    // Sort by rating, stock, best seller, and recency
+    query += ` ORDER BY p.is_best_seller DESC, p.rating DESC, p.stock_quantity DESC, p.id DESC LIMIT ${limit}`;
+
+    let rows = await db.allAsync(query, params);
+
+    // If terms matched fewer than 6 products, fallback to related popular products
+    if (rows.length < 6 && categoryId) {
+      const fallbackQuery = `
+        SELECT p.id, p.name_ar, p.name_en, p.description_ar, p.description_en, 
+               p.price, p.cost_price, p.stock_quantity, p.category_id, 
+               p.image_url, p.images, p.sizes, p.rating, p.rating_count, 
+               p.is_best_seller, p.is_new_arrival, p.discount_price, p.blurhash,
+               c.name_ar as category_name_ar, c.name_en as category_name_en
+        FROM products p
+        LEFT JOIN categories c ON p.category_id = c.id
+        WHERE p.category_id = ? OR c.parent_id = ?
+        ORDER BY p.is_best_seller DESC, p.rating DESC LIMIT ${limit}
+      `;
+      const fallbackRows = await db.allAsync(fallbackQuery, [categoryId, categoryId]);
+      const existingIds = new Set(rows.map(r => r.id));
+      fallbackRows.forEach(fb => {
+        if (!existingIds.has(fb.id)) {
+          rows.push(fb);
+          existingIds.add(fb.id);
+        }
+      });
+    }
+
+    // Format products for client
+    const formatted = rows.map(p => {
+      let parsedImages = parseImagesForClient(p.images, p.image_url, p.id);
+      let parsedSizes = formatSizesForClient(p.sizes);
+      return {
+        ...p,
+        image_url: sanitizeImageUrl(p.image_url, p.id),
+        images: parsedImages,
+        sizes: parsedSizes
+      };
+    });
+
+    res.json({
+      success: true,
+      count: formatted.length,
+      products: formatted
+    });
+  } catch (err) {
+    console.error('visualSearch error:', err);
+    res.status(500).json({ error: 'Visual search failed', details: err.message });
+  }
+};
+
+
 

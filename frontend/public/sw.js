@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arzmart-pwa-v25';
+const CACHE_NAME = 'arzmart-pwa-v26';
 const OFFLINE_URL = '/index.html';
 
 const PRECACHE_ASSETS = [

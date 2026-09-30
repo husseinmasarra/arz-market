@@ -42,6 +42,8 @@ router.delete('/categories/:id', authenticateToken, requirePermission('categorie
 // --- Product Routes ---
 router.get('/products/best-sellers', productController.getBestSellers);
 router.get('/products/new-arrivals-home', productController.getNewArrivalsHome);
+router.get('/products/visual-search', productController.visualSearch);
+router.post('/products/visual-search', productController.visualSearch);
 router.get('/products/:id/image', productController.getProductImage);
 router.get('/products/:id/related', productController.getRelatedProducts);
 router.get('/products', productController.getProducts);

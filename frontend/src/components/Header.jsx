@@ -3,9 +3,9 @@ import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useChat } from '../context/ChatContext';
-import { ShoppingCart, Moon, Sun, Globe, DollarSign, LogOut, User, Shield, MessageSquare, Fingerprint, Smartphone, Search, X, Tag, Sparkles } from 'lucide-react';
+import { ShoppingCart, Moon, Sun, Globe, DollarSign, LogOut, User, Shield, MessageSquare, Fingerprint, Smartphone, Search, X, Tag, Sparkles, Camera } from 'lucide-react';
 
-export default function Header({ currentView, setCurrentView, searchVal, setSearchVal, onLogoClick, categories, onSelectCategory }) {
+export default function Header({ currentView, setCurrentView, searchVal, setSearchVal, onLogoClick, categories, onSelectCategory, onOpenVisualSearch }) {
   const { lang, setLang, theme, setTheme, currency, toggleCurrency, settings, t, apiHost } = useApp();
   const { user, logout } = useAuth();
   const { cartItems, setIsCartOpen } = useCart();
@@ -99,7 +99,7 @@ export default function Header({ currentView, setCurrentView, searchVal, setSear
 
         {/* Search Bar */}
         {currentView === 'store' && (
-          <div ref={searchContainerRef} style={{ flex: '1', maxWidth: '400px', minWidth: '200px', position: 'relative' }}>
+          <div ref={searchContainerRef} style={{ flex: '1', maxWidth: '420px', minWidth: '220px', position: 'relative' }}>
             <input
               type="text"
               className="input-field"
@@ -113,7 +113,7 @@ export default function Header({ currentView, setCurrentView, searchVal, setSear
               style={{
                 borderRadius: '24px',
                 paddingInlineStart: '38px',
-                paddingInlineEnd: searchVal ? '38px' : '16px',
+                paddingInlineEnd: searchVal ? '66px' : '40px',
                 borderColor: 'var(--border-color)',
                 backgroundColor: 'var(--bg-primary)'
               }}
@@ -129,6 +129,37 @@ export default function Header({ currentView, setCurrentView, searchVal, setSear
                 pointerEvents: 'none'
               }}
             />
+
+            {/* Visual Camera Search Trigger Button */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onOpenVisualSearch) onOpenVisualSearch();
+              }}
+              title={t('visual_search_btn')}
+              aria-label={t('visual_search_btn')}
+              style={{
+                position: 'absolute',
+                top: '50%',
+                insetInlineEnd: searchVal ? '34px' : '10px',
+                transform: 'translateY(-50%)',
+                background: 'none',
+                border: 'none',
+                color: 'var(--accent-blue)',
+                cursor: 'pointer',
+                padding: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '50%',
+                transition: 'transform 0.15s ease'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-50%) scale(1.18)'}
+              onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(-50%) scale(1)'}
+            >
+              <Camera size={17} />
+            </button>
             {searchVal && (
               <button
                 type="button"

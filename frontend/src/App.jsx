@@ -20,6 +20,7 @@ import TermsOfServiceView from './components/TermsOfServiceView';
 import DeleteAccountView from './components/DeleteAccountView';
 import CustomerDashboard from './components/CustomerDashboard';
 import WelcomeDiscountModal from './components/WelcomeDiscountModal';
+import VisualSearchModal from './components/VisualSearchModal';
 import { trackPageView, trackViewContent, trackSearch } from './utils/pixelTracker';
 
 // Admin panel imports
@@ -108,6 +109,9 @@ export default function App() {
   // First-Time Welcome 10% Discount Modal state
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [welcomeUserName, setWelcomeUserName] = useState('');
+
+  // Visual Image Search Modal state
+  const [isVisualSearchOpen, setIsVisualSearchOpen] = useState(false);
 
   // User orders history state
   const [userOrders, setUserOrders] = useState([]);
@@ -590,6 +594,7 @@ export default function App() {
         }} 
         categories={categories}
         onSelectCategory={handleSelectCategory}
+        onOpenVisualSearch={() => setIsVisualSearchOpen(true)}
         onLogoClick={() => {
           setCurrentView('store');
           setSelectedProduct(null);
@@ -602,6 +607,16 @@ export default function App() {
           setMinRating('');
           setIsCartOpen(false);
           window.history.pushState(null, '', '/');
+        }}
+      />
+
+      {/* Visual Image Search & Lens Modal */}
+      <VisualSearchModal 
+        isOpen={isVisualSearchOpen} 
+        onClose={() => setIsVisualSearchOpen(false)} 
+        onSelectProduct={(prod) => {
+          setSelectedProduct(prod);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
       />
 
