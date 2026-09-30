@@ -572,7 +572,11 @@ ${order.notes ? `*ملاحظات الزبون:* ${order.notes}\n` : ''}*طريق
 
                 const overallOrderWholesale = groupKeys.reduce((sum, k) => sum + supplierGroups[k].totalWholesale, 0);
                 const overallOrderRetail = groupKeys.reduce((sum, k) => sum + supplierGroups[k].totalRetail, 0);
-                const overallOrderProfit = overallOrderRetail - overallOrderWholesale;
+                const deliveryFee = Number(selectedOrder.delivery_fee_usd) || 0;
+                const orderTotalUsd = Number(selectedOrder.total_usd) || 0;
+                const discountAmount = Math.max(0, (overallOrderRetail + deliveryFee) - orderTotalUsd);
+                const actualRevenue = Math.max(0, orderTotalUsd - deliveryFee);
+                const actualProfit = actualRevenue - overallOrderWholesale;
 
                 return (
                   <div className="no-print animate-fade" style={{
@@ -589,7 +593,7 @@ ${order.notes ? `*ملاحظات الزبون:* ${order.notes}\n` : ''}*طريق
                     {/* Header with Profit Summary */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '1.4rem' }}></span>
+                        <span style={{ fontSize: '1.4rem' }}>📦</span>
                         <div>
                           <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-primary)' }}>
                             {lang === 'ar' ? 'منظومة الدروب شيبينغ وإرسال الطلبات للموردين' : 'Dropshipping & Supplier Fulfillment'}
@@ -607,12 +611,18 @@ ${order.notes ? `*ملاحظات الزبون:* ${order.notes}\n` : ''}*طريق
                           <strong style={{ fontSize: '0.9rem', color: '#64748b' }}>${overallOrderWholesale.toFixed(2)}</strong>
                         </div>
                         <div style={{ padding: '6px 12px', borderRadius: '8px', backgroundColor: 'var(--bg-primary)', border: '1px solid var(--border-color)', textAlign: 'center' }}>
-                          <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-light)' }}>{lang === 'ar' ? 'سعر البيع' : 'Retail Price'}</span>
+                          <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-light)' }}>{lang === 'ar' ? 'سعر المنتجات الأصلي' : 'Subtotal'}</span>
                           <strong style={{ fontSize: '0.9rem', color: 'var(--accent-blue)' }}>${overallOrderRetail.toFixed(2)}</strong>
                         </div>
+                        {discountAmount > 0.009 && (
+                          <div style={{ padding: '6px 12px', borderRadius: '8px', backgroundColor: 'rgba(239, 68, 68, 0.08)', border: '1px solid #ef4444', textAlign: 'center' }}>
+                            <span style={{ display: 'block', fontSize: '0.7rem', color: '#dc2626', fontWeight: '700' }}>{lang === 'ar' ? 'حسم الزبون' : 'Discount'}</span>
+                            <strong style={{ fontSize: '0.9rem', color: '#dc2626', fontWeight: '800' }}>-${discountAmount.toFixed(2)}</strong>
+                          </div>
+                        )}
                         <div style={{ padding: '6px 12px', borderRadius: '8px', backgroundColor: 'rgba(16, 185, 129, 0.12)', border: '1px solid #10b981', textAlign: 'center' }}>
-                          <span style={{ display: 'block', fontSize: '0.7rem', color: '#047857', fontWeight: '700' }}>{lang === 'ar' ? 'صافي ربحك ' : 'Net Profit '}</span>
-                          <strong style={{ fontSize: '1rem', color: '#059669', fontWeight: '900' }}>+${overallOrderProfit.toFixed(2)}</strong>
+                          <span style={{ display: 'block', fontSize: '0.7rem', color: '#047857', fontWeight: '700' }}>{lang === 'ar' ? 'صافي الربح الفعلي' : 'Net Profit'}</span>
+                          <strong style={{ fontSize: '1rem', color: '#059669', fontWeight: '900' }}>{actualProfit >= 0 ? `+$${actualProfit.toFixed(2)}` : `-$${Math.abs(actualProfit).toFixed(2)}`}</strong>
                         </div>
                       </div>
                     </div>
@@ -972,18 +982,48 @@ ${order.notes ? `*ملاحظات الزبون:* ${order.notes}\n` : ''}*طريق
                   </div>
 
                   {/* Right: Subtotal and Total calculations */}
-                  <div className="total-col" style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end', minWidth: '220px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', width: '240px', fontSize: '0.85rem' }}>
-                      <span style={{ color: 'var(--text-light)' }}>{lang === 'ar' ? 'التوصيل:' : 'Delivery:'}</span>
-                      <strong style={{ fontWeight: '700', color: 'var(--text-primary)' }}>
-                        {selectedOrder.delivery_fee_usd === 0 
-                          ? (lang === 'ar' ? 'مجاني' : 'Free') 
-                          : formatPrice(selectedOrder.delivery_fee_usd)}
-                      </strong>
-                    </div>
+                  <div className="total-col" style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end', minWidth: '240px' }}>
+                    {(() => {
+                      const itemsSubtotal = (selectedOrder.items || []).reduce((sum, it) => sum + (Number(it.price_usd || 0) * (it.quantity || 1)), 0);
+                      const deliveryFee = Number(selectedOrder.delivery_fee_usd) || 0;
+                      const orderTotal = Number(selectedOrder.total_usd) || 0;
+                      const discountVal = Math.max(0, (itemsSubtotal + deliveryFee) - orderTotal);
+
+                      return (
+                        <>
+                          {/* Subtotal */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', width: '250px', fontSize: '0.85rem' }}>
+                            <span style={{ color: 'var(--text-light)' }}>{lang === 'ar' ? 'المجموع الفرعي:' : 'Subtotal:'}</span>
+                            <strong style={{ fontWeight: '700', color: 'var(--text-primary)' }}>
+                              {formatPrice(itemsSubtotal)}
+                            </strong>
+                          </div>
+
+                          {/* Discount if present */}
+                          {discountVal > 0.009 && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', width: '250px', fontSize: '0.85rem', color: '#dc2626' }}>
+                              <span>{lang === 'ar' ? 'حسم ترحيبي / كود خصم:' : 'Discount:'}</span>
+                              <strong style={{ fontWeight: '800' }}>
+                                -{formatPrice(discountVal)}
+                              </strong>
+                            </div>
+                          )}
+
+                          {/* Delivery */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', width: '250px', fontSize: '0.85rem' }}>
+                            <span style={{ color: 'var(--text-light)' }}>{lang === 'ar' ? 'التوصيل:' : 'Delivery:'}</span>
+                            <strong style={{ fontWeight: '700', color: 'var(--text-primary)' }}>
+                              {deliveryFee === 0 
+                                ? (lang === 'ar' ? 'مجاني' : 'Free') 
+                                : formatPrice(deliveryFee)}
+                            </strong>
+                          </div>
+                        </>
+                      );
+                    })()}
                     
                     {/* Grand Total USD */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', width: '240px', fontSize: '1.1rem', fontWeight: '900', borderTop: '2px solid var(--text-primary)', paddingTop: '8px', marginTop: '4px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', width: '250px', fontSize: '1.1rem', fontWeight: '900', borderTop: '2px solid var(--text-primary)', paddingTop: '8px', marginTop: '4px' }}>
                       <span>{lang === 'ar' ? 'الإجمالي النهائي (USD):' : 'Grand Total (USD):'}</span>
                       <span style={{ color: 'var(--accent-red-gold)' }}>
                         {formatPrice(selectedOrder.total_usd)}
@@ -995,7 +1035,7 @@ ${order.notes ? `*ملاحظات الزبون:* ${order.notes}\n` : ''}*طريق
                       const rate = selectedOrder.exchange_rate || settings?.exchange_rate || 89500;
                       const totalLbp = selectedOrder.total_usd * rate;
                       return (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', width: '240px', fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-secondary)', borderTop: '1px dashed var(--border-color)', paddingTop: '4px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', width: '250px', fontSize: '0.95rem', fontWeight: '800', color: 'var(--text-secondary)', borderTop: '1px dashed var(--border-color)', paddingTop: '4px' }}>
                           <span>{lang === 'ar' ? 'المعادل بالليرة اللبنانية:' : 'Equivalent in LBP:'}</span>
                           <span>
                             {totalLbp.toLocaleString()} ل.ل.
