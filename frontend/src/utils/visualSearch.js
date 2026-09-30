@@ -44,13 +44,18 @@ const VISUAL_KEYWORD_MAP = {
   dress: { ar: ['فستان أنيق', 'فستان سهرة', 'ملابس نسائية'], en: ['dress', 'gown', 'women clothing'], categoryId: 1 },
   tshirt: { ar: ['تيشيرت كاجوال', 'قميص قطني', 'بلوزة'], en: ['t-shirt', 'shirt', 'top'], categoryId: 1 },
 
-  // Home, Kitchen & Coffee
-  coffeemaker: { ar: ['ماكينة قهوة', 'صانعة اسبريسو', 'محضرة قهوة'], en: ['coffee maker', 'espresso machine'], categoryId: 7 },
-  kettle: { ar: ['غلاية ماء', 'غلاية كهربائية', 'إبريق تسخين'], en: ['electric kettle', 'water kettle'], categoryId: 7 },
-  blender: { ar: ['خلاط كهربائي', 'محضر طعام', 'عصارة فواكه'], en: ['blender', 'food processor', 'juicer'], categoryId: 7 },
-  pan: { ar: ['طقم مقالي', 'أواني طهي', 'مقلاة جرانيت'], en: ['frying pan', 'cookware set', 'pot'], categoryId: 7 },
-  cup: { ar: ['كوب حراري', 'مج قهوة', 'كوب سيراميك'], en: ['coffee mug', 'tumbler', 'cup'], categoryId: 7 },
-  vacuum: { ar: ['مكنسة كهربائية', 'مكنسة ذكية روبوت', 'مكنسة لاسلكية'], en: ['vacuum cleaner', 'robot vacuum'], categoryId: 7 },
+  // Home, Kitchen, Appliances & Food Prep
+  juicer: { ar: ['عصارة', 'عصارة فواكه', 'عصارة يدوية', 'خلاط', 'عصير'], en: ['juicer', 'citrus juicer', 'blender', 'extractor'], categoryId: 66 },
+  cutter: { ar: ['قطاعة خضار', 'مفرمة', 'قطاعة', 'محضر طعام', 'سلايسر'], en: ['cutter', 'chopper', 'slicer', 'food processor', 'vegetable cutter'], categoryId: 66 },
+  chopper: { ar: ['مفرمة لحم', 'مفرمة خضار', 'قطاعة', 'مفرمة'], en: ['chopper', 'grinder', 'food processor'], categoryId: 66 },
+  blender: { ar: ['خلاط كهربائي', 'خلاط فواكه', 'محضر طعام', 'عصارة', 'بليندر'], en: ['blender', 'smoothie maker', 'juicer', 'food processor'], categoryId: 66 },
+  coffeemaker: { ar: ['ماكينة قهوة', 'صانعة اسبريسو', 'محضرة قهوة'], en: ['coffee maker', 'espresso machine', 'coffee'], categoryId: 66 },
+  kettle: { ar: ['غلاية ماء', 'غلاية كهربائية', 'إبريق تسخين'], en: ['electric kettle', 'water kettle', 'kettle'], categoryId: 66 },
+  pan: { ar: ['طقم مقالي', 'أواني طهي', 'مقلاة جرانيت'], en: ['frying pan', 'cookware set', 'pot'], categoryId: 66 },
+  cup: { ar: ['كوب حراري', 'مج قهوة', 'كوب سيراميك', 'مطارة'], en: ['coffee mug', 'tumbler', 'cup', 'bottle'], categoryId: 66 },
+  scale: { ar: ['ميزان مطبخ', 'ميزان ذكي', 'ميزان ديجيتال'], en: ['scale', 'kitchen scale', 'digital scale'], categoryId: 66 },
+  vacuum: { ar: ['مكنسة كهربائية', 'مكنسة ذكية روبوت', 'مكنسة لاسلكية'], en: ['vacuum cleaner', 'robot vacuum'], categoryId: 66 },
+  camera: { ar: ['كاميرا مراقبة', 'كاميرا تصوير', 'كاميرا مراقبة ذكية', 'كاميرا'], en: ['camera', 'ip camera', 'action camera', 'wifi camera'], categoryId: 36 },
 
   // Gaming
   gaming_chair: { ar: ['كرسي قيمنق', 'كرسي العاب احترافي'], en: ['gaming chair', 'ergonomic chair'], categoryId: 80 },
