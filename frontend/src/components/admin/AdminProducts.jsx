@@ -344,6 +344,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
   const [editingId, setEditingId] = useState(null);
   const [nameAr, setNameAr] = useState('');
   const [nameEn, setNameEn] = useState('');
+  const [sku, setSku] = useState('');
   const [descAr, setDescAr] = useState('');
   const [descEn, setDescEn] = useState('');
   const [priceUsd, setPriceUsd] = useState('');
@@ -686,6 +687,9 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
     const formData = new FormData();
     formData.append('name_ar', nameAr);
     formData.append('name_en', nameEn);
+    if (sku && sku.trim()) {
+      formData.append('sku', sku.trim());
+    }
     formData.append('description_ar', descAr);
     formData.append('description_en', descEn);
     formData.append('price_usd', priceUsd);
@@ -771,6 +775,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
     setEditingId(product.id);
     setNameAr(product.name_ar);
     setNameEn(product.name_en);
+    setSku(product.sku || ('ARZ-P' + String(product.id).padStart(4, '0')));
     setDescAr(product.description_ar || '');
     setDescEn(product.description_en || '');
     setPriceUsd(product.price_usd);
@@ -856,6 +861,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
     setEditingId(null);
     setNameAr('');
     setNameEn('');
+    setSku('');
     setDescAr('');
     setDescEn('');
     setPriceUsd('');
@@ -2041,6 +2047,17 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
           <div>
             <label className="input-label">Name (English) *</label>
             <input type="text" required className="input-field" value={nameEn} onChange={(e) => setNameEn(e.target.value)} />
+          </div>
+          <div>
+            <label className="input-label">{lang === 'ar' ? 'كود الصنف / رمز الفاتورة (SKU / Code)' : 'Invoice SKU / Product Code'}</label>
+            <input 
+              type="text" 
+              className="input-field" 
+              placeholder={lang === 'ar' ? 'تلقائي إذا ترك فارغاً (مثل ARZ-P0123)' : 'Auto if empty (e.g. ARZ-P0123)'} 
+              value={sku} 
+              onChange={(e) => setSku(e.target.value)} 
+              style={{ fontFamily: 'monospace', fontWeight: '700' }}
+            />
           </div>
           <div>
             <label className="input-label">الوصف (العربية)</label>
@@ -3334,6 +3351,21 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                       <td style={{ padding: '10px', fontWeight: '600' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                           <span>{lang === 'ar' ? p.name_ar : p.name_en}</span>
+                          <span style={{
+                            fontSize: '0.68rem',
+                            fontFamily: 'monospace',
+                            fontWeight: '800',
+                            backgroundColor: 'var(--bg-tertiary)',
+                            color: 'var(--accent-blue)',
+                            border: '1px solid var(--border-color)',
+                            padding: '1px 5px',
+                            borderRadius: '4px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '2px'
+                          }} title={lang === 'ar' ? 'كود الفاتورة والرمز التعريفي' : 'Invoice SKU / Code'}>
+                            🏷️ {p.sku || ('ARZ-P' + String(p.id).padStart(4, '0'))}
+                          </span>
                           {p.is_new_arrival === 1 && (
                             <span style={{
                               fontSize: '0.68rem',

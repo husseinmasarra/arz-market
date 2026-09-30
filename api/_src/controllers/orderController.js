@@ -87,6 +87,7 @@ exports.createOrder = async (req, res) => {
 
       orderItemsDetails.push({
         product_id: product.id,
+        sku: product.sku || ('ARZ-P' + String(product.id).padStart(4, '0')),
         name_ar: product.name_ar,
         name_en: product.name_en,
         image_url: product.image_url,
@@ -266,8 +267,10 @@ exports.getOrders = async (req, res) => {
       const enrichedItems = parsedItems.map(item => {
         const key = (item.merchant_name || '').toLowerCase().trim();
         const contact = supplierMap[key] || {};
+        const itemSku = item.sku || ('ARZ-P' + String(item.product_id || item.id || 0).padStart(4, '0'));
         return {
           ...item,
+          sku: itemSku,
           supplier_phone: contact.phone || '',
           supplier_email: contact.email || '',
           supplier_whatsapp: contact.whatsapp_number || contact.phone || '',
@@ -289,10 +292,17 @@ exports.getOrders = async (req, res) => {
 exports.getUserOrders = async (req, res) => {
   try {
     const orders = await db.allAsync("SELECT * FROM orders WHERE user_id = ? AND status != 'archived' ORDER BY id DESC", [req.user.id]);
-    const formattedOrders = orders.map(o => ({
-      ...o,
-      items: JSON.parse(o.items)
-    }));
+    const formattedOrders = orders.map(o => {
+      const items = JSON.parse(o.items || '[]');
+      const itemsWithSku = items.map(item => ({
+        ...item,
+        sku: item.sku || ('ARZ-P' + String(item.product_id || item.id || 0).padStart(4, '0'))
+      }));
+      return {
+        ...o,
+        items: itemsWithSku
+      };
+    });
     res.json(formattedOrders);
   } catch (err) {
     console.error('Get user orders error:', err);
@@ -307,9 +317,14 @@ exports.getOrderById = async (req, res) => {
     if (!order) {
       return res.status(404).json({ error_ar: 'الطلبية غير موجودة', error_en: 'Order not found' });
     }
+    const items = JSON.parse(order.items || '[]');
+    const itemsWithSku = items.map(item => ({
+      ...item,
+      sku: item.sku || ('ARZ-P' + String(item.product_id || item.id || 0).padStart(4, '0'))
+    }));
     res.json({
       ...order,
-      items: JSON.parse(order.items)
+      items: itemsWithSku
     });
   } catch (err) {
     res.status(500).json({ error_ar: 'خطأ في جلب الطلبية', error_en: 'Error fetching order' });

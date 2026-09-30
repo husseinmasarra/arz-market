@@ -1130,7 +1130,8 @@ ${order.notes ? `*ملاحظات الزبون:* ${order.notes}\n` : ''}*طريق
                 <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '24px' }}>
                   <thead>
                     <tr style={{ borderBottom: '2px solid var(--text-primary)', color: 'var(--text-primary)', fontSize: '0.8rem', fontWeight: '800', textTransform: 'uppercase' }}>
-                      <th style={{ padding: '10px 8px', textAlign: 'center', width: '60px' }}>{lang === 'ar' ? 'الصورة' : 'Image'}</th>
+                      <th style={{ padding: '10px 8px', textAlign: 'center', width: '50px' }}>{lang === 'ar' ? 'الصورة' : 'Image'}</th>
+                      <th style={{ padding: '10px 8px', textAlign: 'start', width: '100px' }}>{lang === 'ar' ? 'كود الصنف' : 'SKU / Code'}</th>
                       <th style={{ padding: '10px 8px', textAlign: 'start' }}>{lang === 'ar' ? 'المنتج وصف' : 'Item Description'}</th>
                       <th style={{ padding: '10px 8px', textAlign: 'center', width: '70px' }}>{lang === 'ar' ? 'الكمية' : 'Qty'}</th>
                       <th className="price-col" style={{ padding: '10px 8px', textAlign: 'end', width: '110px' }}>
@@ -1146,6 +1147,7 @@ ${order.notes ? `*ملاحظات الزبون:* ${order.notes}\n` : ''}*طريق
                         ? editingItems[idx].price_usd
                         : Number(item.price_usd || 0);
                       const liveTotal = (parseFloat(livePrice) || 0) * (item.quantity || 1);
+                      const itemSku = item.sku || ('ARZ-P' + String(item.product_id || item.id || 0).padStart(4, '0'));
 
                       return (
                         <tr key={idx} style={{ borderBottom: '1px solid var(--border-color)', fontSize: '0.85rem', verticalAlign: 'middle', backgroundColor: isEditingPrices ? 'rgba(245, 158, 11, 0.03)' : 'transparent' }}>
@@ -1161,6 +1163,22 @@ ${order.notes ? `*ملاحظات الزبون:* ${order.notes}\n` : ''}*طريق
                             ) : (
                               <div style={{ width: '40px', height: '40px', borderRadius: '6px', backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-color)' }}></div>
                             )}
+                          </td>
+                          {/* Product SKU / Code Column */}
+                          <td style={{ padding: '8px', textAlign: 'start' }}>
+                            <span style={{ 
+                              fontFamily: 'monospace', 
+                              fontWeight: '800', 
+                              color: 'var(--accent-blue)', 
+                              fontSize: '0.8rem',
+                              backgroundColor: 'var(--bg-tertiary)',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              border: '1px solid var(--border-color)',
+                              display: 'inline-block'
+                            }}>
+                              {itemSku}
+                            </span>
                           </td>
                           <td style={{ padding: '8px' }}>
                             <div style={{ fontWeight: '700', color: 'var(--text-primary)' }}>

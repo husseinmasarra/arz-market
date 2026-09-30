@@ -932,6 +932,10 @@ function initializeDatabase() {
         ? "ALTER TABLE products ADD COLUMN IF NOT EXISTS sync_batch_time TEXT DEFAULT NULL"
         : "ALTER TABLE products ADD COLUMN sync_batch_time TEXT DEFAULT NULL";
       db.run(alterSyncBatch, [], () => {});
+      const alterSku = isPostgres
+        ? "ALTER TABLE products ADD COLUMN IF NOT EXISTS sku TEXT DEFAULT NULL"
+        : "ALTER TABLE products ADD COLUMN sku TEXT DEFAULT NULL";
+      db.run(alterSku, [], () => {});
     });
 
     // 6. Orders Table

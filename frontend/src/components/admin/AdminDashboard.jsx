@@ -5,13 +5,14 @@ import { useChat } from '../../context/ChatContext';
 import { 
   Package, Folder, ShoppingBag, ShoppingCart, Users, BarChart3, Settings, Tag, ShieldAlert,
   DollarSign, TrendingUp, AlertTriangle, ArrowRight, MessageSquare, Send, Store,
-  ExternalLink, UserPlus, Clock
+  ExternalLink, UserPlus, Clock, FileText
 } from 'lucide-react';
 
 // Sub-components
 import AdminProducts from './AdminProducts';
 import AdminCategories from './AdminCategories';
 import AdminOrders from './AdminOrders';
+import AdminInvoices from './AdminInvoices';
 import AdminCarts from './AdminCarts';
 import AdminUsers from './AdminUsers';
 import AdminReports from './AdminReports';
@@ -96,6 +97,7 @@ export default function AdminDashboard({ setCurrentView }) {
     { id: 'products', name: t('products'), icon: Package, perm: 'products' },
     { id: 'categories', name: t('categories'), icon: Folder, perm: 'categories' },
     { id: 'orders', name: t('orders'), icon: ShoppingBag, perm: 'orders' },
+    { id: 'invoices', name: lang === 'ar' ? 'الفواتير والوصولات' : 'Invoices & Receipts', icon: FileText, perm: 'orders' },
     { id: 'carts', name: lang === 'ar' ? 'سلات الزبائن النشطة' : 'Customer Carts', icon: ShoppingCart, perm: 'orders' },
     { id: 'chats', name: lang === 'ar' ? 'محادثات العملاء' : 'Customer Chats', icon: MessageSquare, perm: 'orders' },
     { id: 'merchants', name: lang === 'ar' ? 'إدارة الموردين والتجار' : 'Merchants & Suppliers', icon: Store, perm: 'merchants' },
@@ -672,6 +674,7 @@ export default function AdminDashboard({ setCurrentView }) {
           )}
           {activeTab === 'categories' && hasPermission('categories') && <AdminCategories />}
           {activeTab === 'orders' && hasPermission('orders') && <AdminOrders />}
+          {activeTab === 'invoices' && hasPermission('orders') && <AdminInvoices />}
           {activeTab === 'carts' && hasPermission('orders') && <AdminCarts />}
           {activeTab === 'merchants' && hasPermission('merchants') && <AdminMerchants />}
           {activeTab === 'users' && hasPermission('users') && <AdminUsers />}

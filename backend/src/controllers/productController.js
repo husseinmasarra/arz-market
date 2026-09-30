@@ -258,7 +258,8 @@ exports.getProducts = async (req, res) => {
       try { parsedColors = JSON.parse(p.colors || '[]'); } catch (e) { parsedColors = []; }
       const parsedSizes = formatSizesForClient(p.sizes);
       const parsedImages = parseImagesForClient(p.images, p.image_url);
-      return { ...p, rating, colors: parsedColors, sizes: parsedSizes, images: parsedImages };
+      const finalSku = p.sku || ('ARZ-P' + String(p.id).padStart(4, '0'));
+      return { ...p, sku: finalSku, rating, colors: parsedColors, sizes: parsedSizes, images: parsedImages };
     });
 
     if (min_rating) {
@@ -491,8 +492,9 @@ exports.getProductById = async (req, res) => {
     try { parsedColors = JSON.parse(product.colors || '[]'); } catch (e) { parsedColors = []; }
     const parsedSizes = formatSizesForClient(product.sizes);
     const parsedImages = parseImagesForClient(product.images, product.image_url);
+    const finalSku = product.sku || ('ARZ-P' + String(product.id).padStart(4, '0'));
     res.setHeader('Cache-Control', 'public, max-age=30');
-    res.json({ ...product, rating, colors: parsedColors, sizes: parsedSizes, images: parsedImages });
+    res.json({ ...product, sku: finalSku, rating, colors: parsedColors, sizes: parsedSizes, images: parsedImages });
   } catch (err) {
     console.error('Get product by ID error:', err);
     res.status(500).json({ error_ar: 'خطأ في جلب تفاصيل المنتج', error_en: 'Error fetching product details' });
@@ -500,7 +502,7 @@ exports.getProductById = async (req, res) => {
 };
 
 exports.createProduct = async (req, res) => {
-  const { name_ar, name_en, description_ar, description_en, price_usd, cost_price_usd, old_price_usd, category_id, merchant_id, stock, colors, sizes, images } = req.body;
+  const { name_ar, name_en, sku, description_ar, description_en, price_usd, cost_price_usd, old_price_usd, category_id, merchant_id, stock, colors, sizes, images } = req.body;
   
   let imagesArray = [];
   if (images) {
@@ -621,11 +623,13 @@ exports.createProduct = async (req, res) => {
     console.warn('Anti-duplication check warning during createProduct:', dupErr);
   }
 
+  const finalSku = sku ? String(sku).trim() : null;
+
   try {
     const result = await db.runAsync(`
-      INSERT INTO products (name_ar, name_en, description_ar, description_en, price_usd, cost_price_usd, old_price_usd, category_id, merchant_id, image_url, images, stock, colors, sizes, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-    `, [name_ar, name_en, description_ar || '', description_en || '', parseFloat(price_usd), costPrice, oldPrice, cid, mid, primaryImageUrl, imagesStr, productStock, colorsStr, sizesStr]);
+      INSERT INTO products (name_ar, name_en, sku, description_ar, description_en, price_usd, cost_price_usd, old_price_usd, category_id, merchant_id, image_url, images, stock, colors, sizes, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `, [name_ar, name_en, finalSku, description_ar || '', description_en || '', parseFloat(price_usd), costPrice, oldPrice, cid, mid, primaryImageUrl, imagesStr, productStock, colorsStr, sizesStr]);
 
     invalidateProductsCache();
 
@@ -653,6 +657,7 @@ exports.createProduct = async (req, res) => {
       classified_category: autoClassifiedCategory,
       product: {
         id: result.lastID,
+        sku: finalSku || ('ARZ-P' + String(result.lastID).padStart(4, '0')),
         name_ar,
         name_en,
         description_ar,
@@ -677,7 +682,7 @@ exports.createProduct = async (req, res) => {
 
 exports.updateProduct = async (req, res) => {
   const { id } = req.params;
-  const { name_ar, name_en, description_ar, description_en, price_usd, cost_price_usd, old_price_usd, category_id, merchant_id, stock, colors, sizes, images, image_url } = req.body;
+  const { name_ar, name_en, sku, description_ar, description_en, price_usd, cost_price_usd, old_price_usd, category_id, merchant_id, stock, colors, sizes, images, image_url } = req.body;
 
   try {
     const product = await db.getAsync('SELECT * FROM products WHERE id = ?', [id]);
@@ -721,6 +726,7 @@ exports.updateProduct = async (req, res) => {
 
     const updatedNameAr = name_ar !== undefined ? name_ar : product.name_ar;
     const updatedNameEn = name_en !== undefined ? name_en : product.name_en;
+    const updatedSku = sku !== undefined ? (sku ? String(sku).trim() : null) : product.sku;
     const updatedDescAr = description_ar !== undefined ? description_ar : (product.description_ar || '');
     const updatedDescEn = description_en !== undefined ? description_en : (product.description_en || '');
     const updatedPrice = price_usd !== undefined && price_usd !== '' ? parseFloat(price_usd) : product.price_usd;
@@ -748,9 +754,9 @@ exports.updateProduct = async (req, res) => {
 
     await db.runAsync(`
       UPDATE products 
-      SET name_ar = ?, name_en = ?, description_ar = ?, description_en = ?, price_usd = ?, cost_price_usd = ?, old_price_usd = ?, category_id = ?, merchant_id = ?, image_url = ?, images = ?, stock = ?, colors = ?, sizes = ?
+      SET name_ar = ?, name_en = ?, sku = ?, description_ar = ?, description_en = ?, price_usd = ?, cost_price_usd = ?, old_price_usd = ?, category_id = ?, merchant_id = ?, image_url = ?, images = ?, stock = ?, colors = ?, sizes = ?
       WHERE id = ?
-    `, [updatedNameAr, updatedNameEn, updatedDescAr, updatedDescEn, updatedPrice, costPrice, oldPrice, cid, mid, primaryImageUrl, imagesStr, productStock, colorsStr, sizesStr, id]);
+    `, [updatedNameAr, updatedNameEn, updatedSku, updatedDescAr, updatedDescEn, updatedPrice, costPrice, oldPrice, cid, mid, primaryImageUrl, imagesStr, productStock, colorsStr, sizesStr, id]);
 
     invalidateProductsCache();
 
@@ -764,6 +770,7 @@ exports.updateProduct = async (req, res) => {
       message_en: 'Product updated successfully',
       product: {
         id: parseInt(id),
+        sku: updatedSku || ('ARZ-P' + String(id).padStart(4, '0')),
         name_ar: updatedNameAr,
         name_en: updatedNameEn,
         description_ar: updatedDescAr,
