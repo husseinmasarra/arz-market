@@ -40,7 +40,6 @@ yarn-error.log*
 
 .vercel
 backend/deal_originals/
-backend/uploads/products/
 backend/.whatsapp_browser_session/
 scratch/
 *.tmp
