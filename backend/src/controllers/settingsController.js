@@ -88,8 +88,19 @@ exports.getSettings = async (req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=60');
     res.json(responsePayload);
   } catch (err) {
-    console.error('Get settings error:', err);
-    res.status(500).json({ error_ar: 'خطأ في جلب الإعدادات', error_en: 'Error fetching settings' });
+    console.error('Get settings error, serving fallback:', err);
+    res.json({
+      app_name: 'ArzMart',
+      logo_url: '',
+      exchange_rate: 89500,
+      free_delivery_threshold: 50,
+      delivery_fee: 4,
+      hero_banners: [],
+      online_payment_enabled: 0,
+      contact_email: 'info@arzmart.com',
+      show_visitor_counter: 0,
+      show_out_of_stock_on_home: 1
+    });
   }
 };
 
@@ -212,20 +223,20 @@ exports.testTelegramNotification = async (req, res) => {
     }
 
     const testMsg = `
-🔔 <b>تجربة إشعارات أرز مارت | ArzMart Notification Test</b>
+<b>تجربة إشعارات أرز مارت | ArzMart Notification Test</b>
 ━━━━━━━━━━━━━━━━━━━━━━
-✅ تم ربط وتفعيل بوت تيليجرام بنجاح!
-ستصلك الآن كافة تفاصيل الطلبيات الجديدة فور قيام أي زبون بالطلب مباشرة 🚀
+تم ربط وتفعيل بوت تيليجرام بنجاح!
+ستصلك الآن كافة تفاصيل الطلبيات الجديدة فور قيام أي زبون بالطلب مباشرة.
 ━━━━━━━━━━━━━━━━━━━━━━
-⏰ <i>${new Date().toLocaleString('ar-LB')}</i>
+<i>${new Date().toLocaleString('ar-LB')}</i>
 `.trim();
 
     const ok = await sendTelegramMessage(token, chat, testMsg);
     if (ok) {
       return res.json({
         success: true,
-        message_ar: 'تم إرسال الإشعار التجريبي بنجاح إلى تيليجرام! تفقد هاتفك ✅',
-        message_en: 'Test notification sent successfully to Telegram! Check your phone ✅'
+        message_ar: 'تم إرسال الإشعار التجريبي بنجاح إلى تيليجرام! تفقد هاتفك',
+        message_en: 'Test notification sent successfully to Telegram! Check your phone'
       });
     } else {
       return res.status(400).json({

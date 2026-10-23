@@ -206,9 +206,10 @@ function splitTitleBilingual(title) {
     }
   }
 
+  const emojiRegex = /[\u{1F300}-\u{1F9FF}\u{1FA00}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F000}-\u{1F02F}\u{1F0A0}-\u{1F0FF}\u{1F100}-\u{1F64F}\u{1F680}-\u{1F6FF}]/gu;
   return {
-    name_ar: (nameAr || title).replace(/\s+/g, ' ').trim(),
-    name_en: (nameEn || title).replace(/\s+/g, ' ').trim()
+    name_ar: (nameAr || title).replace(emojiRegex, '').replace(/\s+/g, ' ').trim(),
+    name_en: (nameEn || title).replace(emojiRegex, '').replace(/\s+/g, ' ').trim()
   };
 }
 
@@ -302,33 +303,21 @@ async function syncDealLebanon({ sourceId = null, markupPercent = 18 } = {}) {
   let existingCats = await db.allAsync("SELECT id, name_ar, name_en FROM categories");
   const norm = str => (str || '').toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, '');
 
-  const categoryIdMap = {};
-
-  for (const dealCat of DEAL_CATEGORIES) {
-    let matched = existingCats.find(c => 
-      norm(c.name_en) === norm(dealCat.name_en) || 
-      norm(c.name_ar) === norm(dealCat.name_ar)
-    );
-
-    if (!matched) {
-      if (dealCat.id === '127') matched = existingCats.find(c => c.name_en && c.name_en.toLowerCase().includes('toys'));
-      if (dealCat.id === '107') matched = existingCats.find(c => c.name_en && (c.name_en.toLowerCase().includes('mix') || c.name_en.toLowerCase().includes('accessories')));
-      if (dealCat.id === '168') matched = existingCats.find(c => c.name_en && (c.name_en.toLowerCase().includes('blender') || c.name_en.toLowerCase().includes('coffee')));
-      if (dealCat.id === '164') matched = existingCats.find(c => c.name_en && (c.name_en.toLowerCase().includes('scale') || c.name_en.toLowerCase().includes('massage')));
-    }
-
-    if (matched) {
-      categoryIdMap[dealCat.id] = matched.id;
-    } else {
-      const res = await db.runAsync(
-        "INSERT INTO categories (name_ar, name_en, active, sort_order) VALUES (?, ?, 1, 0)",
-        [dealCat.name_ar, dealCat.name_en]
-      );
-      const newCatId = res.lastID;
-      categoryIdMap[dealCat.id] = newCatId;
-      existingCats.push({ id: newCatId, name_ar: dealCat.name_ar, name_en: dealCat.name_en });
-    }
-  }
+  const categoryIdMap = {
+    '104': 87, // Home Supplies -> Smart Home & Living
+    '106': 89, // School Supplies -> School & Office Supplies
+    '107': 79, // Electronics & Accessories -> Phones & Accessories
+    '124': 90, // Beauty Products -> Beauty & Skincare
+    '127': 80, // Toys & Baby Products -> Gaming & Toys
+    '129': 91, // Party Supplies -> Party & Celebration
+    '134': 92, // Care Supplies -> Care & Cleaning Supplies
+    '174': 93, // Home Decor -> Home Decor & Bedding
+    '175': 94, // Special Offers -> Special Offers
+    '162': 95, // Sports & Fitness -> Sports & Fitness
+    '164': 85, // Health Care -> Personal Care & Wellness
+    '168': 88, // Muller Koch -> Kitchen Supplies & Dining
+    '179': 96  // Summer Essentials -> Summer Essentials & Outdoor
+  };
 
   // 4. Scrape and insert/update products
   let totalImported = 0;

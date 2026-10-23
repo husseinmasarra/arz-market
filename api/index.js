@@ -33,14 +33,44 @@ app.get('/api/test-blurhash', async (req, res) => {
   }
 });
 
-// Smart multi-source image proxy: GitHub Raw Repo -> AGT CDN -> Supplier Server fallback
+const fs = require('fs');
+const path = require('path');
+
+let dealMap = {};
+try {
+  dealMap = require('./_src/config/deal_map.json');
+} catch (e) {}
+
+// Smart multi-source image proxy: Local Bundle -> GitHub Raw Repo -> Deal CDN -> AGT CDN -> Supplier Server fallback
 app.get('/uploads/*', async (req, res) => {
   const relativePath = req.path.replace(/^\/uploads\//, '');
+  const localFile = path.join(__dirname, '_src/uploads', relativePath);
+
+  // 1. Instant response if bundled locally in serverless package
+  if (fs.existsSync(localFile)) {
+    try {
+      const buf = fs.readFileSync(localFile);
+      res.setHeader('Content-Type', relativePath.endsWith('.webp') ? 'image/webp' : 'image/jpeg');
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      return res.send(buf);
+    } catch (e) {}
+  }
+
   const githubUrl = `https://raw.githubusercontent.com/husseinmasarra/arz-market/main/backend/uploads/${relativePath}`;
   const supplierUrl = `https://drphonewholesale.online/uploads/${relativePath}`;
 
   try {
     let upstream = await fetch(githubUrl);
+
+    // If not on GitHub, check if it's a Deal product (deal_prod_<id>.webp)
+    if ((!upstream.ok || upstream.status === 404) && relativePath.startsWith('products/deal_prod_')) {
+      const prodId = relativePath.replace(/^products\/deal_prod_/, '').replace(/\.webp$/, '').replace(/\.png$/, '').replace(/\.jpg$/, '');
+      if (prodId && dealMap[prodId]) {
+        upstream = await fetch(dealMap[prodId]);
+      }
+    }
     
     // If not on GitHub, check if it's an AGT (Abdul Ghani Trading) product
     if ((!upstream.ok || upstream.status === 404) && relativePath.startsWith('products/agt_')) {

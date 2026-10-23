@@ -3,7 +3,7 @@ const { Pool } = require('pg');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 
-const defaultPgUrl = 'postgresql://arzmart_db_user:mJ6iK7YbfltDcXqcHU8xHJ1kNml3flkM@dpg-damrvbrm8hqs73f4b85g-a.oregon-postgres.render.com/arzmart_db';
+const defaultPgUrl = 'postgresql://neondb_owner:npg_qITUzZAvB9N4@ep-silent-haze-b5r6gsdu-pooler.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require';
 const isPostgres = process.env.DB_TYPE === 'sqlite' ? false : true;
 
 if (!isPostgres) {
@@ -38,7 +38,10 @@ function adaptSchema(sql) {
 }
 
 if (isPostgres) {
-  const connectionString = process.env.DATABASE_URL || defaultPgUrl;
+  let connectionString = process.env.DATABASE_URL || defaultPgUrl;
+  if (!connectionString || connectionString.includes('render.com')) {
+    connectionString = defaultPgUrl;
+  }
   console.log(`[Database] Connecting to PostgreSQL: ${connectionString.split('@')[1] || 'Postgres'}`);
   pgPool = new Pool({
     connectionString,
@@ -326,7 +329,7 @@ async function initializeDatabasePostgres() {
       if (draftCat.rows.length === 0) {
         await pgPool.query(
           "INSERT INTO categories (name_ar, name_en, parent_id, active, sort_order, code) VALUES ($1, $2, NULL, 0, -9999, 'ADMIN_STAGING_DRAFT')",
-          ['📥 مسودة الإضافة السريعة (خاص بالإدارة)', '📥 Quick Drafts & Staging (Admin Only)']
+          ['مسودة الإضافة السريعة (خاص بالإدارة)', 'Quick Drafts & Staging (Admin Only)']
         );
       }
     } catch (e) {

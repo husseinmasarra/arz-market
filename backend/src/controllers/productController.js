@@ -12,6 +12,37 @@ function invalidateProductsCache() {
 }
 exports.invalidateProductsCache = invalidateProductsCache;
 
+async function getAllDescendantCategoryIds(categoryId) {
+  const rootId = parseInt(categoryId);
+  if (isNaN(rootId)) return [];
+  const resultIds = new Set([rootId]);
+  let currentParents = [rootId];
+
+  for (let level = 0; level < 6; level++) {
+    if (currentParents.length === 0) break;
+    const placeholders = currentParents.map(() => '?').join(',');
+    try {
+      const children = await db.allAsync(
+        `SELECT id FROM categories WHERE parent_id IN (${placeholders}) AND (active = 1 OR active IS NULL)`,
+        currentParents
+      );
+      if (!children || children.length === 0) break;
+      const nextParents = [];
+      for (const c of children) {
+        if (!resultIds.has(c.id)) {
+          resultIds.add(c.id);
+          nextParents.push(c.id);
+        }
+      }
+      currentParents = nextParents;
+    } catch (e) {
+      break;
+    }
+  }
+  return Array.from(resultIds);
+}
+exports.getAllDescendantCategoryIds = getAllDescendantCategoryIds;
+
 function formatSizesForClient(sizesJson) {
   if (!sizesJson) return [];
   let list = [];
@@ -24,14 +55,12 @@ function formatSizesForClient(sizesJson) {
 
   return list.map(item => {
     if (typeof item === 'object' && item !== null) {
-      const name = item.name || '';
+      const name = item.name || item.title || '';
       const price = item.price !== undefined && item.price !== null && !isNaN(item.price)
         ? Number(item.price)
         : null;
-      if (price !== null) {
-        return `${name} ($${price.toFixed(2)})`;
-      }
-      return name;
+      const image = item.image || item.image_url || item.photo || null;
+      return { name, price, image };
     }
     return String(item);
   }).filter(Boolean);
@@ -139,7 +168,7 @@ exports.getProducts = async (req, res) => {
            p.stock, p.category_id, p.merchant_id, p.is_new_arrival, p.rating_count, 
            p.rating_sum, p.colors, p.sizes, p.created_at, p.sync_batch_time, p.blurhash,
            (CASE WHEN p.image_url LIKE 'data:image%' THEN CONCAT('/api/products/', p.id, '/image') ELSE p.image_url END) as image_url,
-           (CASE WHEN p.images LIKE '%data:image%' THEN '[]' ELSE p.images END) as images,
+           p.images as images,
            c.name_ar as category_name_ar, c.name_en as category_name_en, m.name as merchant_name 
     FROM products p
     LEFT JOIN categories c ON p.category_id = c.id
@@ -168,8 +197,7 @@ exports.getProducts = async (req, res) => {
       query += ' AND (p.old_price_usd > p.price_usd OR p.is_new_arrival = 1)';
     } else {
       try {
-        const subcats = await db.allAsync('SELECT id FROM categories WHERE (parent_id = ? OR id = ?) AND (active = 1 OR active IS NULL)', [category_id, category_id]);
-        const catIds = subcats.map(s => s.id);
+        const catIds = await getAllDescendantCategoryIds(category_id);
         if (catIds.length > 0) {
           query += ` AND p.category_id IN (${catIds.map(() => '?').join(',')})`;
           catIds.forEach(id => params.push(id));
@@ -178,7 +206,7 @@ exports.getProducts = async (req, res) => {
           params.push(category_id);
         }
       } catch (err) {
-        console.error('Subcategories fetch error:', err);
+        console.error('Category descendant fetch error:', err);
         query += ' AND p.category_id = ?';
         params.push(category_id);
       }
@@ -257,7 +285,7 @@ exports.getProducts = async (req, res) => {
       let parsedColors = [];
       try { parsedColors = JSON.parse(p.colors || '[]'); } catch (e) { parsedColors = []; }
       const parsedSizes = formatSizesForClient(p.sizes);
-      const parsedImages = parseImagesForClient(p.images, p.image_url);
+      const parsedImages = parseImagesForClient(p.images, p.image_url, p.id);
       const finalSku = p.sku || ('ARZ-P' + String(p.id).padStart(4, '0'));
       return { ...p, sku: finalSku, rating, colors: parsedColors, sizes: parsedSizes, images: parsedImages };
     });
@@ -281,7 +309,7 @@ exports.getProducts = async (req, res) => {
   }
 };
 
-// Best Sellers: products ranked by total quantity sold
+// Best Sellers: products ranked by sales and popularity (distinct from new arrivals)
 exports.getBestSellers = async (req, res) => {
   const limit = parseInt(req.query.limit) || 8;
   const cacheKey = `best_sellers_${limit}`;
@@ -294,12 +322,17 @@ exports.getBestSellers = async (req, res) => {
   try {
     const rows = await db.allAsync(`
       SELECT p.*, c.name_ar as category_name_ar, c.name_en as category_name_en,
-             m.name as merchant_name
+             m.name as merchant_name,
+             COALESCE((SELECT SUM(quantity) FROM order_items oi WHERE oi.product_id = p.id), 0) as total_sold
       FROM products p
       LEFT JOIN categories c ON p.category_id = c.id
       LEFT JOIN merchants m ON p.merchant_id = m.id
-      WHERE (c.active = 1 OR c.active IS NULL) AND p.stock > 0
-      ORDER BY p.id DESC
+      WHERE (c.active = 1 OR c.active IS NULL) 
+        AND p.stock > 0
+        AND p.id NOT IN (SELECT id FROM products WHERE stock > 0 ORDER BY id DESC LIMIT 15)
+      ORDER BY total_sold DESC, 
+               (CASE WHEN p.category_id IN (79, 81, 83, 87, 90, 80, 82) THEN 0 ELSE 1 END) ASC,
+               ((p.id * 47) % 997) DESC
       LIMIT ?
     `, [limit]);
 
@@ -308,7 +341,7 @@ exports.getBestSellers = async (req, res) => {
       let parsedColors = [];
       try { parsedColors = JSON.parse(p.colors || '[]'); } catch (e) {}
       const parsedSizes = formatSizesForClient(p.sizes);
-      const parsedImages = parseImagesForClient(p.images, p.image_url);
+      const parsedImages = parseImagesForClient(p.images, p.image_url, p.id);
       return { ...p, rating, colors: parsedColors, sizes: parsedSizes, images: parsedImages };
     });
 
@@ -348,7 +381,7 @@ exports.getNewArrivalsHome = async (req, res) => {
       let parsedColors = [];
       try { parsedColors = JSON.parse(p.colors || '[]'); } catch (e) {}
       const parsedSizes = formatSizesForClient(p.sizes);
-      const parsedImages = parseImagesForClient(p.images, p.image_url);
+      const parsedImages = parseImagesForClient(p.images, p.image_url, p.id);
       return { ...p, rating, colors: parsedColors, sizes: parsedSizes, images: parsedImages };
     });
 
@@ -395,7 +428,7 @@ exports.getRelatedProducts = async (req, res) => {
                p.stock, p.category_id, p.merchant_id, p.is_new_arrival, p.rating_count, 
                p.rating_sum, p.colors, p.sizes, p.created_at, p.sync_batch_time, p.blurhash,
                (CASE WHEN p.image_url LIKE 'data:image%' THEN CONCAT('/api/products/', p.id, '/image') ELSE p.image_url END) as image_url,
-               (CASE WHEN p.images LIKE '%data:image%' THEN '[]' ELSE p.images END) as images,
+               p.images as images,
                c.name_ar as category_name_ar, c.name_en as category_name_en, m.name as merchant_name 
         FROM products p
         LEFT JOIN categories c ON p.category_id = c.id
@@ -417,7 +450,7 @@ exports.getRelatedProducts = async (req, res) => {
                p.stock, p.category_id, p.merchant_id, p.is_new_arrival, p.rating_count, 
                p.rating_sum, p.colors, p.sizes, p.created_at, p.sync_batch_time, p.blurhash,
                (CASE WHEN p.image_url LIKE 'data:image%' THEN CONCAT('/api/products/', p.id, '/image') ELSE p.image_url END) as image_url,
-               (CASE WHEN p.images LIKE '%data:image%' THEN '[]' ELSE p.images END) as images,
+               p.images as images,
                c.name_ar as category_name_ar, c.name_en as category_name_en, m.name as merchant_name 
         FROM products p
         LEFT JOIN categories c ON p.category_id = c.id
@@ -441,7 +474,7 @@ exports.getRelatedProducts = async (req, res) => {
                p.stock, p.category_id, p.merchant_id, p.is_new_arrival, p.rating_count, 
                p.rating_sum, p.colors, p.sizes, p.created_at, p.sync_batch_time, p.blurhash,
                (CASE WHEN p.image_url LIKE 'data:image%' THEN CONCAT('/api/products/', p.id, '/image') ELSE p.image_url END) as image_url,
-               (CASE WHEN p.images LIKE '%data:image%' THEN '[]' ELSE p.images END) as images,
+               p.images as images,
                c.name_ar as category_name_ar, c.name_en as category_name_en, m.name as merchant_name 
         FROM products p
         LEFT JOIN categories c ON p.category_id = c.id
@@ -491,7 +524,7 @@ exports.getProductById = async (req, res) => {
     let parsedColors = [];
     try { parsedColors = JSON.parse(product.colors || '[]'); } catch (e) { parsedColors = []; }
     const parsedSizes = formatSizesForClient(product.sizes);
-    const parsedImages = parseImagesForClient(product.images, product.image_url);
+    const parsedImages = parseImagesForClient(product.images, product.image_url, product.id);
     const finalSku = product.sku || ('ARZ-P' + String(product.id).padStart(4, '0'));
     res.setHeader('Cache-Control', 'public, max-age=30');
     res.json({ ...product, sku: finalSku, rating, colors: parsedColors, sizes: parsedSizes, images: parsedImages });

@@ -31,7 +31,13 @@ exports.getCategories = async (req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=60');
     res.json(categories);
   } catch (err) {
-    console.error('Get categories error:', err);
+    console.error('Get categories error, serving bundled fallback:', err);
+    try {
+      const fallback = require('../config/categories.json');
+      if (Array.isArray(fallback) && fallback.length > 0) {
+        return res.json(fallback.filter(c => c && c.active !== 0));
+      }
+    } catch (e) {}
     res.status(500).json({ error_ar: 'خطأ في جلب التصنيفات', error_en: 'Error fetching categories' });
   }
 };

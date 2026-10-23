@@ -31,10 +31,45 @@ exports.getCategories = async (req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=60');
     res.json(categories);
   } catch (err) {
-    console.error('Get categories error:', err);
+    console.error('Get categories error, serving bundled fallback:', err);
+    try {
+      const fallback = require('../config/categories.json');
+      if (Array.isArray(fallback) && fallback.length > 0) {
+        return res.json(fallback.filter(c => c && c.active !== 0));
+      }
+    } catch (e) {}
     res.status(500).json({ error_ar: 'خطأ في جلب التصنيفات', error_en: 'Error fetching categories' });
   }
 };
+
+async function getCategoryDepth(catId) {
+  if (!catId) return 0;
+  let depth = 0;
+  let currId = parseInt(catId);
+  const visited = new Set();
+  while (currId && !visited.has(currId) && depth < 10) {
+    visited.add(currId);
+    depth++;
+    const row = await db.getAsync('SELECT id, parent_id FROM categories WHERE id = ?', [currId]);
+    if (!row || !row.parent_id) break;
+    currId = parseInt(row.parent_id);
+  }
+  return depth;
+}
+
+async function isDescendantOf(possibleChildId, ancestorId) {
+  if (!possibleChildId || !ancestorId) return false;
+  let currId = parseInt(possibleChildId);
+  const visited = new Set();
+  while (currId && !visited.has(currId)) {
+    if (currId === parseInt(ancestorId)) return true;
+    visited.add(currId);
+    const row = await db.getAsync('SELECT id, parent_id FROM categories WHERE id = ?', [currId]);
+    if (!row || !row.parent_id) break;
+    currId = parseInt(row.parent_id);
+  }
+  return false;
+}
 
 exports.createCategory = async (req, res) => {
   const { name_ar, name_en, parent_id, code, active, sort_order } = req.body;
@@ -45,6 +80,16 @@ exports.createCategory = async (req, res) => {
   }
 
   const pid = parent_id && parent_id !== 'null' ? parseInt(parent_id) : null;
+  if (pid) {
+    const parentDepth = await getCategoryDepth(pid);
+    if (parentDepth >= 5) {
+      return res.status(400).json({
+        error_ar: 'لا يمكن إضافة تصنيف جديد هنا: تم بلوغ الحد الأقصى لعمق الشجرة (5 مستويات)',
+        error_en: 'Cannot add category here: Maximum tree depth of 5 levels reached'
+      });
+    }
+  }
+
   const cActive = active !== undefined ? (parseInt(active) === 0 ? 0 : 1) : 1;
   const cSortOrder = sort_order !== undefined ? parseInt(sort_order) : 0;
   const cCode = code || '';
@@ -96,6 +141,25 @@ exports.updateCategory = async (req, res) => {
     // Don't allow setting parent to itself
     if (pid === parseInt(id)) {
       return res.status(400).json({ error_ar: 'لا يمكن تعيين التصنيف كأب لنفسه', error_en: 'Category cannot be its own parent' });
+    }
+
+    // Don't allow circular parenting
+    if (pid && await isDescendantOf(pid, id)) {
+      return res.status(400).json({
+        error_ar: 'لا يمكن تعيين تصنيف فرعي كأب لهذا التصنيف (حلقة تكرارية)',
+        error_en: 'Cannot assign a sub-category as a parent (circular reference)'
+      });
+    }
+
+    // Validate max depth
+    if (pid) {
+      const parentDepth = await getCategoryDepth(pid);
+      if (parentDepth >= 5) {
+        return res.status(400).json({
+          error_ar: 'لا يمكن نقل التصنيف إلى هذا الموقع: تم بلوغ الحد الأقصى لعمق الشجرة (5 مستويات)',
+          error_en: 'Cannot move category here: Maximum tree depth of 5 levels reached'
+        });
+      }
     }
 
     let imageUrl = category.image_url;

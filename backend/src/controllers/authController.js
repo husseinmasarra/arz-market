@@ -83,8 +83,8 @@ exports.register = async (req, res) => {
 
     // Return success with first-time welcome discount 10%
     res.status(201).json({
-      message_ar: 'تم إنشاء الحساب بنجاح! مبروك، حصلت على حسم 10% ترحيبي على أول طلبية لك 🎉',
-      message_en: 'Account created successfully! Congratulations, you have received a 10% welcome discount on your first order 🎉',
+      message_ar: 'تم إنشاء الحساب بنجاح! مبروك، حصلت على حسم 10% ترحيبي على أول طلبية لك',
+      message_en: 'Account created successfully! Congratulations, you have received a 10% welcome discount on your first order',
       token,
       is_new_user: true,
       welcome_discount: 10,
@@ -411,7 +411,7 @@ exports.googleAuth = async (req, res) => {
 
     res.json({
       message_ar: isNewUser 
-        ? `أهلاً وسهلاً بك ${user.full_name || user.username}! تم تفعيل حسم 10% ترحيبي على أول طلبية لك 🎉`
+        ? `أهلاً وسهلاً بك ${user.full_name || user.username}! تم تفعيل حسم 10% ترحيبي على أول طلبية لك`
         : `مرحباً بك، ${user.full_name || user.username}!`,
       message_en: `Welcome, ${user.full_name || user.username}!`,
       token,
@@ -531,7 +531,7 @@ exports.appleAuth = async (req, res) => {
 
     res.json({
       message_ar: isNewUser
-        ? `أهلاً وسهلاً بك ${user.full_name || user.username}! تم تفعيل حسم 10% ترحيبي على أول طلبية لك 🎉`
+        ? `أهلاً وسهلاً بك ${user.full_name || user.username}! تم تفعيل حسم 10% ترحيبي على أول طلبية لك`
         : `مرحباً بك، ${user.full_name || user.username}!`,
       message_en: `Welcome, ${user.full_name || user.username}!`,
       token,

@@ -1,6 +1,97 @@
 const db = require('../config/db');
 const { notifyAdminNewOrder } = require('../utils/notificationService');
 
+function resolveOptionPrice(optionItem, basePrice) {
+  basePrice = Number(basePrice) || 0;
+  if (!optionItem) return basePrice;
+  
+  if (typeof optionItem === 'object' && optionItem !== null) {
+    if (optionItem.price !== undefined && optionItem.price !== null && !isNaN(optionItem.price)) {
+      return Number(optionItem.price);
+    }
+    optionItem = optionItem.name || optionItem.title || '';
+  }
+  
+  const str = String(optionItem).trim();
+  if (!str) return basePrice;
+  
+  // 1. Explicit price in parentheses: ($1.50) or (+0.50) or (-0.50)
+  const explicitMatch = str.match(/\(\s*([+-]?)\s*\$?\s*([0-9.]+)\s*\$?_?\)/);
+  if (explicitMatch) {
+    const sign = explicitMatch[1];
+    const val = parseFloat(explicitMatch[2]);
+    if (!isNaN(val)) {
+      if (sign === '+') return Math.round((basePrice + val) * 100) / 100;
+      if (sign === '-') return Math.round(Math.max(0.01, basePrice - val) * 100) / 100;
+      return Math.round(val * 100) / 100;
+    }
+  }
+
+  // 2. Quantity / Pack Multipliers
+  const packMatch = str.match(/(?:Pack of|طقم|علبة|مجموعة)?\s*(\d+)\s*(?:Pcs?|Pieces?|قطع|قطعة|حبات|حبة|Rolls?|لفة|لفات)/i)
+    || str.match(/\((\d+)\s*(?:Pc|Pcs|Pieces?|قطع|قطعة|حبة)\)/i)
+    || str.match(/^(\d+)\s*(?:Pc|Pcs|قطع|قطعة|حبة)$/i);
+    
+  if (packMatch) {
+    const count = parseInt(packMatch[1], 10);
+    if (count > 0) {
+      return Math.round(basePrice * count * 100) / 100;
+    }
+  }
+
+  if (/دزينة|Dozen/i.test(str)) {
+    return Math.round(basePrice * 12 * 100) / 100;
+  }
+  if (/نصف دزينة|Half Dozen/i.test(str)) {
+    return Math.round(basePrice * 6 * 100) / 100;
+  }
+  if (/زوج|Pair/i.test(str)) {
+    return Math.round(basePrice * 2 * 100) / 100;
+  }
+
+  // 3. Bedding sizes (Single / King / Super King)
+  if (/مفرد|Single/i.test(str) && /120|Twin/i.test(str)) {
+    return Math.round(basePrice * 0.85 * 100) / 100;
+  }
+  if (/سوبر كينغ|Super King/i.test(str)) {
+    return Math.round(basePrice * 1.20 * 100) / 100;
+  }
+
+  // 4. Cable lengths
+  if (/1\.2\s*(?:Meters?|متر)/i.test(str)) {
+    return Math.round(basePrice * 1.15 * 100) / 100;
+  }
+  if (/2(?:\.0)?\s*(?:Meters?|متر)/i.test(str)) {
+    return Math.round(basePrice * 1.50 * 100) / 100;
+  }
+  if (/3(?:\.0)?\s*(?:Meters?|متر)/i.test(str)) {
+    return Math.round(basePrice * 2.00 * 100) / 100;
+  }
+
+  // 5. Power Banks
+  if (/20[,.]?000\s*mAh/i.test(str)) {
+    return Math.round(basePrice * 1.65 * 100) / 100;
+  }
+  if (/30[,.]?000\s*mAh/i.test(str)) {
+    return Math.round(basePrice * 2.30 * 100) / 100;
+  }
+
+  // 6. Fast Chargers
+  if (/30W/i.test(str)) {
+    return Math.round(basePrice * 1.35 * 100) / 100;
+  }
+  if (/65W/i.test(str)) {
+    return Math.round(basePrice * 2.10 * 100) / 100;
+  }
+
+  // 7. Complete Sets
+  if (/طقم متكامل|Complete Set/i.test(str)) {
+    return Math.round(basePrice * 1.85 * 100) / 100;
+  }
+
+  return basePrice;
+}
+
 exports.createOrder = async (req, res) => {
   const { phone, address, items, coupon_code, payment_method, notes } = req.body;
   const userId = req.user ? req.user.id : null;
@@ -45,8 +136,8 @@ exports.createOrder = async (req, res) => {
       }
 
       // Resolve size-specific price
-      let itemPrice = product.price_usd;
-      if (item.selectedSize && product.sizes) {
+      let itemPrice = resolveOptionPrice(item.selectedSize, product.price_usd);
+      if (item.selectedSize && product.sizes && itemPrice === product.price_usd) {
         try {
           const parsedSizes = JSON.parse(product.sizes || '[]');
           const matchingSizeOption = parsedSizes.find(s => {
@@ -56,23 +147,7 @@ exports.createOrder = async (req, res) => {
             return cleanS.startsWith(cleanSelected) || cleanSelected.startsWith(cleanS);
           });
           if (matchingSizeOption) {
-            if (typeof matchingSizeOption === 'object' && matchingSizeOption.price !== undefined && matchingSizeOption.price !== null) {
-              itemPrice = Number(matchingSizeOption.price);
-            } else {
-              const optStr = String(matchingSizeOption);
-              const priceRegex = /\(\s*[+-]?\s*\$?\s*([0-9.]+)\s*\$?_?\)/;
-              const match = optStr.match(priceRegex);
-              if (match) {
-                const val = parseFloat(match[1]);
-                const isRelative = optStr.includes('+') || optStr.includes('-');
-                if (isRelative) {
-                  const isNegative = optStr.includes('-');
-                  itemPrice = isNegative ? (product.price_usd - val) : (product.price_usd + val);
-                } else {
-                  itemPrice = val;
-                }
-              }
-            }
+            itemPrice = resolveOptionPrice(matchingSizeOption, product.price_usd);
           }
         } catch (e) {
           console.error('Error parsing size price offset on backend:', e);
