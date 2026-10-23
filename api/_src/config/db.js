@@ -45,16 +45,20 @@ if (isPostgres) {
   console.log(`[Database] Connecting to PostgreSQL: ${connectionString.split('@')[1] || 'Postgres'}`);
   pgPool = new Pool({
     connectionString,
-    max: 20,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 60000,
+    max: 10,
+    idleTimeoutMillis: 15000,
+    connectionTimeoutMillis: 30000,
     ssl: connectionString.includes('localhost') || connectionString.includes('127.0.0.1') ? false : { rejectUnauthorized: false }
+  });
+
+  pgPool.on('error', (err) => {
+    console.warn('[Database] Idle pool warning:', err.message);
   });
 
   // Test connection
   pgPool.query('SELECT NOW()', (err, res) => {
     if (err) {
-      console.error('[Database] Failed to connect to PostgreSQL. Fallback warning generated. Ensure server is active and DB exists.', err.message);
+      console.error('[Database] Failed to connect to PostgreSQL. Fallback warning generated.', err.message);
     } else {
       console.log('[Database] PostgreSQL connection verified successfully.');
     }
@@ -71,6 +75,12 @@ if (isPostgres) {
   });
 }
 
+function shouldRetry(err) {
+  if (!err || !err.message) return false;
+  const m = err.message.toLowerCase();
+  return m.includes('terminated') || m.includes('closed') || m.includes('reset') || m.includes('timeout') || m.includes('econnreset');
+}
+
 // -------------------------------------------------------------
 // Promisified DB wrappers supporting both SQLite and PostgreSQL
 // -------------------------------------------------------------
@@ -78,16 +88,26 @@ if (isPostgres) {
 db.runAsync = function(sql, params = []) {
   if (isPostgres) {
     return new Promise(async (resolve, reject) => {
+      let querySql = sql;
+      const isInsert = querySql.trim().toUpperCase().startsWith('INSERT ');
+      if (isInsert && !querySql.toUpperCase().includes(' RETURNING ')) {
+        querySql = querySql.trim() + ' RETURNING id';
+      }
       try {
-        let querySql = sql;
-        const isInsert = querySql.trim().toUpperCase().startsWith('INSERT ');
-        if (isInsert && !querySql.toUpperCase().includes(' RETURNING ')) {
-          querySql = querySql.trim() + ' RETURNING id';
-        }
         const res = await pgPool.query(convertSql(querySql), params);
         const lastID = (isInsert && res.rows[0]) ? res.rows[0].id : null;
         resolve({ lastID, changes: res.rowCount });
       } catch (err) {
+        if (shouldRetry(err)) {
+          try {
+            await new Promise(r => setTimeout(r, 200));
+            const retryRes = await pgPool.query(convertSql(querySql), params);
+            const retryID = (isInsert && retryRes.rows[0]) ? retryRes.rows[0].id : null;
+            return resolve({ lastID: retryID, changes: retryRes.rowCount });
+          } catch (rErr) {
+            return reject(rErr);
+          }
+        }
         reject(err);
       }
     });
@@ -108,6 +128,15 @@ db.getAsync = function(sql, params = []) {
         const res = await pgPool.query(convertSql(sql), params);
         resolve(res.rows[0] || null);
       } catch (err) {
+        if (shouldRetry(err)) {
+          try {
+            await new Promise(r => setTimeout(r, 200));
+            const retryRes = await pgPool.query(convertSql(sql), params);
+            return resolve(retryRes.rows[0] || null);
+          } catch (rErr) {
+            return reject(rErr);
+          }
+        }
         reject(err);
       }
     });
@@ -128,6 +157,15 @@ db.allAsync = function(sql, params = []) {
         const res = await pgPool.query(convertSql(sql), params);
         resolve(res.rows);
       } catch (err) {
+        if (shouldRetry(err)) {
+          try {
+            await new Promise(r => setTimeout(r, 200));
+            const retryRes = await pgPool.query(convertSql(sql), params);
+            return resolve(retryRes.rows);
+          } catch (rErr) {
+            return reject(rErr);
+          }
+        }
         reject(err);
       }
     });
