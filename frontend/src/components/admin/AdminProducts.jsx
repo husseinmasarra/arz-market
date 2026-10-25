@@ -897,7 +897,16 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
     if (filterOnlyToday && !isCreatedToday(p.created_at)) return false;
     if ((filterOutOfStock || filterOnlyOutOfStock) && p.stock > 0) return false;
     if (filterOnlyNew && p.is_new_arrival !== 1) return false;
-    if (filterSupplier && p?.merchant_name !== filterSupplier) return false;
+    if (filterSupplier) {
+      const matchByName = p?.merchant_name === filterSupplier;
+      const matchByAgt = (filterSupplier.toLowerCase().includes('abdul') || filterSupplier.toLowerCase().includes('ghani')) && 
+                          (Number(p?.merchant_id) === 8 || (p?.sku && p.sku.startsWith('AGT-')));
+      const matchByDeal = filterSupplier.toLowerCase().includes('deal') && 
+                          (Number(p?.merchant_id) === 6 || (p?.sku && p.sku.startsWith('ARZ-')));
+      const matchByDrPhone = filterSupplier.toLowerCase().includes('phone') && 
+                             (Number(p?.merchant_id) === 4);
+      if (!matchByName && !matchByAgt && !matchByDeal && !matchByDrPhone) return false;
+    }
     if (matchingCategoryIds && !matchingCategoryIds.has(Number(p?.category_id))) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
