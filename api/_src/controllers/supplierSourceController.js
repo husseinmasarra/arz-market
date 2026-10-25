@@ -150,10 +150,11 @@ exports.syncSource = async (req, res) => {
     const effectiveMarkup = markupPercent !== undefined ? markupPercent : source.markup_percent;
 
     let result;
-    if (source.sync_type === 'abdulghani' || source.name.toLowerCase().includes('abdulghani') || (source.url && source.url.includes('abdulghanitrading.com'))) {
+    if (source.sync_type === 'abdulghani' || source.name.toLowerCase().includes('abdul ghani') || source.name.toLowerCase().includes('abdulghani') || (source.url && source.url.includes('abdulghanitrading.com'))) {
       const { syncAbdulGhani } = require('../utils/abdulghani_sync_service');
       result = await syncAbdulGhani({
-        vatPercent: 12
+        vatPercent: 12,
+        markupPercent: effectiveMarkup
       });
     } else if (source.sync_type === 'deal_scraper' || source.name.toLowerCase().includes('deal') || (source.url && source.url.includes('deal.com.lb'))) {
       const { syncDealLebanon } = require('../utils/deal_sync_service');

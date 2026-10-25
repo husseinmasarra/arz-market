@@ -6,6 +6,19 @@ const db = require('../config/db');
 
 const agent = new https.Agent({ rejectUnauthorized: false });
 
+let UPLOADS_DIR = path.join(__dirname, '../../uploads/products');
+try {
+  if (!fs.existsSync(UPLOADS_DIR)) {
+    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  }
+} catch (e) {
+  const os = require('os');
+  UPLOADS_DIR = path.join(os.tmpdir(), 'uploads/products');
+  try {
+    if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  } catch (err) {}
+}
+
 class CookieJar {
   constructor() {
     this.cookies = new Map();
@@ -69,6 +82,13 @@ function fetchImageBuffer(url) {
         'Referer': 'https://www.abdulghanitrading.com/'
       }
     }, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        let redirectUrl = res.headers.location;
+        if (!redirectUrl.startsWith('http')) {
+          redirectUrl = new URL(redirectUrl, url).href;
+        }
+        return fetchImageBuffer(redirectUrl).then(resolve).catch(reject);
+      }
       if (res.statusCode !== 200) return reject(new Error('Image fetch HTTP ' + res.statusCode));
       const chunks = [];
       res.on('data', c => chunks.push(c));
@@ -79,58 +99,100 @@ function fetchImageBuffer(url) {
 
 async function performLogin(jar, email = 'info@arz-mart.com', password = 'Hussein123@%') {
   console.log(`[AbdulGhani] Logging in as ${email}...`);
-  const loginPage = await request('https://www.abdulghanitrading.com/web/login', {}, null, jar);
-  const csrfMatch = loginPage.body.match(/name="csrf_token"\s+value="([^"]+)"/i);
-  const csrfToken = csrfMatch ? csrfMatch[1] : '';
+  try {
+    const loginPage = await request('https://www.abdulghanitrading.com/web/login', {}, null, jar);
+    const csrfMatch = loginPage.body.match(/name="csrf_token"\s+value="([^"]+)"/i);
+    const csrfToken = csrfMatch ? csrfMatch[1] : '';
 
-  const postBody = querystring.stringify({
-    csrf_token: csrfToken,
-    login: email,
-    password: password,
-    redirect: '/shop'
-  });
+    const postBody = querystring.stringify({
+      csrf_token: csrfToken,
+      login: email,
+      password: password,
+      redirect: '/shop'
+    });
 
-  const res = await request('https://www.abdulghanitrading.com/web/login', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Content-Length': Buffer.byteLength(postBody),
-      'Referer': 'https://www.abdulghanitrading.com/web/login'
+    const res = await request('https://www.abdulghanitrading.com/web/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Length': Buffer.byteLength(postBody),
+        'Referer': 'https://www.abdulghanitrading.com/web/login'
+      }
+    }, postBody, jar);
+
+    if (res.statusCode === 303 || jar.getCookieString().includes('session_id')) {
+      console.log('[AbdulGhani] Login successful.');
+      // Switch to wholesale pricelist
+      try {
+        await request('https://www.abdulghanitrading.com/shop/change_pricelist/%D8%B3%D8%B9%D8%B1-%D8%A7%D9%84%D8%AC%D9%85%D9%84%D8%A9-usd-3616', {}, null, jar);
+        console.log('[AbdulGhani] Switched to wholesale pricelist.');
+      } catch (e) {}
+      return true;
     }
-  }, postBody, jar);
-
-  if (res.statusCode === 303 || jar.getCookieString().includes('session_id')) {
-    console.log('[AbdulGhani] Login successful.');
-    return true;
+  } catch (err) {
+    console.warn('[AbdulGhani] Login warning (will continue with public wholesale prices):', err.message);
   }
-  throw new Error('Login failed: invalid credentials or unexpected response');
+  return false;
 }
 
 function extractCardsFromHtml(html) {
   const list = [];
-  const cardRegex = /<div class="o_wsale_product_information flex-grow-1 flex-shrink-1">([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>/gi;
+  // Modern theme: <article class="agt-card">
+  const cardRegex = /<article class="agt-card"[\s\S]*?<\/article>/gi;
   let m;
   while ((m = cardRegex.exec(html)) !== null) {
-    const chunk = m[1];
-    const titleMatch = chunk.match(/<h2 class="o_wsale_products_item_title[^"]*">[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>[\s\S]*?<span>([\s\S]*?)<\/span>/i);
-    const priceMatch = chunk.match(/<span class="oe_currency_value">([\s\S]*?)<\/span>/i);
-    const tmplMatch = chunk.match(/name="product_template_id"[^>]*value="(\d+)"/i) || chunk.match(/data-product-template-id="(\d+)"/i);
-    const prodMatch = chunk.match(/name="product_id"[^>]*value="(\d+)"/i) || chunk.match(/data-product-product-id="(\d+)"/i);
+    const chunk = m[0];
+    const nameMatch = chunk.match(/class="agt-card__name"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i);
+    const priceMatch = chunk.match(/class="agt-price[^"]*"[^>]*>\s*\$?([\d,.]+)/i);
+    const tmplMatch = chunk.match(/data-product-template-id="(\d+)"/i);
+    const prodMatch = chunk.match(/data-product-id="(\d+)"/i);
+    const imgMatch = chunk.match(/class="agt-card__img1"[^>]+src="([^">]+)"/i);
 
-    if (titleMatch) {
+    if (nameMatch) {
+      const url = nameMatch[1];
+      const title = nameMatch[2].replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&#39;/g, "'").trim();
+      const price = priceMatch ? parseFloat(priceMatch[1].replace(/,/g, '').trim()) : null;
+      let img = imgMatch ? imgMatch[1].replace(/&amp;/g, '&') : null;
+      if (img && img.startsWith('/')) img = 'https://www.abdulghanitrading.com' + img;
+
       list.push({
-        url: titleMatch[1],
-        title: titleMatch[2].replace(/&amp;/g, '&').replace(/&#39;/g, "'").trim(),
-        price: priceMatch ? parseFloat(priceMatch[1].replace(/,/g, '').trim()) : null,
+        url,
+        title,
+        price,
         templateId: tmplMatch ? tmplMatch[1] : null,
-        productId: prodMatch ? prodMatch[1] : null
+        productId: prodMatch ? prodMatch[1] : null,
+        img
       });
     }
   }
+
+  // Fallback to legacy Odoo theme if any
+  if (list.length === 0) {
+    const legacyRegex = /<div class="o_wsale_product_information flex-grow-1 flex-shrink-1">([\s\S]*?)<\/div>\s*<\/div>\s*<\/div>/gi;
+    while ((m = legacyRegex.exec(html)) !== null) {
+      const chunk = m[1];
+      const titleMatch = chunk.match(/<h2 class="o_wsale_products_item_title[^"]*">[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>[\s\S]*?<span>([\s\S]*?)<\/span>/i);
+      const priceMatch = chunk.match(/<span class="oe_currency_value">([\s\S]*?)<\/span>/i);
+      const tmplMatch = chunk.match(/name="product_template_id"[^>]*value="(\d+)"/i) || chunk.match(/data-product-template-id="(\d+)"/i);
+      const prodMatch = chunk.match(/name="product_id"[^>]*value="(\d+)"/i) || chunk.match(/data-product-product-id="(\d+)"/i);
+
+      if (titleMatch) {
+        list.push({
+          url: titleMatch[1],
+          title: titleMatch[2].replace(/&amp;/g, '&').replace(/&#39;/g, "'").trim(),
+          price: priceMatch ? parseFloat(priceMatch[1].replace(/,/g, '').trim()) : null,
+          templateId: tmplMatch ? tmplMatch[1] : null,
+          productId: prodMatch ? prodMatch[1] : null,
+          img: null
+        });
+      }
+    }
+  }
+
   return list;
 }
 
-// Precise Subcategory Mapping (IDs 114 to 122)
+// Category Mapping (IDs 114 to 122)
 function mapCategory(categoryName = '', title = '') {
   const text = (categoryName + ' ' + title).toLowerCase();
   
@@ -167,15 +229,15 @@ function mapCategory(categoryName = '', title = '') {
     return 114;
   }
   // 9. Korean & French Skincare -> 116
-  if (/skincare|serum|medicube|cosrx|anua|centella|beauty of joseon|cerave|la roche|ordinary|سيروم|بشرة|عناية بالبشرة|كريم وجه/i.test(text)) {
+  if (/skincare|serum|medicube|cosrx|anua|centella|beauty of joseon|cerave|la roche|ordinary|panoxyl|facial wash|cleanser|sunscreen|sun cream|سيروم|بشرة|عناية بالبشرة|كريم وجه|غسول وجه|واقي شمس/i.test(text)) {
     return 116;
   }
   
   return 114; // Default to French Fragrances
 }
 
-async function syncAbdulGhani({ maxPages = 62, vatPercent = 12 } = {}) {
-  console.log(`\n=== Starting Abdul Ghani Trading Sync (Max Pages: ${maxPages}, VAT: ${vatPercent}%) ===\n`);
+async function syncAbdulGhani({ maxPages = 74, vatPercent = 12, markupPercent = 30 } = {}) {
+  console.log(`\n=== Starting Abdul Ghani Trading Sync (Max Pages: ${maxPages}, VAT: ${vatPercent}%, Markup: ${markupPercent}%) ===\n`);
 
   const jar = new CookieJar();
   await performLogin(jar);
@@ -187,128 +249,125 @@ async function syncAbdulGhani({ maxPages = 62, vatPercent = 12 } = {}) {
       "INSERT INTO merchants (name, company, email, phone, whatsapp_number) VALUES (?, ?, ?, ?, ?)",
       ['Abdul Ghani Trading', 'Abdul Ghani Trading', 'info@arz-mart.com', '+961 70 000 000', '+961 70 000 000']
     );
-    merchant = { id: res.lastID };
+    merchant = { id: res.lastID || 8 };
     console.log('[AbdulGhani] Created Merchant in DB with ID:', merchant.id);
   }
 
   const vatMultiplier = 1 + (vatPercent / 100);
+  const markupMultiplier = 1 + (markupPercent / 100);
+
+  // Pre-load existing products into memory for O(1) instant lookup
+  const existingProds = await db.allAsync(
+    "SELECT id, sku, name_en, image_url FROM products WHERE merchant_id = ?",
+    [merchant.id]
+  );
+  const prodMap = new Map();
+  for (const p of existingProds) {
+    if (p.sku) prodMap.set(p.sku, p);
+    if (p.name_en) prodMap.set(p.name_en, p);
+  }
+  console.log(`[AbdulGhani] Pre-loaded ${prodMap.size} existing products in memory.`);
+
   let totalProcessed = 0;
   let totalInserted = 0;
   let totalUpdated = 0;
 
   for (let page = 1; page <= maxPages; page++) {
     const pageUrl = page === 1 ? 'https://www.abdulghanitrading.com/shop' : `https://www.abdulghanitrading.com/shop/page/${page}`;
-    console.log(`\n--- Fetching Page ${page}/${maxPages}: ${pageUrl} ---`);
+    console.log(`[AbdulGhani] Fetching Page ${page}/${maxPages}: ${pageUrl}`);
 
-    // 1. Fetch Retail Page (without wholesale session)
-    const retailRes = await request(pageUrl);
-    const retailCards = extractCardsFromHtml(retailRes.body);
+    let res;
+    try {
+      res = await request(pageUrl, {}, null, jar);
+    } catch (e) {
+      console.warn(`[AbdulGhani] Request error on page ${page}:`, e.message);
+      continue;
+    }
 
-    if (retailCards.length === 0) {
-      console.log(`[AbdulGhani] No more products found on page ${page}. Finishing.`);
+    const cards = extractCardsFromHtml(res.body);
+    if (!cards || cards.length === 0) {
+      console.log(`[AbdulGhani] No products found on page ${page}. Finishing.`);
       break;
     }
 
-    // 2. Switch to Wholesale Pricelist & Fetch Wholesale Page
-    await request('https://www.abdulghanitrading.com/shop/change_pricelist/%D8%B3%D8%B9%D8%B1-%D8%A7%D9%84%D8%AC%D9%85%D9%84%D8%A9-usd-3616', {}, null, jar);
-    const wholesaleRes = await request(pageUrl, {}, null, jar);
-    const wholesaleCards = extractCardsFromHtml(wholesaleRes.body);
+    let pageInserted = 0;
+    let pageUpdated = 0;
 
-    for (let i = 0; i < retailCards.length; i++) {
-      const rCard = retailCards[i];
-      const wCard = wholesaleCards.find(w => w.templateId === rCard.templateId) || wholesaleCards[i];
+    await Promise.all(cards.map(async (card) => {
+      if (!card.price || card.price <= 0) return;
 
-      const retailPrice = rCard.price || (wCard ? wCard.price : null);
-      if (!retailPrice || retailPrice <= 0) continue;
-
-      const rawWholesale = (wCard && wCard.price && wCard.price > 0) ? wCard.price : retailPrice;
+      const rawWholesale = card.price;
       const costPriceWithVat = Math.round(rawWholesale * vatMultiplier * 100) / 100;
-      const sellingPrice = Math.round(retailPrice * vatMultiplier * 100) / 100;
-      const sku = `AGT-${rCard.templateId || (10000 + totalProcessed)}`;
-      const catId = mapCategory('', rCard.title);
+      const sellingPrice = Math.round(costPriceWithVat * markupMultiplier * 100) / 100;
+      const oldPrice = Math.round(sellingPrice * 1.25 * 100) / 100;
+      const sku = `AGT-${card.templateId || (10000 + totalProcessed)}`;
+      const catId = mapCategory('', card.title);
 
-      // Fetch individual product details for Ultra-HD 1920px image
-      let imageBase64 = null;
-      try {
-        const prodPageUrl = `https://www.abdulghanitrading.com${rCard.url}`;
-        const prodDetail = await request(prodPageUrl, {}, null, jar);
-        
-        // Try Ultra-HD 1920px first, fallback to 1024px
-        let imgMatch = prodDetail.body.match(/src="(\/web\/image\/product\.(?:product|template)\/\d+\/image_1920\/[^"]+)"/i)
-                    || prodDetail.body.match(/src="(\/web\/image\/product\.(?:product|template)\/\d+\/image_1024\/[^"]+)"/i)
-                    || prodDetail.body.match(/src="(\/web\/image\/product\.(?:product|template)\/\d+\/image_\d+\/[^"]+)"/i)
-                    || prodDetail.body.match(/src="(\/web\/image\/[^\"]+)"/i);
+      const imageUrl = card.templateId 
+        ? `/uploads/products/agt_${card.templateId}.webp`
+        : (card.img || '');
 
-        if (imgMatch) {
-          // Replace with 1920 for maximum sharpness and clarity
-          let targetImgUrl = imgMatch[1].replace(/image_\d+/, 'image_1920');
-          const fullImgUrl = `https://www.abdulghanitrading.com${targetImgUrl.replace(/&amp;/g, '&')}`;
-          
-          try {
-            const buf = await fetchImageBuffer(fullImgUrl);
-            if (buf && buf.length > 500) {
-              imageBase64 = `data:image/jpeg;base64,${buf.toString('base64')}`;
-            }
-          } catch(e) {
-            // fallback to original match
-            const bufFallback = await fetchImageBuffer(`https://www.abdulghanitrading.com${imgMatch[1].replace(/&amp;/g, '&')}`);
-            if (bufFallback && bufFallback.length > 500) {
-              imageBase64 = `data:image/jpeg;base64,${bufFallback.toString('base64')}`;
-            }
-          }
-        }
-      } catch (err) {
-        // Continue
-      }
-
-      // Check if product exists in DB
-      const existing = await db.getAsync("SELECT id, image_url FROM products WHERE sku = ? OR (merchant_id = ? AND name_en = ?)", [sku, merchant.id, rCard.title]);
+      const existing = prodMap.get(sku) || prodMap.get(card.title);
 
       if (existing) {
-        let updateSql = `
-          UPDATE products 
-          SET price_usd = ?, cost_price_usd = ?, old_price_usd = ?, stock = 50, category_id = ?
-        `;
-        const updateParams = [sellingPrice, costPriceWithVat, sellingPrice, catId];
-
-        if (imageBase64) {
-          updateSql += `, image_url = ?`;
-          updateParams.push(imageBase64);
-        }
-
-        updateSql += ` WHERE id = ?`;
-        updateParams.push(existing.id);
-
-        await db.runAsync(updateSql, updateParams);
-        totalUpdated++;
-      } else {
         await db.runAsync(`
+          UPDATE products 
+          SET price_usd = ?, cost_price_usd = ?, old_price_usd = ?, stock = 50, category_id = ?, image_url = ?, sync_batch_time = NOW()
+          WHERE id = ?
+        `, [
+          sellingPrice,
+          costPriceWithVat,
+          oldPrice,
+          catId,
+          existing.image_url && existing.image_url.startsWith('/uploads/') ? existing.image_url : imageUrl,
+          existing.id
+        ]);
+        pageUpdated++;
+      } else {
+        const insertRes = await db.runAsync(`
           INSERT INTO products (
             sku, name_ar, name_en, description_ar, description_en,
             price_usd, cost_price_usd, old_price_usd, stock, category_id,
-            merchant_id, image_url, images, is_new_arrival, created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 50, ?, ?, ?, '[]', 1, NOW())
+            merchant_id, image_url, images, is_new_arrival, created_at, sync_batch_time
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 50, ?, ?, ?, '[]', 1, NOW(), NOW())
         `, [
           sku,
-          rCard.title,
-          rCard.title,
-          `منتج أصلي عالي الجودة من عبد الغني للتجارة. التوصيل متوفر لكافة المناطق اللبنانية. SKU: ${sku}`,
+          card.title,
+          card.title,
+          `منتج أصلي عالي الجودة من عبد الغني للتجارة. التوصيل متوفر لكافة المناطق اللبنانية والدفع عند الاستلام. SKU: ${sku}`,
           `Original high quality product from Abdul Ghani Trading. Fast COD delivery across Lebanon. SKU: ${sku}`,
           sellingPrice,
           costPriceWithVat,
-          sellingPrice,
+          oldPrice,
           catId,
           merchant.id,
-          imageBase64 || ''
+          imageUrl
         ]);
-        totalInserted++;
+        prodMap.set(sku, { id: insertRes.lastID, sku, name_en: card.title, image_url: imageUrl });
+        pageInserted++;
       }
+    }));
 
-      totalProcessed++;
-      if (totalProcessed % 5 === 0) {
-        console.log(`[AbdulGhani] Synced ${totalProcessed} products (${totalInserted} new, ${totalUpdated} updated, Ultra-HD images)...`);
-      }
-    }
+    totalInserted += pageInserted;
+    totalUpdated += pageUpdated;
+    totalProcessed += (pageInserted + pageUpdated);
+
+    console.log(`[AbdulGhani] Page ${page} complete (Total: ${totalProcessed} | +${totalInserted} new | ${totalUpdated} updated)`);
+  }
+
+  // Update supplier_sources table with sync statistics
+  try {
+    const statusMsg = `جديد: +${totalInserted} | تحديث: ${totalUpdated}`;
+    await db.runAsync(`
+      UPDATE supplier_sources 
+      SET last_sync_time = NOW(),
+          last_sync_status = ?,
+          last_sync_inserted = ?,
+          last_sync_updated = ?
+      WHERE id = 3 OR sync_type = 'abdulghani' OR name = 'Abdul Ghani Trading'
+    `, [statusMsg, totalInserted, totalUpdated]);
+  } catch (e) {
+    console.warn('[AbdulGhani] Could not update supplier_sources:', e.message);
   }
 
   console.log(`\n=== Abdul Ghani Trading Sync Completed Successfully ===`);
@@ -320,12 +379,14 @@ async function syncAbdulGhani({ maxPages = 62, vatPercent = 12 } = {}) {
 }
 
 module.exports = {
-  syncAbdulGhani
+  syncAbdulGhani,
+  extractCardsFromHtml,
+  mapCategory
 };
 
 if (require.main === module) {
-  const pages = parseInt(process.argv[2]) || 62;
-  syncAbdulGhani({ maxPages: pages, vatPercent: 12 })
+  const pages = parseInt(process.argv[2]) || 74;
+  syncAbdulGhani({ maxPages: pages, vatPercent: 12, markupPercent: 30 })
     .then(() => process.exit(0))
     .catch(err => {
       console.error('Sync error:', err);
