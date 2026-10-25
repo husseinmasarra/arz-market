@@ -936,10 +936,28 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
   const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
   const paginatedProducts = filteredProducts.slice((safeCurrentPage - 1) * itemsPerPage, safeCurrentPage * itemsPerPage);
 
-  // Collect unique suppliers present in products
-  const availableSuppliers = Array.from(
-    new Set(products.map(p => p.merchant_name).filter(Boolean))
-  );
+  // Collect all suppliers (from merchants directory, supplier sources, and products)
+  const availableSuppliers = useMemo(() => {
+    const set = new Set();
+    // 1. All registered merchants (including Abdul Ghani Trading, DigitalSouklb, etc.)
+    (merchants || []).forEach(m => {
+      if (m?.name && m.name.trim()) set.add(m.name.trim());
+    });
+    // 2. All supplier sync sources
+    (supplierSources || []).forEach(s => {
+      if (s?.name && s.name.trim()) set.add(s.name.trim());
+    });
+    // 3. Any merchants found on products
+    (products || []).forEach(p => {
+      if (p?.merchant_name && p.merchant_name.trim()) set.add(p.merchant_name.trim());
+    });
+    return Array.from(set).sort((a, b) => {
+      const countA = (products || []).filter(p => p?.merchant_name === a).length;
+      const countB = (products || []).filter(p => p?.merchant_name === b).length;
+      if (countB !== countA) return countB - countA;
+      return a.localeCompare(b);
+    });
+  }, [merchants, supplierSources, products]);
 
   // ESC key closes the supplier source modal
   useEffect(() => {
