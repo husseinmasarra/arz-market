@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
-import { Trash2, Edit3, Image, RefreshCw, Sparkles, CheckCircle2, AlertCircle, Plus, Globe, ExternalLink, X, Search, Filter, Eye, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, MessageSquare, Package, Check, Upload, ArrowUp, ArrowDown, Share2, Copy, FolderInput, ArrowRightLeft } from 'lucide-react';
+import { Trash2, Edit3, Image, RefreshCw, Sparkles, CheckCircle2, AlertCircle, Plus, Globe, ExternalLink, X, Search, Filter, Eye, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown, MessageSquare, Package, Check, Upload, ArrowUp, ArrowDown, Share2, Copy, FolderInput, ArrowRightLeft, Tag } from 'lucide-react';
+import { buildCategoryTree, flattenCategoryTree, getCategoryDescendantIds } from '../../utils/categoryTree';
 
 const PRESET_COLORS = [
   { name: 'أسود (Black)', hex: '#18181b', light: false },
@@ -64,9 +65,22 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
   const stagingCategory = categories.find(c => c.code === 'ADMIN_STAGING_DRAFT' || c.id === 103 || (c.name_ar && c.name_ar.includes('مسودة الإضافة السريعة')));
   const stagingCatId = stagingCategory ? stagingCategory.id : 103;
 
+  // Hierarchical category options for dropdowns (up to 5 levels deep)
+  const flatCategoryOptions = useMemo(() => {
+    return flattenCategoryTree(buildCategoryTree(categories));
+  }, [categories]);
+
   // Filter & Search states for Products List
   const [filterSupplier, setFilterSupplier] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
+
+  // Category filter matching including descendant categories
+  const matchingCategoryIds = useMemo(() => {
+    if (!filterCategory) return null;
+    const catId = Number(filterCategory);
+    const descendants = getCategoryDescendantIds(catId, categories);
+    return new Set([catId, ...descendants]);
+  }, [filterCategory, categories]);
   const [filterOnlyNew, setFilterOnlyNew] = useState(false);
   const [filterOnlyOutOfStock, setFilterOnlyOutOfStock] = useState(false);
   const [filterOnlyToday, setFilterOnlyToday] = useState(false);
@@ -772,13 +786,13 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
   const handleEdit = (product) => {
     setActiveSection('manual');
     setIsEditing(true);
-    setEditingId(product.id);
-    setNameAr(product.name_ar);
-    setNameEn(product.name_en);
-    setSku(product.sku || ('ARZ-P' + String(product.id).padStart(4, '0')));
-    setDescAr(product.description_ar || '');
-    setDescEn(product.description_en || '');
-    setPriceUsd(product.price_usd);
+    setEditingId(product?.id);
+    setNameAr(product?.name_ar || '');
+    setNameEn(product?.name_en || '');
+    setSku(product?.sku || ('ARZ-P' + String(product?.id || 0).padStart(4, '0')));
+    setDescAr(product?.description_ar || '');
+    setDescEn(product?.description_en || '');
+    setPriceUsd(product?.price_usd || '');
     setCostPriceUsd(product.cost_price_usd || '0.0');
     setOldPriceUsd(product.old_price_usd || '');
     setCategoryId(product.category_id || '');
@@ -883,17 +897,17 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
     if (filterOnlyToday && !isCreatedToday(p.created_at)) return false;
     if ((filterOutOfStock || filterOnlyOutOfStock) && p.stock > 0) return false;
     if (filterOnlyNew && p.is_new_arrival !== 1) return false;
-    if (filterSupplier && p.merchant_name !== filterSupplier) return false;
-    if (filterCategory && String(p.category_id) !== String(filterCategory)) return false;
+    if (filterSupplier && p?.merchant_name !== filterSupplier) return false;
+    if (matchingCategoryIds && !matchingCategoryIds.has(Number(p?.category_id))) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
-      const nameAr = (p.name_ar || '').toLowerCase();
-      const nameEn = (p.name_en || '').toLowerCase();
-      const descAr = (p.description_ar || '').toLowerCase();
-      const descEn = (p.description_en || '').toLowerCase();
-      const catAr = (p.category_name_ar || '').toLowerCase();
-      const catEn = (p.category_name_en || '').toLowerCase();
-      const merchant = (p.merchant_name || '').toLowerCase();
+      const nameAr = (p?.name_ar || '').toLowerCase();
+      const nameEn = (p?.name_en || '').toLowerCase();
+      const descAr = (p?.description_ar || '').toLowerCase();
+      const descEn = (p?.description_en || '').toLowerCase();
+      const catAr = (p?.category_name_ar || '').toLowerCase();
+      const catEn = (p?.category_name_en || '').toLowerCase();
+      const merchant = (p?.merchant_name || '').toLowerCase();
       if (!nameAr.includes(q) && !nameEn.includes(q) && !descAr.includes(q) && !descEn.includes(q) && !catAr.includes(q) && !catEn.includes(q) && !merchant.includes(q)) {
         return false;
       }
@@ -901,18 +915,18 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
     return true;
   }).sort((a, b) => {
     if (sortBy === 'newest') {
-      return (b.id || 0) - (a.id || 0);
+      return (b?.id || 0) - (a?.id || 0);
     } else if (sortBy === 'oldest') {
-      return (a.id || 0) - (b.id || 0);
+      return (a?.id || 0) - (b?.id || 0);
     } else if (sortBy === 'price_asc') {
-      return (Number(a.price_usd) || 0) - (Number(b.price_usd) || 0);
+      return (Number(a?.price_usd) || 0) - (Number(b?.price_usd) || 0);
     } else if (sortBy === 'price_desc') {
-      return (Number(b.price_usd) || 0) - (Number(a.price_usd) || 0);
+      return (Number(b?.price_usd) || 0) - (Number(a?.price_usd) || 0);
     } else if (sortBy === 'stock') {
-      return (Number(b.stock) || 0) - (Number(a.stock) || 0);
+      return (Number(b?.stock) || 0) - (Number(a?.stock) || 0);
     } else if (sortBy === 'name') {
-      const nameA = (lang === 'ar' ? a.name_ar : a.name_en) || '';
-      const nameB = (lang === 'ar' ? b.name_ar : b.name_en) || '';
+      const nameA = (lang === 'ar' ? (a?.name_ar || a?.name_en) : (a?.name_en || a?.name_ar)) || '';
+      const nameB = (lang === 'ar' ? (b?.name_ar || b?.name_en) : (b?.name_en || b?.name_ar)) || '';
       return nameA.localeCompare(nameB);
     }
     return 0;
@@ -1055,7 +1069,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                 color: todayCount > 0 ? '#065f46' : 'var(--text-muted)',
                 fontWeight: '800'
               }}>
-                {todayCount > 0 ? (lang === 'ar' ? '🔥 مضاف اليوم' : 'Active') : (lang === 'ar' ? 'اليوم' : 'Today')}
+                {todayCount > 0 ? (lang === 'ar' ? 'مضاف اليوم' : 'Active') : (lang === 'ar' ? 'اليوم' : 'Today')}
               </span>
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginTop: '2px' }}>
@@ -2022,7 +2036,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
             fontWeight: '700',
             marginBottom: '16px'
           }}>
-            ✓ {productFormMsg}
+            {productFormMsg}
           </div>
         )}
         {productFormError && (
@@ -2035,7 +2049,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
             fontWeight: '700',
             marginBottom: '16px'
           }}>
-            ⚠ {productFormError}
+            {productFormError}
           </div>
         )}
         
@@ -2088,20 +2102,22 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
             </div>
             <select className="input-field" value={categoryId} onChange={(e) => setCategoryId(e.target.value)} style={{ marginTop: '4px' }}>
               <option value="">-- {lang === 'ar' ? 'اختر التصنيف (أو اترك مسودة للفرز التلقائي)' : 'Select Category (or draft for auto-sort)'} --</option>
-              {categories.map(c => {
+              {flatCategoryOptions.map((item) => {
+                const c = item?.category || item;
+                if (!c || !c.id) return null;
+                const depth = item?.depth ?? (c.depth ? c.depth - 1 : 0);
                 const isStaging = c.code === 'ADMIN_STAGING_DRAFT' || c.id === stagingCatId || c.id === 103;
-                const label = lang === 'ar'
-                  ? `${isStaging ? '📥 [خاص بالإدارة] ' : ''}${c.name_ar} ${c.parent_name_ar ? `(${c.parent_name_ar})` : ''}`
-                  : `${isStaging ? '📥 [Admin Staging] ' : ''}${c.name_en} ${c.parent_name_en ? `(${c.parent_name_en})` : ''}`;
+                const prefix = depth === 0 ? '' : '　'.repeat(depth) + '└─ ';
+                const name = lang === 'ar' ? (c.name_ar || c.name_en || '') : (c.name_en || c.name_ar || '');
                 return (
                   <option key={c.id} value={c.id} style={isStaging ? { fontWeight: 'bold', backgroundColor: '#e0e7ff', color: '#4338ca' } : {}}>
-                    {label}
+                    {prefix}{isStaging ? (lang === 'ar' ? '[خاص بالإدارة] ' : '[Admin Staging] ') : ''}{name}
                   </option>
                 );
               })}
             </select>
             <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginTop: '-4px' }}>
-              {lang === 'ar' ? '💡 إذا اخترت مسودة الإضافة السريعة، سيقوم النظام بالتعرف على نوع المنتج ونقله فوراً لتصنيفه الأصلي تلقائياً.' : '💡 If Draft is selected, the system will automatically classify and assign the item to its best category.'}
+              {lang === 'ar' ? 'إذا اخترت مسودة الإضافة السريعة، سيقوم النظام بالتعرف على نوع المنتج ونقله فوراً لتصنيفه الأصلي تلقائياً.' : 'If Draft is selected, the system will automatically classify and assign the item to its best category.'}
             </span>
           </div>
           <div>
@@ -2122,7 +2138,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
           <div style={{ gridColumn: '1 / -1', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '16px', backgroundColor: 'var(--bg-secondary)', marginTop: '4px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <label className="input-label" style={{ fontWeight: '800', margin: 0, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
-                {lang === 'ar' ? '🎨 ألوان المنتج المتاحة (انقر على الدوائر للإضافة):' : '🎨 Available Product Colors (Click circles to select):'}
+                {lang === 'ar' ? 'ألوان المنتج المتاحة (انقر على الدوائر للإضافة):' : 'Available Product Colors (Click circles to select):'}
               </label>
               {colorsInput && (
                 <button
@@ -2266,7 +2282,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
           <div style={{ gridColumn: '1 / -1', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '16px', backgroundColor: 'var(--bg-secondary)', marginTop: '8px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <span className="input-label" style={{ display: 'block', fontWeight: '800', fontSize: '0.95rem', margin: 0, color: 'var(--text-primary)' }}>
-                {lang === 'ar' ? '📏 قياسات وخيارات المنتج مع الأسعار (Sizes & Options with Prices):' : '📏 Product Sizes & Options with Prices:'}
+                {lang === 'ar' ? 'قياسات وخيارات المنتج مع الأسعار (Sizes & Options with Prices):' : 'Product Sizes & Options with Prices:'}
               </span>
               {sizesList.some(s => s.name && s.name.trim()) && (
                 <button
@@ -2289,13 +2305,13 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
             {/* Quick Templates Chips */}
             <div style={{ marginBottom: '14px' }}>
               <span style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
-                {lang === 'ar' ? '⚡ قوالب جاهزة سريعة للإضافة بنقرة واحدة:' : '⚡ Quick Templates:'}
+                {lang === 'ar' ? 'قوالب جاهزة سريعة للإضافة بنقرة واحدة:' : 'Quick Templates:'}
               </span>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {[
-                  { label: '💧 سوائل صغيرة (50ml, 100ml, 250ml, 500ml, 750ml)', items: ['50ml (50 مل)', '100ml (100 مل)', '150ml (150 مل)', '250ml (250 مل)', '500ml (500 مل)', '750ml (750 مل)'] },
-                  { label: '🧴 عبوات لتر (1L, 1.5L, 2L, 3L, 5L)', items: ['1 لتر (1L)', '1.5 لتر (1.5L)', '2 لتر (2L)', '3 لتر (3L)', '4 لتر (4L)', '5 لتر (5L)'] },
-                  { label: '🛢️ جالونات وبراميل كبيرة (10L, 15L, 20L)', items: ['10 لتر (10L)', '15 لتر (15L)', '20 لتر (20L)'] },
+                  { label: 'سوائل صغيرة (50ml, 100ml, 250ml, 500ml, 750ml)', items: ['50ml (50 مل)', '100ml (100 مل)', '150ml (150 مل)', '250ml (250 مل)', '500ml (500 مل)', '750ml (750 مل)'] },
+                  { label: 'عبوات لتر (1L, 1.5L, 2L, 3L, 5L)', items: ['1 لتر (1L)', '1.5 لتر (1.5L)', '2 لتر (2L)', '3 لتر (3L)', '4 لتر (4L)', '5 لتر (5L)'] },
+                  { label: 'جالونات وبراميل كبيرة (10L, 15L, 20L)', items: ['10 لتر (10L)', '15 لتر (15L)', '20 لتر (20L)'] },
                   { label: '50ml', items: ['50ml (50 مل)'] },
                   { label: '100ml', items: ['100ml (100 مل)'] },
                   { label: '250ml', items: ['250ml (250 مل)'] },
@@ -2306,7 +2322,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                   { label: '5L', items: ['5 لتر (5L)'] },
                   { label: '10L', items: ['10 لتر (10L)'] },
                   { label: '20L', items: ['20 لتر (20L)'] },
-                  { label: '🛏️ أغطية (مفرد، مفرد ونصف، مجوز، كينغ سايز)', items: ['مفرد (Single)', 'مفرد ونصف (Twin / Single & Half)', 'مجوز (Double / Queen)', 'كينغ سايز (King Size)'] },
+                  { label: 'أغطية (مفرد، مفرد ونصف، مجوز، كينغ سايز)', items: ['مفرد (Single)', 'مفرد ونصف (Twin / Single & Half)', 'مجوز (Double / Queen)', 'كينغ سايز (King Size)'] },
                   { label: 'مفرد (Single)', items: ['مفرد (Single)'] },
                   { label: 'مفرد ونصف (Twin)', items: ['مفرد ونصف (Twin / Single & Half)'] },
                   { label: 'مجوز (Double)', items: ['مجوز (Double / Queen)'] },
@@ -2622,7 +2638,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                             padding: '1px 5px',
                             borderRadius: '4px'
                           }}>
-                            {lang === 'ar' ? '★ رئيسية' : '★ Main'}
+                            {lang === 'ar' ? 'رئيسية' : 'Main'}
                           </span>
                         ) : (
                           <button
@@ -2920,7 +2936,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                   }}
                 >
                   <Sparkles size={16} />
-                  <span>{isAutoSorting ? (lang === 'ar' ? 'جاري الفرز الذكي...' : 'Auto-Sorting...') : (lang === 'ar' ? '⚡ فرز وتصنيف ذكي للمسودات الآن' : '⚡ Auto-Sort Drafts Now')}</span>
+                  <span>{isAutoSorting ? (lang === 'ar' ? 'جاري الفرز الذكي...' : 'Auto-Sorting...') : (lang === 'ar' ? 'فرز وتصنيف ذكي للمسودات الآن' : 'Auto-Sort Drafts Now')}</span>
                 </button>
               )}
 
@@ -3006,11 +3022,18 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
               style={{ margin: 0, fontSize: '0.88rem' }}
             >
               <option value="">{lang === 'ar' ? 'جميع التصنيفات' : 'All Categories'}</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {lang === 'ar' ? (cat.name_ar || cat.name_en) : (cat.name_en || cat.name_ar)}
-                </option>
-              ))}
+              {flatCategoryOptions.map((item) => {
+                const cat = item?.category || item;
+                if (!cat || !cat.id) return null;
+                const depth = item?.depth ?? (cat.depth ? cat.depth - 1 : 0);
+                const prefix = depth === 0 ? '' : '　'.repeat(depth) + '└─ ';
+                const name = lang === 'ar' ? (cat.name_ar || cat.name_en || '') : (cat.name_en || cat.name_ar || '');
+                return (
+                  <option key={cat.id} value={cat.id}>
+                    {prefix}{name}
+                  </option>
+                );
+              })}
             </select>
           </div>
 
@@ -3095,7 +3118,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
               title={lang === 'ar' ? 'تحليل وتوزيع منتجات المسودة على تصنيفاتها تلقائياً' : 'Auto-classify draft products to target categories'}
             >
               <Sparkles size={14} />
-              <span>{isAutoSorting ? (lang === 'ar' ? 'جاري الفرز الذكي...' : 'Auto-Sorting...') : (lang === 'ar' ? '⚡ فرز وتصنيف ذكي للمسودات' : '⚡ Auto-Sort Drafts')}</span>
+              <span>{isAutoSorting ? (lang === 'ar' ? 'جاري الفرز الذكي...' : 'Auto-Sorting...') : (lang === 'ar' ? 'فرز وتصنيف ذكي للمسودات' : 'Auto-Sort Drafts')}</span>
             </button>
           )}
 
@@ -3176,7 +3199,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
             title={lang === 'ar' ? 'فحص المتجر وإزالة أي منتجات مكررة' : 'Scan store and clean duplicate products'}
           >
             <RefreshCw size={14} className={isDeduplicating ? 'spin-anim' : ''} />
-            <span>{isDeduplicating ? (lang === 'ar' ? 'جاري فحص وإزالة التكرار...' : 'Deduplicating...') : (lang === 'ar' ? '🧹 تنظيف وإزالة المنتجات المكررة' : '🧹 Clean Duplicate Products')}</span>
+            <span>{isDeduplicating ? (lang === 'ar' ? 'جاري فحص وإزالة التكرار...' : 'Deduplicating...') : (lang === 'ar' ? 'تنظيف وإزالة المنتجات المكررة' : 'Clean Duplicate Products')}</span>
           </button>
         </div>
 
@@ -3288,7 +3311,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                         <div 
                           onClick={() => setPreviewImageModal({ 
                             url: imageUrl, 
-                            name: lang === 'ar' ? (p.name_ar || p.name_en) : (p.name_en || p.name_ar), 
+                            name: lang === 'ar' ? (p?.name_ar || p?.name_en) : (p?.name_en || p?.name_ar), 
                             product: p 
                           })}
                           style={{
@@ -3350,7 +3373,7 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                       {/* Product Name & Badges */}
                       <td style={{ padding: '10px', fontWeight: '600' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                          <span>{lang === 'ar' ? p.name_ar : p.name_en}</span>
+                          <span>{lang === 'ar' ? (p?.name_ar || p?.name_en) : (p?.name_en || p?.name_ar)}</span>
                           <span style={{
                             fontSize: '0.68rem',
                             fontFamily: 'monospace',
@@ -3362,9 +3385,9 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                             borderRadius: '4px',
                             display: 'inline-flex',
                             alignItems: 'center',
-                            gap: '2px'
+                            gap: '4px'
                           }} title={lang === 'ar' ? 'كود الفاتورة والرمز التعريفي' : 'Invoice SKU / Code'}>
-                            🏷️ {p.sku || ('ARZ-P' + String(p.id).padStart(4, '0'))}
+                            <Tag size={11} /> {p.sku || ('ARZ-P' + String(p.id).padStart(4, '0'))}
                           </span>
                           {p.is_new_arrival === 1 && (
                             <span style={{
@@ -3954,11 +3977,16 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
               }}
             >
               <option value="">-- {lang === 'ar' ? 'اختر التصنيف الجديد للنقل الجماعي' : 'Choose Target Category for Bulk Move'} --</option>
-              {categories.map(c => {
+              {flatCategoryOptions.map((item) => {
+                const c = item?.category || item;
+                if (!c || !c.id) return null;
+                const depth = item?.depth ?? (c.depth ? c.depth - 1 : 0);
                 const isStaging = c.code === 'ADMIN_STAGING_DRAFT' || c.id === stagingCatId || c.id === 103;
+                const prefix = depth === 0 ? '' : '　'.repeat(depth) + '└─ ';
+                const name = lang === 'ar' ? (c.name_ar || c.name_en || '') : (c.name_en || c.name_ar || '');
                 return (
                   <option key={c.id} value={c.id}>
-                    {lang === 'ar' ? `${isStaging ? '📥 ' : ''}${c.name_ar} ${c.parent_name_ar ? `(${c.parent_name_ar})` : ''}` : `${isStaging ? '📥 ' : ''}${c.name_en} ${c.parent_name_en ? `(${c.parent_name_en})` : ''}`}
+                    {prefix}{isStaging ? (lang === 'ar' ? '[خاص بالإدارة] ' : '[Admin Staging] ') : ''}{name}
                   </option>
                 );
               })}
@@ -4082,9 +4110,9 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
               alignItems: 'center',
               gap: '12px'
             }}>
-              {quickMoveModalProduct.image_url && (
+              {quickMoveModalProduct?.image_url && (
                 <img
-                  src={getImageUrl(quickMoveModalProduct.image_url)}
+                  src={getImageUrl(quickMoveModalProduct?.image_url)}
                   alt=""
                   onError={handleImageError}
                   style={{ width: '42px', height: '42px', objectFit: 'contain', borderRadius: '6px', backgroundColor: '#ffffff', border: '1px solid var(--border-color)' }}
@@ -4092,10 +4120,10 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <strong style={{ fontSize: '0.92rem', color: 'var(--text-primary)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {lang === 'ar' ? quickMoveModalProduct.name_ar : quickMoveModalProduct.name_en}
+                  {lang === 'ar' ? (quickMoveModalProduct?.name_ar || quickMoveModalProduct?.name_en) : (quickMoveModalProduct?.name_en || quickMoveModalProduct?.name_ar)}
                 </strong>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  {lang === 'ar' ? 'التصنيف الحالي:' : 'Current Category:'} <span style={{ fontWeight: '700', color: '#6366f1' }}>{lang === 'ar' ? (quickMoveModalProduct.category_name_ar || 'مسودة سريعة') : (quickMoveModalProduct.category_name_en || 'Quick Draft')}</span>
+                  {lang === 'ar' ? 'التصنيف الحالي:' : 'Current Category:'} <span style={{ fontWeight: '700', color: '#6366f1' }}>{lang === 'ar' ? (quickMoveModalProduct?.category_name_ar || 'مسودة سريعة') : (quickMoveModalProduct?.category_name_en || 'Quick Draft')}</span>
                 </div>
               </div>
             </div>
@@ -4112,11 +4140,16 @@ export default function AdminProducts({ filterOutOfStock = false, onClearFilter 
                 style={{ width: '100%', padding: '12px 14px', fontSize: '0.92rem' }}
               >
                 <option value="">-- {lang === 'ar' ? 'اختر التصنيف الجديد' : 'Select Target Category'} --</option>
-                {categories.map(c => {
+                {flatCategoryOptions.map((item) => {
+                  const c = item?.category || item;
+                  if (!c || !c.id) return null;
+                  const depth = item?.depth ?? (c.depth ? c.depth - 1 : 0);
                   const isStaging = c.code === 'ADMIN_STAGING_DRAFT' || c.id === stagingCatId || c.id === 103;
+                  const prefix = depth === 0 ? '' : '　'.repeat(depth) + '└─ ';
+                  const name = lang === 'ar' ? (c.name_ar || c.name_en || '') : (c.name_en || c.name_ar || '');
                   return (
                     <option key={c.id} value={c.id}>
-                      {lang === 'ar' ? `${isStaging ? '📥 [خاص بالإدارة] ' : ''}${c.name_ar} ${c.parent_name_ar ? `(${c.parent_name_ar})` : ''}` : `${isStaging ? '📥 [Admin Staging] ' : ''}${c.name_en} ${c.parent_name_en ? `(${c.parent_name_en})` : ''}`}
+                      {prefix}{isStaging ? (lang === 'ar' ? '[خاص بالإدارة] ' : '[Admin Staging] ') : ''}{name}
                     </option>
                   );
                 })}

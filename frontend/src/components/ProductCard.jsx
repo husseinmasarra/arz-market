@@ -51,23 +51,27 @@ export default function ProductCard({ product, onDetailsClick, onCategoryClick }
       <div 
         style={{
           width: '100%',
-          height: '220px',
+          height: '240px',
           overflow: 'hidden',
-          backgroundColor: '#ffffff',
+          backgroundColor: 'var(--bg-primary)',
           position: 'relative',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '8px'
+          padding: 0
         }}
       >
         <BlurImage
           src={imageUrl}
           alt={name}
           blurhash={product?.blurhash}
-          objectFit="contain"
+          objectFit="cover"
           onError={handleImageError}
+          style={{ width: '100%', height: '100%' }}
           imgStyle={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
             transition: 'transform 0.3s ease'
           }}
           onMouseEnter={(e) => {

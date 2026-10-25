@@ -130,7 +130,7 @@ export default function TopAnnouncementBar({ onOpenAuth }) {
                 {lang === 'ar' ? item.badgeAr : item.badgeEn}
               </span>
 
-              <span style={{ opacity: 0.5, marginInlineStart: '10px' }}>✦</span>
+              <span style={{ opacity: 0.5, marginInlineStart: '10px' }}>•</span>
             </div>
           );
         })}

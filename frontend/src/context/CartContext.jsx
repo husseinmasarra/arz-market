@@ -6,26 +6,93 @@ import { trackAddToCart } from '../utils/pixelTracker';
 const CartContext = createContext();
 
 export function getOptionPrice(optionItem, basePrice) {
+  basePrice = Number(basePrice) || 0;
   if (!optionItem) return basePrice;
+  
   if (typeof optionItem === 'object' && optionItem !== null) {
     if (optionItem.price !== undefined && optionItem.price !== null && !isNaN(optionItem.price)) {
       return Number(optionItem.price);
     }
-    return basePrice;
+    optionItem = optionItem.name || optionItem.title || '';
   }
-  const optionString = String(optionItem);
-  const priceRegex = /\(\s*[+-]?\s*\$?\s*([0-9.]+)\s*\$?_?\)/;
-  const match = optionString.match(priceRegex);
-  if (match) {
-    const val = parseFloat(match[1]);
-    const relativeMatch = optionString.match(/\(\s*([+-])\s*\$?\s*([0-9.]+)\s*\$?_?\)/);
-    if (relativeMatch) {
-      const sign = relativeMatch[1];
-      const offset = parseFloat(relativeMatch[2]);
-      return sign === '-' ? (basePrice - offset) : (basePrice + offset);
+  
+  const str = String(optionItem).trim();
+  if (!str) return basePrice;
+  
+  // 1. Explicit price in parentheses: ($1.50) or (+0.50) or (-0.50)
+  const explicitMatch = str.match(/\(\s*([+-]?)\s*\$?\s*([0-9.]+)\s*\$?_?\)/);
+  if (explicitMatch) {
+    const sign = explicitMatch[1];
+    const val = parseFloat(explicitMatch[2]);
+    if (!isNaN(val)) {
+      if (sign === '+') return Math.round((basePrice + val) * 100) / 100;
+      if (sign === '-') return Math.round(Math.max(0.01, basePrice - val) * 100) / 100;
+      return Math.round(val * 100) / 100;
     }
-    return val;
   }
+
+  // 2. Quantity / Pack Multipliers
+  const packMatch = str.match(/(?:Pack of|طقم|علبة|مجموعة)?\s*(\d+)\s*(?:Pcs?|Pieces?|قطع|قطعة|حبات|حبة|Rolls?|لفة|لفات)/i)
+    || str.match(/\((\d+)\s*(?:Pc|Pcs|Pieces?|قطع|قطعة|حبة)\)/i)
+    || str.match(/^(\d+)\s*(?:Pc|Pcs|قطع|قطعة|حبة)$/i);
+    
+  if (packMatch) {
+    const count = parseInt(packMatch[1], 10);
+    if (count > 0) {
+      return Math.round(basePrice * count * 100) / 100;
+    }
+  }
+
+  if (/دزينة|Dozen/i.test(str)) {
+    return Math.round(basePrice * 12 * 100) / 100;
+  }
+  if (/نصف دزينة|Half Dozen/i.test(str)) {
+    return Math.round(basePrice * 6 * 100) / 100;
+  }
+  if (/زوج|Pair/i.test(str)) {
+    return Math.round(basePrice * 2 * 100) / 100;
+  }
+
+  // 3. Bedding sizes (Single / King / Super King)
+  if (/مفرد|Single/i.test(str) && /120|Twin/i.test(str)) {
+    return Math.round(basePrice * 0.85 * 100) / 100;
+  }
+  if (/سوبر كينغ|Super King/i.test(str)) {
+    return Math.round(basePrice * 1.20 * 100) / 100;
+  }
+
+  // 4. Cable lengths
+  if (/1\.2\s*(?:Meters?|متر)/i.test(str)) {
+    return Math.round(basePrice * 1.15 * 100) / 100;
+  }
+  if (/2(?:\.0)?\s*(?:Meters?|متر)/i.test(str)) {
+    return Math.round(basePrice * 1.50 * 100) / 100;
+  }
+  if (/3(?:\.0)?\s*(?:Meters?|متر)/i.test(str)) {
+    return Math.round(basePrice * 2.00 * 100) / 100;
+  }
+
+  // 5. Power Banks
+  if (/20[,.]?000\s*mAh/i.test(str)) {
+    return Math.round(basePrice * 1.65 * 100) / 100;
+  }
+  if (/30[,.]?000\s*mAh/i.test(str)) {
+    return Math.round(basePrice * 2.30 * 100) / 100;
+  }
+
+  // 6. Fast Chargers
+  if (/30W/i.test(str)) {
+    return Math.round(basePrice * 1.35 * 100) / 100;
+  }
+  if (/65W/i.test(str)) {
+    return Math.round(basePrice * 2.10 * 100) / 100;
+  }
+
+  // 7. Complete Sets
+  if (/طقم متكامل|Complete Set/i.test(str)) {
+    return Math.round(basePrice * 1.85 * 100) / 100;
+  }
+
   return basePrice;
 }
 
@@ -189,16 +256,18 @@ export const CartProvider = ({ children }) => {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const itemsToSync = cartItems.map(item => ({
-        product_id: item.product.id,
-        name_ar: item.product.name_ar,
-        name_en: item.product.name_en,
-        image: item.product.image,
-        price_usd: getOptionPrice(item.selectedSize, item.product.price_usd),
-        quantity: item.quantity,
-        selectedColor: item.selectedColor,
-        selectedSize: item.selectedSize
-      }));
+      const itemsToSync = cartItems
+        .filter(item => item && item.product)
+        .map(item => ({
+          product_id: item.product.id,
+          name_ar: item.product.name_ar,
+          name_en: item.product.name_en,
+          image: item.product.image || item.product.image_url,
+          price_usd: getOptionPrice(item.selectedSize, item.product.price_usd),
+          quantity: item.quantity,
+          selectedColor: item.selectedColor,
+          selectedSize: item.selectedSize
+        }));
 
       fetch(`${apiBase}/cart/sync`, {
         method: 'POST',

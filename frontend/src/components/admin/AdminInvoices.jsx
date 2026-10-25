@@ -284,10 +284,10 @@ export default function AdminInvoices() {
       const matchName = (o.user_name || '').toLowerCase().includes(q);
       const matchAddress = (o.address || '').toLowerCase().includes(q);
       const matchItems = (o.items || []).some(it => 
-        (it.name_ar || '').toLowerCase().includes(q) ||
-        (it.name_en || '').toLowerCase().includes(q) ||
-        (it.sku || '').toLowerCase().includes(q) ||
-        ('arz-p' + String(it.product_id || it.id || 0).padStart(4, '0')).toLowerCase().includes(q)
+        (it?.name_ar || '').toLowerCase().includes(q) ||
+        (it?.name_en || '').toLowerCase().includes(q) ||
+        (it?.sku || '').toLowerCase().includes(q) ||
+        ('arz-p' + String(it?.product_id || it?.id || 0).padStart(4, '0')).toLowerCase().includes(q)
       );
       if (!matchInvId && !matchTracking && !matchPhone && !matchName && !matchAddress && !matchItems) {
         return false;
@@ -787,7 +787,7 @@ export default function AdminInvoices() {
                   }}
                   title={lang === 'ar' ? 'طباعة بوليصة شحن للمندوب بدون أسعار' : 'Hide prices on printed receipt'}
                 >
-                  {hidePricesInPrint ? (lang === 'ar' ? '✓ مخفية الأسعار' : '✓ Prices Hidden') : (lang === 'ar' ? 'إخفاء الأسعار (بوليصة توصيل)' : 'Hide Prices')}
+                  {hidePricesInPrint ? (lang === 'ar' ? 'مخفية الأسعار' : 'Prices Hidden') : (lang === 'ar' ? 'إخفاء الأسعار (بوليصة توصيل)' : 'Hide Prices')}
                 </button>
               </div>
 
@@ -1051,7 +1051,7 @@ export default function AdminInvoices() {
                         {/* Description & Options */}
                         <td style={{ padding: '8px' }}>
                           <div style={{ fontWeight: '700', color: 'var(--text-primary)' }}>
-                            {lang === 'ar' ? item.name_ar : item.name_en}
+                            {lang === 'ar' ? (item?.name_ar || item?.name_en || '') : (item?.name_en || item?.name_ar || '')}
                           </div>
                           {(item.selectedColor || item.selectedSize) && (
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '3px' }}>

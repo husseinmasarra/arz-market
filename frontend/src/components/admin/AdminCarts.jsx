@@ -77,7 +77,7 @@ export default function AdminCarts() {
     // List up to 3 item names
     const itemNames = (cart.items || [])
       .slice(0, 3)
-      .map(it => `• ${it.name_ar || it.name_en || 'منتج'} (الكمية: ${it.quantity || 1})`)
+      .map(it => `• ${it?.name_ar || it?.name_en || 'منتج'} (الكمية: ${it?.quantity || 1})`)
       .join('\n');
     const moreNotice = (cart.items || []).length > 3 ? `\n• وغيرها من المنتجات...` : '';
 
@@ -610,7 +610,7 @@ ${itemNames}${moreNotice}
                     {/* Details */}
                     <div style={{ flex: '1' }}>
                       <div style={{ fontWeight: '700', fontSize: '0.9rem', marginBottom: '4px' }}>
-                        {lang === 'ar' ? (item.name_ar || item.name_en) : (item.name_en || item.name_ar)}
+                        {lang === 'ar' ? (item?.name_ar || item?.name_en || '') : (item?.name_en || item?.name_ar || '')}
                       </div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', fontSize: '0.75rem' }}>
                         {item.selectedSize && (

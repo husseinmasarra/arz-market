@@ -763,16 +763,19 @@ export default function Checkout({ onClose }) {
 
             {/* Cart list preview */}
             <div style={{ maxHeight: '160px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {cartItems.map(item => (
-                <div key={`${item.product.id}_${item.selectedColor || ''}_${item.selectedSize || ''}`} style={{ display: 'flex', flexDirection: 'column', fontSize: '0.85rem', borderBottom: '1px dashed var(--border-color)', paddingBottom: '4px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>
-                      {item.quantity}x {lang === 'ar' ? item.product.name_ar : item.product.name_en}
-                    </span>
-                    <span style={{ fontWeight: '600' }}>
-                      {formatPrice(getOptionPrice(item.selectedSize, item.product.price_usd) * item.quantity)}
-                    </span>
-                  </div>
+              {cartItems.map(item => {
+                const prod = item?.product || {};
+                const name = lang === 'ar' ? (prod?.name_ar || prod?.name_en || '') : (prod?.name_en || prod?.name_ar || '');
+                return (
+                  <div key={`${prod?.id || Math.random()}_${item?.selectedColor || ''}_${item?.selectedSize || ''}`} style={{ display: 'flex', flexDirection: 'column', fontSize: '0.85rem', borderBottom: '1px dashed var(--border-color)', paddingBottom: '4px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: 'var(--text-secondary)' }}>
+                        {item?.quantity || 1}x {name}
+                      </span>
+                      <span style={{ fontWeight: '600' }}>
+                        {formatPrice(getOptionPrice(item?.selectedSize, prod?.price_usd) * (item?.quantity || 1))}
+                      </span>
+                    </div>
                   {(item.selectedColor || item.selectedSize) && (
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '1px' }}>
                       {item.selectedColor && (
@@ -790,7 +793,8 @@ export default function Checkout({ onClose }) {
                     </div>
                   )}
                 </div>
-              ))}
+              );
+            })}
             </div>
 
             {/* Coupon Code section */}

@@ -3,9 +3,9 @@ import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useChat } from '../context/ChatContext';
-import { ShoppingCart, Moon, Sun, Globe, DollarSign, LogOut, User, Shield, MessageSquare, Fingerprint, Smartphone, Search, X, Tag, Sparkles, Camera } from 'lucide-react';
+import { ShoppingCart, Moon, Sun, Globe, DollarSign, LogOut, User, Shield, MessageSquare, Fingerprint, Smartphone, Search, X, Tag, Sparkles } from 'lucide-react';
 
-export default function Header({ currentView, setCurrentView, searchVal, setSearchVal, onLogoClick, categories, onSelectCategory, onOpenVisualSearch }) {
+export default function Header({ currentView, setCurrentView, searchVal, setSearchVal, onLogoClick, categories, onSelectCategory }) {
   const { lang, setLang, theme, setTheme, currency, toggleCurrency, settings, t, apiHost } = useApp();
   const { user, logout } = useAuth();
   const { cartItems, setIsCartOpen } = useCart();
@@ -88,12 +88,20 @@ export default function Header({ currentView, setCurrentView, searchVal, setSear
         >
           <img 
             src={settings?.logo_url && (settings.logo_url.startsWith('http') || settings.logo_url.startsWith('data:') || settings.logo_url.startsWith('/')) ? settings.logo_url : '/logo.png'} 
-            alt="Arz-Mart Logo" 
+            alt="ArzMart Logo" 
             onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/logo.png'; }}
             style={{ height: '40px', maxWidth: '140px', objectFit: 'contain' }} 
           />
-          <span style={{ fontSize: '1.4rem', fontWeight: '700', color: 'var(--text-primary)' }}>
-            {settings?.app_name || t('appName')}
+          <span style={{ 
+            fontSize: '1.5rem', 
+            fontWeight: '900', 
+            letterSpacing: '-0.3px',
+            fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            display: 'inline-flex',
+            alignItems: 'baseline'
+          }}>
+            <span style={{ color: '#0ea5e9' }}>Arz</span>
+            <span style={{ color: 'var(--text-primary)' }}>Mart</span>
           </span>
         </a>
 
@@ -113,7 +121,7 @@ export default function Header({ currentView, setCurrentView, searchVal, setSear
               style={{
                 borderRadius: '24px',
                 paddingInlineStart: '38px',
-                paddingInlineEnd: searchVal ? '66px' : '40px',
+                paddingInlineEnd: searchVal ? '38px' : '14px',
                 borderColor: 'var(--border-color)',
                 backgroundColor: 'var(--bg-primary)'
               }}
@@ -129,37 +137,6 @@ export default function Header({ currentView, setCurrentView, searchVal, setSear
                 pointerEvents: 'none'
               }}
             />
-
-            {/* Visual Camera Search Trigger Button */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onOpenVisualSearch) onOpenVisualSearch();
-              }}
-              title={t('visual_search_btn')}
-              aria-label={t('visual_search_btn')}
-              style={{
-                position: 'absolute',
-                top: '50%',
-                insetInlineEnd: searchVal ? '34px' : '10px',
-                transform: 'translateY(-50%)',
-                background: 'none',
-                border: 'none',
-                color: 'var(--accent-blue)',
-                cursor: 'pointer',
-                padding: '4px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: '50%',
-                transition: 'transform 0.15s ease'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-50%) scale(1.18)'}
-              onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(-50%) scale(1)'}
-            >
-              <Camera size={17} />
-            </button>
             {searchVal && (
               <button
                 type="button"
@@ -244,7 +221,7 @@ export default function Header({ currentView, setCurrentView, searchVal, setSear
                       onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span>🏷️</span>
+                        <Tag size={15} style={{ color: 'var(--accent-blue)', flexShrink: 0 }} />
                         <span>{catName}</span>
                       </div>
                       <span style={{ fontSize: '0.75rem', color: 'var(--accent-blue)', fontWeight: '600' }}>

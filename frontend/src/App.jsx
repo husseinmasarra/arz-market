@@ -20,13 +20,13 @@ import TermsOfServiceView from './components/TermsOfServiceView';
 import DeleteAccountView from './components/DeleteAccountView';
 import CustomerDashboard from './components/CustomerDashboard';
 import WelcomeDiscountModal from './components/WelcomeDiscountModal';
-import VisualSearchModal from './components/VisualSearchModal';
 import { trackPageView, trackViewContent, trackSearch } from './utils/pixelTracker';
+import { buildCategoryTree, getCategoryAncestors, getCategoryDescendantIds } from './utils/categoryTree';
 
 // Admin panel imports
 import AdminDashboard from './components/admin/AdminDashboard';
 
-import { Key, User, FileText, ChevronDown, Check, Star, RefreshCw, Fingerprint, Smartphone, Globe, Tag, Sparkles, X } from 'lucide-react';
+import { Key, User, FileText, ChevronDown, Check, Star, RefreshCw, Fingerprint, Smartphone, Globe, Tag, Sparkles, X, Folder } from 'lucide-react';
 
 // Clean category names strictly separating Arabic and English
 function getCategoryName(cat, currentLang) {
@@ -109,9 +109,6 @@ export default function App() {
   // First-Time Welcome 10% Discount Modal state
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [welcomeUserName, setWelcomeUserName] = useState('');
-
-  // Visual Image Search Modal state
-  const [isVisualSearchOpen, setIsVisualSearchOpen] = useState(false);
 
   // User orders history state
   const [userOrders, setUserOrders] = useState([]);
@@ -208,16 +205,42 @@ export default function App() {
     return Array.from(catMap.values()).sort((a, b) => (a.name || '').localeCompare(b.name || '', lang === 'ar' ? 'ar' : 'en', { sensitivity: 'base', numeric: true }));
   }, [searchVal, products, lang]);
 
-  // Main Categories sorted strictly alphabetically by active language
+  // Main Categories sorted strictly by sort_order
   const sortedMainCategories = React.useMemo(() => {
     if (!Array.isArray(categories) || categories.length === 0) return [];
-    const mainList = categories.filter(c => c && (c.parent_id === null || c.parent_id === undefined || c.parent_id === 0 || c.parent_id === 'null' || c.parent_id === ''));
+    const mainList = categories.filter(c => c && (c.parent_id === null || c.parent_id === undefined || c.parent_id === 0 || c.parent_id === 'null' || c.parent_id === '') && (c.active === undefined || c.active === null || Number(c.active) === 1));
     return [...mainList].sort((a, b) => {
+      const orderA = a.sort_order !== undefined && a.sort_order !== null ? Number(a.sort_order) : 999;
+      const orderB = b.sort_order !== undefined && b.sort_order !== null ? Number(b.sort_order) : 999;
+      if (orderA !== orderB) return orderA - orderB;
       const nameA = (lang === 'ar' ? a.name_ar : a.name_en) || a.name_en || a.name_ar || '';
       const nameB = (lang === 'ar' ? b.name_ar : b.name_en) || b.name_en || b.name_ar || '';
       return nameA.localeCompare(nameB, lang === 'ar' ? 'ar' : 'en', { sensitivity: 'base', numeric: true });
     });
   }, [categories, lang]);
+
+  // Complete 5-level category tree
+  const categoryTree = React.useMemo(() => {
+    return buildCategoryTree(categories, 5);
+  }, [categories]);
+
+  // Flattened category tree for multi-level select dropdowns
+  const flatCategorySelectOptions = React.useMemo(() => {
+    const options = [];
+    function traverse(nodes) {
+      if (!Array.isArray(nodes)) return;
+      nodes.forEach(node => {
+        if (node.active === undefined || node.active === null || Number(node.active) === 1) {
+          options.push(node);
+          if (node.children && node.children.length > 0) {
+            traverse(node.children);
+          }
+        }
+      });
+    }
+    traverse(categoryTree);
+    return options;
+  }, [categoryTree]);
 
   useEffect(() => {
     // Smooth debounced fetch when user is typing in search bar
@@ -594,7 +617,6 @@ export default function App() {
         }} 
         categories={categories}
         onSelectCategory={handleSelectCategory}
-        onOpenVisualSearch={() => setIsVisualSearchOpen(true)}
         onLogoClick={() => {
           setCurrentView('store');
           setSelectedProduct(null);
@@ -607,16 +629,6 @@ export default function App() {
           setMinRating('');
           setIsCartOpen(false);
           window.history.pushState(null, '', '/');
-        }}
-      />
-
-      {/* Visual Image Search & Lens Modal */}
-      <VisualSearchModal 
-        isOpen={isVisualSearchOpen} 
-        onClose={() => setIsVisualSearchOpen(false)} 
-        onSelectProduct={(prod) => {
-          setSelectedProduct(prod);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
       />
 
@@ -746,7 +758,7 @@ export default function App() {
               <p style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginTop: '4px' }}>
                 {currentView === 'login' 
                   ? (lang === 'ar' ? 'سجل دخولك لمتابعة طلباتك والاستفادة من العروض' : 'Login to manage your orders and discounts') 
-                  : (lang === 'ar' ? 'احصل فوراً على حسم 10% ترحيبي على أول طلبية 🎉' : 'Get an instant 10% welcome discount on your first order 🎉')}
+                  : (lang === 'ar' ? 'احصل فوراً على حسم 10% ترحيبي على أول طلبية' : 'Get an instant 10% welcome discount on your first order')}
               </p>
             </div>
 
@@ -955,7 +967,7 @@ export default function App() {
                   boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)'
                 }}
               >
-                {currentView === 'login' ? t('login') : (lang === 'ar' ? 'إنشاء الحساب والحصول على حسم 10% 🎉' : 'Register & Get 10% Discount 🎉')}
+                {currentView === 'login' ? t('login') : (lang === 'ar' ? 'إنشاء الحساب والحصول على حسم 10%' : 'Register & Get 10% Discount')}
               </button>
 
               {currentView === 'login' && typeof window !== 'undefined' && window.AndroidApp && localStorage.getItem('biometric_username') && (
@@ -1118,18 +1130,20 @@ export default function App() {
                     value={selectedCategory} 
                     onChange={(e) => handleSelectCategory(e.target.value)}
                     className="input-field"
+                    style={{ fontWeight: '600' }}
                   >
                     <option value="">{t('all_categories')}</option>
-                    {(Array.isArray(categories) ? categories : []).filter(c => c && !c.parent_id).map(parent => (
-                      <optgroup key={parent.id} label={getCategoryName(parent, lang)}>
-                        <option value={parent.id}>{getCategoryName(parent, lang)} ({lang === 'ar' ? 'الكل' : 'All'})</option>
-                        {(Array.isArray(categories) ? categories : []).filter(c => c && String(c.parent_id) === String(parent.id)).map(sub => (
-                          <option key={sub.id} value={sub.id}>
-                            &nbsp;&nbsp;↳ {getCategoryName(sub, lang)}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ))}
+                    {flatCategorySelectOptions.map(cat => {
+                      const depth = cat.depth || 1;
+                      const indent = '　'.repeat(Math.max(0, depth - 1));
+                      const prefix = depth === 1 ? '📁 ' : `${indent}└─ `;
+                      const catName = getCategoryName(cat, lang);
+                      return (
+                        <option key={cat.id} value={cat.id}>
+                          {prefix}{catName}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 
@@ -1237,7 +1251,7 @@ export default function App() {
                           cursor: 'pointer'
                         }}
                       >
-                        {lang === 'ar' ? '🔄 إعادة تحميل الأقسام' : '🔄 Reload Categories'}
+                        {lang === 'ar' ? 'إعادة تحميل الأقسام' : 'Reload Categories'}
                       </button>
                     </div>
                   )}
@@ -1356,15 +1370,29 @@ export default function App() {
                 {(() => {
                   const catList = Array.isArray(categories) ? categories : [];
                   const currentCat = catList.find(c => c && String(c.id) === String(selectedCategory));
+                  const ancestors = selectedCategory ? getCategoryAncestors(selectedCategory, catList) : [];
                   const parentId = currentCat ? (currentCat.parent_id || currentCat.id) : null;
-                  const availableSubCats = parentId 
-                    ? catList.filter(c => c && String(c.parent_id) === String(parentId))
-                        .sort((a, b) => {
-                          const nameA = (lang === 'ar' ? a.name_ar : a.name_en) || a.name_en || a.name_ar || '';
-                          const nameB = (lang === 'ar' ? b.name_ar : b.name_en) || b.name_en || b.name_ar || '';
-                          return nameA.localeCompare(nameB, lang === 'ar' ? 'ar' : 'en', { sensitivity: 'base', numeric: true });
-                        })
+                  const parentCat = parentId ? catList.find(c => c && String(c.id) === String(parentId)) : null;
+
+                  // Find subcategories of the currently selected category
+                  const directChildCats = currentCat 
+                    ? catList.filter(c => c && String(c.parent_id) === String(currentCat.id) && (c.active === undefined || c.active === null || Number(c.active) === 1))
                     : [];
+
+                  // If no direct child categories, show sibling categories under current category's parent
+                  const siblingCats = parentId 
+                    ? catList.filter(c => c && String(c.parent_id) === String(parentId) && (c.active === undefined || c.active === null || Number(c.active) === 1))
+                    : [];
+
+                  const availableSubCats = (directChildCats.length > 0 ? directChildCats : siblingCats)
+                    .sort((a, b) => {
+                      const orderA = a.sort_order !== undefined && a.sort_order !== null ? Number(a.sort_order) : 999;
+                      const orderB = b.sort_order !== undefined && b.sort_order !== null ? Number(b.sort_order) : 999;
+                      if (orderA !== orderB) return orderA - orderB;
+                      const nameA = (lang === 'ar' ? a.name_ar : a.name_en) || a.name_en || a.name_ar || '';
+                      const nameB = (lang === 'ar' ? b.name_ar : b.name_en) || b.name_en || b.name_ar || '';
+                      return nameA.localeCompare(nameB, lang === 'ar' ? 'ar' : 'en', { sensitivity: 'base', numeric: true });
+                    });
 
                   return (
                     <div style={{
@@ -1374,7 +1402,7 @@ export default function App() {
                       borderBottom: '2px solid var(--border-color)',
                       paddingBottom: '16px'
                     }}>
-                      {/* Top bar: Back button + Title */}
+                      {/* Top bar: Back button + Clickable Multi-Level Breadcrumbs */}
                       <div style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -1382,7 +1410,7 @@ export default function App() {
                         flexWrap: 'wrap',
                         gap: '12px'
                       }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                           <button
                             onClick={clearFilters}
                             className="input-field"
@@ -1398,32 +1426,50 @@ export default function App() {
                               fontSize: '0.85rem'
                             }}
                           >
-                            {lang === 'ar' ? '← العودة للأقسام الرئيسية' : '← Back to Main Categories'}
+                            {lang === 'ar' ? '← الأقسام الرئيسية' : '← Main Categories'}
                           </button>
                           
-                          <h2 style={{ fontSize: '1.4rem', fontWeight: '800' }}>
-                            {searchVal ? (
-                              <span>
-                                {lang === 'ar' ? `نتائج البحث عن "${searchVal}"` : `Search Results for "${searchVal}"`}
-                                {currentCat && (
-                                  <span style={{ fontSize: '1.05rem', color: 'var(--accent-blue)', marginInlineStart: '8px', fontWeight: '600' }}>
-                                    / {getCategoryName(currentCat, lang)}
-                                  </span>
-                                )}
-                              </span>
-                            ) : parentCat ? (
-                              <span>
-                                {getCategoryName(parentCat, lang)}
-                                {currentCat && currentCat.parent_id && String(currentCat.parent_id) !== String(currentCat.id) ? (
-                                  <span style={{ fontSize: '1.05rem', color: 'var(--accent-blue)', marginInlineStart: '8px', fontWeight: '600' }}>
-                                    / {getCategoryName(currentCat, lang)}
-                                  </span>
-                                ) : ''}
-                              </span>
-                            ) : (
-                              currentCat ? getCategoryName(currentCat, lang) : (lang === 'ar' ? 'نتائج البحث' : 'Search Results')
-                            )}
-                          </h2>
+                          {searchVal ? (
+                            <h2 style={{ fontSize: '1.35rem', fontWeight: '800', margin: 0 }}>
+                              {lang === 'ar' ? `نتائج البحث عن "${searchVal}"` : `Search Results for "${searchVal}"`}
+                              {currentCat && (
+                                <span style={{ fontSize: '1.05rem', color: 'var(--accent-blue)', marginInlineStart: '8px', fontWeight: '600' }}>
+                                  / {getCategoryName(currentCat, lang)}
+                                </span>
+                              )}
+                            </h2>
+                          ) : ancestors.length > 0 ? (
+                            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                              {ancestors.map((anc, idx) => {
+                                const isLast = idx === ancestors.length - 1;
+                                return (
+                                  <React.Fragment key={anc.id}>
+                                    {idx > 0 && <span style={{ color: 'var(--text-light)', opacity: 0.6, fontSize: '0.9rem' }}>/</span>}
+                                    <button
+                                      onClick={() => handleSelectCategory(anc.id)}
+                                      style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        cursor: isLast ? 'default' : 'pointer',
+                                        color: isLast ? 'var(--text-primary)' : 'var(--accent-blue)',
+                                        fontWeight: isLast ? '800' : '700',
+                                        padding: '2px 4px',
+                                        borderRadius: '6px',
+                                        fontSize: isLast ? '1.35rem' : '0.92rem',
+                                        textDecoration: isLast ? 'none' : 'underline'
+                                      }}
+                                    >
+                                      {getCategoryName(anc, lang)}
+                                    </button>
+                                  </React.Fragment>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <h2 style={{ fontSize: '1.35rem', fontWeight: '800', margin: 0 }}>
+                              {currentCat ? getCategoryName(currentCat, lang) : (lang === 'ar' ? 'نتائج البحث' : 'Search Results')}
+                            </h2>
+                          )}
                         </div>
                       </div>
 
@@ -1506,7 +1552,10 @@ export default function App() {
                                     }
                                   }}
                                 >
-                                  <span>🏷️ {cat.name}</span>
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                    <Tag size={13} />
+                                    {cat.name}
+                                  </span>
                                   <span style={{
                                     backgroundColor: isCatActive ? 'rgba(255,255,255,0.25)' : 'rgba(37, 99, 235, 0.1)',
                                     color: isCatActive ? '#ffffff' : 'var(--accent-blue)',
@@ -1584,10 +1633,9 @@ export default function App() {
                                     display: 'inline-flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    fontSize: '0.85rem',
                                     flexShrink: 0
                                   }}>
-                                    🗂️
+                                    <Folder size={15} />
                                   </span>
                                 )}
                                 <span>{lang === 'ar' ? 'كل الأقسام' : 'All Sub-categories'}</span>
@@ -1648,10 +1696,9 @@ export default function App() {
                                     display: 'inline-flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    fontSize: '0.85rem',
                                     flexShrink: 0
                                   }}>
-                                    🏷️
+                                    <Tag size={14} />
                                   </span>
                                 )}
                                 <span>{getCategoryName(sub, lang)}</span>

@@ -68,7 +68,6 @@ export const SAMPLE_SEARCH_PRESETS = [
     id: 'perfume',
     titleAr: 'عطر فاخر',
     titleEn: 'Luxury Perfume',
-    icon: '✨',
     imageUrl: 'https://images.unsplash.com/photo-1541643600914-78b084683601?auto=format&fit=crop&w=400&q=80',
     tags: ['perfume', 'perfume_bottle', 'spray'],
     color: '#c4974f'
@@ -77,7 +76,6 @@ export const SAMPLE_SEARCH_PRESETS = [
     id: 'smartwatch',
     titleAr: 'ساعة ذكية',
     titleEn: 'Smart Watch',
-    icon: '⌚',
     imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=400&q=80',
     tags: ['smartwatch', 'watch', 'digital_watch'],
     color: '#2b2d42'
@@ -86,7 +84,6 @@ export const SAMPLE_SEARCH_PRESETS = [
     id: 'headset',
     titleAr: 'سماعات رأس لاسلكية',
     titleEn: 'Wireless Headphones',
-    icon: '🎧',
     imageUrl: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=400&q=80',
     tags: ['headphones', 'earphone', 'speaker'],
     color: '#d97706'
@@ -95,7 +92,6 @@ export const SAMPLE_SEARCH_PRESETS = [
     id: 'sneakers',
     titleAr: 'حذاء رياضي',
     titleEn: 'Running Sneakers',
-    icon: '👟',
     imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=400&q=80',
     tags: ['sneakers', 'running_shoe'],
     color: '#ef4444'
@@ -104,7 +100,6 @@ export const SAMPLE_SEARCH_PRESETS = [
     id: 'skincare',
     titleAr: 'عناية بالبشرة وسيروم',
     titleEn: 'Skincare Serum',
-    icon: '🧴',
     imageUrl: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&w=400&q=80',
     tags: ['skincare_bottle', 'lotion', 'sunscreen'],
     color: '#10b981'
@@ -113,7 +108,6 @@ export const SAMPLE_SEARCH_PRESETS = [
     id: 'gaming',
     titleAr: 'ماوس أو كيبورد ألعاب',
     titleEn: 'Gaming Gear',
-    icon: '🎮',
     imageUrl: 'https://images.unsplash.com/photo-1527814050087-3793815479db?auto=format&fit=crop&w=400&q=80',
     tags: ['mouse', 'computer_keyboard', 'joystick'],
     color: '#8b5cf6'

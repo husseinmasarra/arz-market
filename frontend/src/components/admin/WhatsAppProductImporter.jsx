@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { 
@@ -6,6 +6,7 @@ import {
   Trash2, ArrowRight, Tag, DollarSign, Layers, Plus, ExternalLink,
   Copy, RefreshCw, Wand2, ShieldCheck, Check, Info, FileText
 } from 'lucide-react';
+import { buildCategoryTree, flattenCategoryTree } from '../../utils/categoryTree';
 
 // Common Arabic retail keyword translation dictionary for clean English naming
 const ARABIC_TO_ENGLISH_TERMS = [
@@ -69,6 +70,10 @@ const COLOR_KEYWORDS = [
 export default function WhatsAppProductImporter({ categories = [], merchants = [], onProductCreated, apiBase }) {
   const { lang, formatPrice } = useApp();
   const { token } = useAuth();
+
+  const flatCategoryOptions = useMemo(() => {
+    return flattenCategoryTree(buildCategoryTree(categories));
+  }, [categories]);
 
   const [rawText, setRawText] = useState('');
   const [markupPercent, setMarkupPercent] = useState(40);
@@ -244,19 +249,19 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
     const fullSearchText = (text + ' ' + titleAr).toLowerCase();
 
     if (/حرام|بلانكيت|شرشف|شراشف|مخدة|وسادة|لحاف|دوفيه|بياضات|مفرش|بطانية|مناشف/i.test(fullSearchText)) {
-      const c = categories.find(cat => cat.name_ar.includes('بياضات') || cat.name_ar.includes('منزل') || cat.name_en.toLowerCase().includes('home') || cat.name_en.toLowerCase().includes('bedding'));
+      const c = categories.find(cat => (cat?.name_ar || '').includes('بياضات') || (cat?.name_ar || '').includes('منزل') || (cat?.name_en || '').toLowerCase().includes('home') || (cat?.name_en || '').toLowerCase().includes('bedding'));
       if (c) matchedCatId = c.id;
     } else if (/طنجرة|مقلاة|ايرفراير|خلاط|مطبخ|كاسات|صحون|سكاكين|شواية|ترمس/i.test(fullSearchText)) {
-      const c = categories.find(cat => cat.name_ar.includes('مطبخ') || cat.name_en.toLowerCase().includes('kitchen'));
+      const c = categories.find(cat => (cat?.name_ar || '').includes('مطبخ') || (cat?.name_en || '').toLowerCase().includes('kitchen'));
       if (c) matchedCatId = c.id;
     } else if (/سماعة|شاحن|كابل|باوربانك|باور\s*بانك|ايربودز|بلوتوث|ريزر|كاميرا|سبيكر|مكبر/i.test(fullSearchText)) {
-      const c = categories.find(cat => cat.name_ar.includes('إلكترونيات') || cat.name_ar.includes('هواتف') || cat.name_en.toLowerCase().includes('electronic'));
+      const c = categories.find(cat => (cat?.name_ar || '').includes('إلكترونيات') || (cat?.name_ar || '').includes('هواتف') || (cat?.name_en || '').toLowerCase().includes('electronic'));
       if (c) matchedCatId = c.id;
     } else if (/ساعة|سمارت\s*ووتش|smart\s*watch/i.test(fullSearchText)) {
-      const c = categories.find(cat => cat.name_ar.includes('ساعات') || cat.name_en.toLowerCase().includes('watch'));
+      const c = categories.find(cat => (cat?.name_ar || '').includes('ساعات') || (cat?.name_en || '').toLowerCase().includes('watch'));
       if (c) matchedCatId = c.id;
     } else if (/حلاقة|مساج|استشوار|تجميل|عناية|مكياج|عطر/i.test(fullSearchText)) {
-      const c = categories.find(cat => cat.name_ar.includes('عناية') || cat.name_ar.includes('جمال') || cat.name_en.toLowerCase().includes('care') || cat.name_en.toLowerCase().includes('beauty'));
+      const c = categories.find(cat => (cat?.name_ar || '').includes('عناية') || (cat?.name_ar || '').includes('جمال') || (cat?.name_en || '').toLowerCase().includes('care') || (cat?.name_en || '').toLowerCase().includes('beauty'));
       if (c) matchedCatId = c.id;
     }
 
@@ -441,7 +446,7 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
             boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.35)',
             flexShrink: 0
           }}>
-            💬
+            <MessageSquare size={26} color="#fff" />
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
@@ -546,7 +551,7 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
             </div>
             <div>
               <h4 style={{ margin: 0, fontWeight: '800', color: '#065f46', fontSize: '1rem' }}>
-                {lang === 'ar' ? `🎉 تم نشر منتج "${successProduct.name_ar}" بنجاح في المتجر!` : `🎉 Product "${successProduct.name_ar}" published successfully!`}
+                {lang === 'ar' ? `تم نشر منتج "${successProduct.name_ar}" بنجاح في المتجر!` : `Product "${successProduct.name_ar}" published successfully!`}
               </h4>
               <p style={{ margin: '2px 0 0', fontSize: '0.82rem', color: '#047857' }}>
                 {lang === 'ar'
@@ -574,7 +579,7 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
             }}
           >
             <Plus size={16} />
-            {lang === 'ar' ? 'إضافة منتج واتساب التالي 🚀' : 'Add Next Product 🚀'}
+            {lang === 'ar' ? 'إضافة منتج واتساب التالي' : 'Add Next Product'}
           </button>
         </div>
       )}
@@ -717,7 +722,7 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
                 {lang === 'ar' ? 'اسحب الصور من الواتساب هنا، أو اضغط للاختيار' : 'Drag images from WhatsApp here, or click to browse'}
               </p>
               <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                {lang === 'ar' ? '💡 يمكنك أيضاً نسخ الصورة من الواتساب وضغط Ctrl+V مباشرة!' : '💡 You can also copy image from WhatsApp and press Ctrl+V directly!'}
+                {lang === 'ar' ? 'يمكنك أيضاً نسخ الصورة من الواتساب وضغط Ctrl+V مباشرة!' : 'You can also copy image from WhatsApp and press Ctrl+V directly!'}
               </p>
             </div>
 
@@ -1053,11 +1058,17 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
                   style={{ margin: 0, fontWeight: '700' }}
                 >
                   <option value="">{lang === 'ar' ? '-- اختر القسم --' : '-- Select Category --'}</option>
-                  {categories.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.name_ar} ({c.name_en})
-                    </option>
-                  ))}
+                  {flatCategoryOptions.map((item) => {
+                    const c = item?.category || item;
+                    if (!c || !c.id) return null;
+                    const depth = item?.depth ?? (c.depth ? c.depth - 1 : 0);
+                    const prefix = depth === 0 ? '' : '　'.repeat(depth) + '└─ ';
+                    return (
+                      <option key={c.id} value={c.id}>
+                        {prefix}{lang === 'ar' ? (c.name_ar || c.name_en || '') : (c.name_en || c.name_ar || '')}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
@@ -1190,7 +1201,7 @@ export default function WhatsAppProductImporter({ categories = [], merchants = [
               ) : (
                 <>
                   <Sparkles size={18} />
-                  <span>{lang === 'ar' ? '🚀 حفظ وإضافة إلى المتجر فوراً' : '🚀 Publish to Store Now'}</span>
+                  <span>{lang === 'ar' ? 'حفظ وإضافة إلى المتجر فوراً' : 'Publish to Store Now'}</span>
                 </>
               )}
             </button>

@@ -187,7 +187,7 @@ export default function AdminUsers() {
                         ) : (
                           <Square size={16} color="var(--text-light)" />
                         )}
-                        <span>{lang === 'ar' ? p.name_ar : p.name_en}</span>
+                        <span>{lang === 'ar' ? (p?.name_ar || p?.name_en || '') : (p?.name_en || p?.name_ar || '')}</span>
                       </div>
                     );
                   })}

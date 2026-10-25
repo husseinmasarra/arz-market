@@ -117,7 +117,7 @@ const translations = {
     visual_search_samples: 'أو جرب البحث بهذه العينات الجاهزة:'
   },
   en: {
-    appName: 'Arz-Mart',
+    appName: 'ArzMart',
     home: 'Home',
     shop: 'Shop',
     cart: 'Shopping Cart',
@@ -127,7 +127,7 @@ const translations = {
     login: 'Login',
     register: 'Register',
     logout: 'Logout',
-    welcome: 'Welcome to Arz-Mart',
+    welcome: 'Welcome to ArzMart',
     search_placeholder: 'Search products...',
     filters: 'Filters & Categories',
     all_categories: 'All Categories',
@@ -250,14 +250,14 @@ export const AppProvider = ({ children }) => {
   const [theme, setTheme] = useState(() => safeGetItem('theme', 'light'));
   const [currency, setCurrency] = useState(() => safeGetItem('currency', 'USD')); // 'USD' or 'LBP'
   const [settings, setSettings] = useState({
-    app_name: 'Arz-Mart',
+    app_name: 'ArzMart',
     logo_url: '',
     exchange_rate: 89500,
     free_delivery_threshold: 50,
     delivery_fee: 4,
     hero_banners: [],
     online_payment_enabled: 0,
-    contact_email: 'info@arz-mart.com'
+    contact_email: 'info@arzmart.com'
   });
 
   const apiHost = import.meta.env.VITE_API_URL || '';

@@ -26,7 +26,8 @@ import {
   AlertCircle,
   Save,
   Fingerprint,
-  ArrowRight
+  ArrowRight,
+  Tag
 } from 'lucide-react';
 
 export default function CustomerDashboard({ onGoToStore, onNavigate }) {
@@ -374,10 +375,10 @@ export default function CustomerDashboard({ onGoToStore, onNavigate }) {
               </span>
             </div>
             <p style={{ fontSize: '0.82rem', color: 'var(--text-light)', margin: '6px 0 0 0', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-              {user?.email && <span>📧 {user.email}</span>}
-              {user?.phone && <span>📞 {user.phone}</span>}
+              {user?.email && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Mail size={13} /> {user.email}</span>}
+              {user?.phone && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Phone size={13} /> {user.phone}</span>}
               {user?.created_at && (
-                <span>🗓️ {lang === 'ar' ? 'عضو منذ:' : 'Member since:'} {new Date(user.created_at).toLocaleDateString(lang === 'ar' ? 'ar-LB' : 'en-US')}</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Calendar size={13} /> {lang === 'ar' ? 'عضو منذ:' : 'Member since:'} {new Date(user.created_at).toLocaleDateString(lang === 'ar' ? 'ar-LB' : 'en-US')}</span>
               )}
             </p>
           </div>
@@ -726,13 +727,13 @@ export default function CustomerDashboard({ onGoToStore, onNavigate }) {
                             {lang === 'ar' ? `الطلبية رقم #${order.id}` : `Order #${order.id}`}
                           </div>
                           <div style={{ fontSize: '0.78rem', color: 'var(--text-light)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span>🗓️ {new Date(order.created_at || Date.now()).toLocaleDateString(lang === 'ar' ? 'ar-LB' : 'en-US')}</span>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><Calendar size={12} /> {new Date(order.created_at || Date.now()).toLocaleDateString(lang === 'ar' ? 'ar-LB' : 'en-US')}</span>
                             <span>•</span>
-                            <span>📦 {itemsCount} {lang === 'ar' ? 'منتجات' : 'items'}</span>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><Package size={12} /> {itemsCount} {lang === 'ar' ? 'منتجات' : 'items'}</span>
                             {order.tracking_number && (
                               <>
                                 <span>•</span>
-                                <span>🏷️ {order.tracking_number}</span>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><Tag size={12} /> {order.tracking_number}</span>
                               </>
                             )}
                           </div>

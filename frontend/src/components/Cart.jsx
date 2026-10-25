@@ -128,10 +128,11 @@ export default function Cart({ onCheckoutClick }) {
             </div>
           ) : (
             cartItems.map((item) => {
-              const itemKey = `${item.product.id}_${item.selectedColor || ''}_${item.selectedSize || ''}`;
+              const prod = item?.product || {};
+              const itemKey = `${prod?.id || Math.random()}_${item?.selectedColor || ''}_${item?.selectedSize || ''}`;
               const isEditingThisNote = editingNoteKey === itemKey;
-              const name = lang === 'ar' ? item.product.name_ar : item.product.name_en;
-              const imageUrl = getImageUrl(item.product.image_url, 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=100&q=80');
+              const name = lang === 'ar' ? (prod?.name_ar || prod?.name_en || '') : (prod?.name_en || prod?.name_ar || '');
+              const imageUrl = getImageUrl(prod?.image_url, 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=100&q=80');
 
               return (
                 <div key={itemKey} style={{

@@ -5,19 +5,23 @@ import { Star, ShoppingCart, X, ZoomIn, ZoomOut, RotateCcw, Move, MessageSquare,
 import BlurImage from './BlurImage';
 
 const COLOR_HEX_MAP = {
-  'black': '#18181b', 'أسود': '#18181b', 'noir': '#18181b', 'dark': '#27272a', 'غامق': '#27272a',
-  'white': '#ffffff', 'أبيض': '#ffffff', 'blanc': '#ffffff', 'cream': '#fef3c7', 'كريمي': '#fef3c7',
-  'blue': '#2563eb', 'أزرق': '#2563eb', 'bleu': '#2563eb', 'navy': '#1e3a8a', 'كحلي': '#1e3a8a',
+  'black': '#18181b', 'أسود': '#18181b', 'اسود': '#18181b', 'سودا': '#18181b', 'noir': '#18181b', 'nero': '#18181b', 'dark': '#27272a', 'غامق': '#27272a',
+  'white': '#ffffff', 'أبيض': '#ffffff', 'ابيض': '#ffffff', 'بيضا': '#ffffff', 'blanc': '#ffffff', 'bianco': '#ffffff', 'cream': '#fef3c7', 'كريمي': '#fef3c7',
+  'blue': '#2563eb', 'أزرق': '#2563eb', 'ازرق': '#2563eb', 'زرقا': '#2563eb', 'bleu': '#2563eb', 'navy': '#1e3a8a', 'كحلي': '#1e3a8a', 'كحلية': '#1e3a8a',
   'cyan': '#06b6d4', 'سماوي': '#38bdf8', 'sky': '#38bdf8', 'royal': '#1d4ed8', 'ملكي': '#1d4ed8',
-  'red': '#dc2626', 'أحمر': '#dc2626', 'rouge': '#dc2626', 'pink': '#ec4899', 'زهري': '#ec4899',
-  'وردي': '#f472b6', 'rose': '#f472b6', 'burgundy': '#831843', 'خمري': '#831843',
-  'green': '#16a34a', 'أخضر': '#16a34a', 'vert': '#16a34a', 'mint': '#6ee7b7', 'زيتي': '#3f6212',
-  'yellow': '#eab308', 'أصفر': '#eab308', 'jaune': '#eab308', 'orange': '#ea580c', 'برتقالي': '#ea580c',
-  'purple': '#9333ea', 'بنفسجي': '#9333ea', 'violet': '#8b5cf6', 'lavender': '#c084fc',
-  'gold': '#d97706', 'golden': '#f59e0b', 'ذهبي': '#d97706', 'silver': '#9ca3af', 'فضي': '#9ca3af',
-  'gray': '#6b7280', 'grey': '#6b7280', 'رمادي': '#6b7280', 'titanium': '#71717a', 'تيتانيوم': '#71717a',
-  'brown': '#78350f', 'بني': '#78350f', 'wood': '#a16207', 'خشبي': '#a16207', 'desert': '#d4a373', 'صحراوي': '#d4a373',
-  'beige': '#f5f5dc', 'بيج': '#f5f5dc'
+  'red': '#dc2626', 'أحمر': '#dc2626', 'احمر': '#dc2626', 'حمرا': '#dc2626', 'rouge': '#dc2626',
+  'pink': '#ec4899', 'زهري': '#ec4899', 'زهرية': '#ec4899', 'وردي': '#f472b6', 'وردية': '#f472b6', 'rose': '#f472b6', 'fuchsia': '#d946ef', 'فوشيا': '#d946ef', 'بينك': '#ec4899',
+  'burgundy': '#831843', 'خمري': '#831843', 'خمرية': '#831843', 'عنابي': '#831843', 'maroon': '#831843', 'wine': '#831843',
+  'green': '#16a34a', 'أخضر': '#16a34a', 'اخضر': '#16a34a', 'خضرا': '#16a34a', 'vert': '#16a34a', 'mint': '#6ee7b7', 'زيتي': '#3f6212', 'olive': '#3f6212',
+  'yellow': '#eab308', 'أصفر': '#eab308', 'اصفر': '#eab308', 'صفرا': '#eab308', 'jaune': '#eab308',
+  'orange': '#ea580c', 'برتقالي': '#ea580c', 'برتقالية': '#ea580c',
+  'purple': '#9333ea', 'بنفسجي': '#9333ea', 'بنفسجية': '#9333ea', 'موف': '#8b5cf6', 'violet': '#8b5cf6', 'lavender': '#c084fc', 'لافندر': '#c084fc', 'ليلكي': '#c084fc',
+  'gold': '#d97706', 'golden': '#f59e0b', 'ذهبي': '#d97706', 'ذهبية': '#d97706', 'dore': '#d97706',
+  'silver': '#9ca3af', 'فضي': '#9ca3af', 'فضية': '#9ca3af',
+  'gray': '#6b7280', 'grey': '#6b7280', 'رمادي': '#6b7280', 'رمادية': '#6b7280', 'سكني': '#6b7280', 'titanium': '#71717a', 'تيتانيوم': '#71717a',
+  'brown': '#78350f', 'بني': '#78350f', 'بنية': '#78350f', 'marron': '#78350f', 'camel': '#b45309', 'tan': '#d97706',
+  'wood': '#a16207', 'خشبي': '#a16207', 'خشبية': '#a16207', 'desert': '#d4a373', 'صحراوي': '#d4a373',
+  'beige': '#f5f5dc', 'بيج': '#f5f5dc', 'بيجي': '#f5f5dc', 'عاجي': '#fef3c7', 'ivory': '#fef3c7'
 };
 
 function resolveColorHex(colorStr) {
@@ -36,6 +40,82 @@ function isLightColor(hex) {
   return false;
 }
 
+// Smart helper to find matching image index for a selected color
+function findImageIndexForColor(colorStr, allImages = [], productOptions = [], parsedColors = []) {
+  if (!colorStr || !allImages || allImages.length === 0) return 0;
+  const cLower = String(colorStr).toLowerCase().trim();
+
+  // 1. Check if an option in sizes matches this color name
+  if (Array.isArray(productOptions) && productOptions.length > 0) {
+    const opt = productOptions.find(o => {
+      const oName = String(o.name || '').toLowerCase();
+      return oName.includes(cLower) || cLower.includes(oName);
+    });
+    if (opt && opt.imageIndex !== undefined && opt.imageIndex >= 0 && opt.imageIndex < allImages.length) {
+      return opt.imageIndex;
+    }
+  }
+
+  // 2. Search allImages URLs for color keywords
+  for (const [key] of Object.entries(COLOR_HEX_MAP)) {
+    if (cLower.includes(key)) {
+      const urlIdx = allImages.findIndex(u => {
+        const decoded = decodeURIComponent(String(u)).toLowerCase();
+        return decoded.includes(key);
+      });
+      if (urlIdx >= 0) return urlIdx;
+    }
+  }
+
+  // 3. Fallback to index position if colors and images align
+  const cIdx = parsedColors.indexOf(colorStr);
+  if (cIdx >= 0 && cIdx < allImages.length) {
+    return cIdx;
+  }
+
+  return 0;
+}
+
+// Smart helper to find matching color for an active image index
+function findColorForImageIndex(imgIdx, allImages = [], parsedColors = [], productOptions = []) {
+  if (!parsedColors || parsedColors.length === 0) return null;
+  if (imgIdx < 0 || imgIdx >= allImages.length) return parsedColors[0];
+
+  const targetImg = allImages[imgIdx];
+  if (!targetImg) return parsedColors[0];
+
+  // 1. Check if an option exists for this image index
+  if (Array.isArray(productOptions) && productOptions.length > 0) {
+    const opt = productOptions.find(o => o.imageIndex === imgIdx || o.image === targetImg);
+    if (opt && opt.name) {
+      const optName = opt.name.toLowerCase();
+      const matchColor = parsedColors.find(c => {
+        const cLower = String(c).toLowerCase();
+        return optName.includes(cLower) || cLower.includes(optName);
+      });
+      if (matchColor) return matchColor;
+    }
+  }
+
+  // 2. Search image URL for color keywords matching parsedColors
+  const urlDecoded = decodeURIComponent(String(targetImg)).toLowerCase();
+  for (const color of parsedColors) {
+    const cLower = String(color).toLowerCase();
+    for (const [key] of Object.entries(COLOR_HEX_MAP)) {
+      if (cLower.includes(key) && urlDecoded.includes(key)) {
+        return color;
+      }
+    }
+  }
+
+  // 3. Fallback to 1:1 index mapping
+  if (parsedColors[imgIdx]) {
+    return parsedColors[imgIdx];
+  }
+
+  return parsedColors[0];
+}
+
 function parseProductOptions(sizes, basePrice, allImages = [], getImageUrl = null) {
   if (!sizes) return [];
   let arr = sizes;
@@ -47,28 +127,35 @@ function parseProductOptions(sizes, basePrice, allImages = [], getImageUrl = nul
   return arr.map((item, idx) => {
     if (typeof item === 'object' && item !== null) {
       const name = item.name || item.title || `Option ${idx + 1}`;
-      const price = item.price !== undefined && item.price !== null && !isNaN(item.price) 
-        ? Number(item.price) 
-        : basePrice;
+      const price = getOptionPrice(item, basePrice);
       const rawImg = item.image || item.image_url || item.img || item.photo || null;
       const image = rawImg ? (getImageUrl ? getImageUrl(rawImg) : rawImg) : (allImages && allImages[idx] ? allImages[idx] : null);
-      return { id: `opt_${idx}`, name, price, image, imageIndex: (allImages && allImages[idx]) ? idx : 0 };
+      
+      let imageIndex = -1;
+      if (image && allImages && allImages.length > 0) {
+        imageIndex = allImages.findIndex(img => img === image || (rawImg && img.includes(rawImg)));
+      }
+      if (imageIndex === -1) {
+        if (allImages.length === arr.length + 1) imageIndex = idx + 1;
+        else if (allImages.length > idx) imageIndex = idx;
+        else imageIndex = 0;
+      }
+
+      return { id: `opt_${idx}`, name, price, image, imageIndex };
     }
     const str = String(item);
-    const priceRegex = /\(\s*([+-]?)\s*\$?\s*([0-9.]+)\s*\$?_?\)/;
-    const match = str.match(priceRegex);
-    let price = basePrice;
-    let name = str;
-    if (match) {
-      name = str.replace(priceRegex, '').trim();
-      const sign = match[1];
-      const val = parseFloat(match[2]);
-      if (sign === '+') price = basePrice + val;
-      else if (sign === '-') price = basePrice - val;
-      else price = val;
+    const price = getOptionPrice(str, basePrice);
+    const priceRegex = /\(\s*[+-]?\s*\$?[0-9.]+\s*\$?_?\)/;
+    const name = str.replace(priceRegex, '').trim();
+
+    let imageIndex = 0;
+    if (allImages.length === arr.length + 1) {
+      imageIndex = idx + 1;
+    } else if (allImages.length > idx) {
+      imageIndex = idx;
     }
-    const fallbackImg = (allImages && allImages.length > idx) ? allImages[idx] : (allImages && allImages[0] ? allImages[0] : null);
-    return { id: `opt_${idx}`, name, price, image: fallbackImg, imageIndex: (allImages && allImages.length > idx) ? idx : 0 };
+    const fallbackImg = (allImages && allImages[imageIndex]) ? allImages[imageIndex] : (allImages && allImages[0] ? allImages[0] : null);
+    return { id: `opt_${idx}`, name, price, image: fallbackImg, imageIndex };
   });
 }
 
@@ -156,8 +243,8 @@ export default function ProductDetails({ product, onClose, onRefresh, onCategory
     const prodName = (lang === 'ar' ? product?.name_ar : product?.name_en) || product?.name_ar || product?.name_en || product?.title || 'منتج أرز مارت';
     const priceFormatted = formatPrice(product?.price_usd);
     const msg = lang === 'ar'
-      ? `مرحباً، تفضل رابط ومواصفات المنتج من متجر أرز مارت:\n\n🛒 *${prodName}*\n💰 السعر: *${priceFormatted}*\n🔗 الرابط المباشر:\n${productUrl}`
-      : `Hello, here is the product details from ArzMart:\n\n🛒 *${prodName}*\n💰 Price: *${priceFormatted}*\n🔗 Direct Link:\n${productUrl}`;
+      ? `مرحباً، تفضل رابط ومواصفات المنتج من متجر أرز مارت:\n\n*${prodName}*\nالسعر: *${priceFormatted}*\nالرابط المباشر:\n${productUrl}`
+      : `Hello, here is the product details from ArzMart:\n\n*${prodName}*\nPrice: *${priceFormatted}*\nDirect Link:\n${productUrl}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
@@ -275,7 +362,7 @@ export default function ProductDetails({ product, onClose, onRefresh, onCategory
   }, [product?.images, product?.image_url, getImageUrl]);
 
   const productOptions = parseProductOptions(product?.sizes, product?.price_usd || 0, allImages, getImageUrl);
-  const hasOptions = productOptions.length > 0;
+  const hasOptions = productOptions.length > 1;
 
   const parsedColors = React.useMemo(() => {
     if (!product?.colors) return [];
@@ -283,18 +370,52 @@ export default function ProductDetails({ product, onClose, onRefresh, onCategory
     if (typeof arr === 'string') {
       try { arr = JSON.parse(arr); } catch (e) { arr = []; }
     }
-    return Array.isArray(arr) ? arr.filter(Boolean) : [];
-  }, [product?.colors]);
+    if (!Array.isArray(arr)) return [];
+    const rawList = arr.filter(Boolean);
+    if (rawList.length <= 1) return rawList;
+
+    // Order colors so the cover image's color is first, followed by each gallery image's color
+    const ordered = [];
+    const remaining = [...rawList];
+
+    if (allImages && allImages.length > 0) {
+      allImages.forEach((img, idx) => {
+        const matchedCol = findColorForImageIndex(idx, allImages, remaining, productOptions);
+        if (matchedCol && remaining.includes(matchedCol) && !ordered.includes(matchedCol)) {
+          ordered.push(matchedCol);
+          const remIdx = remaining.indexOf(matchedCol);
+          if (remIdx >= 0) remaining.splice(remIdx, 1);
+        }
+      });
+    }
+
+    return [...ordered, ...remaining];
+  }, [product?.colors, allImages, productOptions]);
+  const hasColors = parsedColors.length > 1;
 
   const [selectedOptId, setSelectedOptId] = useState(() => (hasOptions ? productOptions[0].id : null));
-  const selectedOption = productOptions.find(o => o.id === selectedOptId) || (hasOptions ? productOptions[0] : null);
-
-  const [selectedColor, setSelectedColor] = useState(() => {
-    return parsedColors.length > 0 ? parsedColors[0] : null;
-  });
+  const selectedOption = hasOptions ? (productOptions.find(o => o.id === selectedOptId) || productOptions[0]) : null;
 
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const imageUrl = allImages[activeImageIndex] || allImages[0] || '';
+
+  const [selectedColor, setSelectedColor] = useState(() => {
+    return parsedColors.length > 0 
+      ? (findColorForImageIndex(0, allImages, parsedColors, productOptions) || parsedColors[0]) 
+      : null;
+  });
+
+  // Synchronize initial state when switching products
+  useEffect(() => {
+    setActiveImageIndex(0);
+    const initialColor = parsedColors.length > 0 
+      ? (findColorForImageIndex(0, allImages, parsedColors, productOptions) || parsedColors[0]) 
+      : null;
+    setSelectedColor(initialColor);
+    setSelectedOptId(hasOptions ? productOptions[0]?.id : null);
+    setQty(1);
+    setCustomerNote('');
+  }, [product?.id]);
 
   if (!product) return null;
 
@@ -315,15 +436,18 @@ export default function ProductDetails({ product, onClose, onRefresh, onCategory
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [onClose, isZoomOpen]);
 
-  const name = lang === 'ar' ? product.name_ar : product.name_en;
-  const desc = lang === 'ar' ? product.description_ar : product.description_en;
-  const categoryName = lang === 'ar' ? product.category_name_ar : product.category_name_en;
+  const name = lang === 'ar' ? (product?.name_ar || product?.name_en || '') : (product?.name_en || product?.name_ar || '');
+  const desc = lang === 'ar' ? (product?.description_ar || product?.description_en || '') : (product?.description_en || product?.description_ar || '');
+  const categoryName = lang === 'ar' ? (product?.category_name_ar || product?.category_name_en || '') : (product?.category_name_en || product?.category_name_ar || '');
   
   const rating = product.rating || 0;
   
   const currentPrice = selectedOption ? selectedOption.price : product.price_usd;
-  const hasDiscount = product.old_price_usd && product.old_price_usd > currentPrice;
-  const adjustedOldPrice = product.old_price_usd;
+  const priceMultiplier = (product.price_usd && product.price_usd > 0) ? (currentPrice / product.price_usd) : 1;
+  const hasDiscount = Boolean(product.old_price_usd && product.old_price_usd > product.price_usd);
+  const adjustedOldPrice = (product.old_price_usd && hasDiscount)
+    ? Math.round(product.old_price_usd * priceMultiplier * 100) / 100
+    : null;
 
   const handleRatingSubmit = async () => {
     try {
@@ -410,9 +534,9 @@ export default function ProductDetails({ product, onClose, onRefresh, onCategory
             <div 
               onClick={() => setIsZoomOpen(true)}
               style={{
-                backgroundColor: '#ffffff',
+                backgroundColor: 'var(--bg-secondary)',
                 borderRadius: '16px',
-                padding: '12px',
+                padding: 0,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -424,7 +548,7 @@ export default function ProductDetails({ product, onClose, onRefresh, onCategory
                 position: 'relative',
                 cursor: 'zoom-in',
                 overflow: 'hidden',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+                boxShadow: 'var(--shadow-sm)'
               }}
               title={lang === 'ar' ? 'انقر لتكبير ومعاينة الصورة' : 'Click to enlarge image'}
             >
@@ -432,11 +556,14 @@ export default function ProductDetails({ product, onClose, onRefresh, onCategory
                 src={imageUrl} 
                 alt={name} 
                 blurhash={product?.blurhash}
-                objectFit="contain"
+                objectFit="cover"
                 onError={handleImageError}
+                style={{ width: '100%', height: '100%', borderRadius: '16px' }}
                 imgStyle={{
-                  maxHeight: '430px',
-                  borderRadius: '10px',
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  borderRadius: '16px',
                   transition: 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)'
                 }}
                 onMouseEnter={(e) => {
@@ -480,7 +607,12 @@ export default function ProductDetails({ product, onClose, onRefresh, onCategory
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setActiveImageIndex(prev => (prev === 0 ? allImages.length - 1 : prev - 1));
+                      const nextIdx = activeImageIndex === 0 ? allImages.length - 1 : activeImageIndex - 1;
+                      setActiveImageIndex(nextIdx);
+                      const matchingColor = findColorForImageIndex(nextIdx, allImages, parsedColors, productOptions);
+                      if (matchingColor) {
+                        setSelectedColor(matchingColor);
+                      }
                     }}
                     style={{
                       position: 'absolute',
@@ -508,7 +640,12 @@ export default function ProductDetails({ product, onClose, onRefresh, onCategory
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setActiveImageIndex(prev => (prev === allImages.length - 1 ? 0 : prev + 1));
+                      const nextIdx = activeImageIndex === allImages.length - 1 ? 0 : activeImageIndex + 1;
+                      setActiveImageIndex(nextIdx);
+                      const matchingColor = findColorForImageIndex(nextIdx, allImages, parsedColors, productOptions);
+                      if (matchingColor) {
+                        setSelectedColor(matchingColor);
+                      }
                     }}
                     style={{
                       position: 'absolute',
@@ -572,8 +709,20 @@ export default function ProductDetails({ product, onClose, onRefresh, onCategory
                     <button
                       key={tIdx}
                       type="button"
-                      onClick={() => setActiveImageIndex(tIdx)}
-                      onMouseEnter={() => setActiveImageIndex(tIdx)}
+                      onClick={() => {
+                        setActiveImageIndex(tIdx);
+                        const matchingColor = findColorForImageIndex(tIdx, allImages, parsedColors, productOptions);
+                        if (matchingColor) {
+                          setSelectedColor(matchingColor);
+                        }
+                      }}
+                      onMouseEnter={() => {
+                        setActiveImageIndex(tIdx);
+                        const matchingColor = findColorForImageIndex(tIdx, allImages, parsedColors, productOptions);
+                        if (matchingColor) {
+                          setSelectedColor(matchingColor);
+                        }
+                      }}
                       style={{
                         position: 'relative',
                         width: '60px',
@@ -669,7 +818,7 @@ export default function ProductDetails({ product, onClose, onRefresh, onCategory
                   alignItems: 'center',
                   gap: '4px'
                 }}>
-                  🏷️ {product?.sku || ('ARZ-P' + String(product?.id || 0).padStart(4, '0'))}
+                  <Tag size={12} style={{ color: 'var(--accent-blue)' }} /> {product?.sku || ('ARZ-P' + String(product?.id || 0).padStart(4, '0'))}
                 </span>
 
                 <span style={{
@@ -723,7 +872,7 @@ export default function ProductDetails({ product, onClose, onRefresh, onCategory
             </div>
 
             {/* Color Selector as Color Swatch Circles */}
-            {parsedColors && parsedColors.length > 0 && (
+            {hasColors && (
               <div style={{ margin: '8px 0' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                   <span className="input-label" style={{ fontWeight: '800', fontSize: '0.88rem', margin: 0, color: 'var(--text-primary)' }}>
@@ -744,7 +893,7 @@ export default function ProductDetails({ product, onClose, onRefresh, onCategory
                 </div>
                 
                 <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', paddingTop: '4px' }}>
-                  {parsedColors.map(color => {
+                  {parsedColors.map((color, colorIdx) => {
                     const hex = resolveColorHex(color);
                     const isSelected = selectedColor === color;
                     const isLight = isLightColor(hex);
@@ -753,7 +902,13 @@ export default function ProductDetails({ product, onClose, onRefresh, onCategory
                       <button
                         key={color}
                         type="button"
-                        onClick={() => setSelectedColor(color)}
+                        onClick={() => {
+                          setSelectedColor(color);
+                          const targetImgIdx = findImageIndexForColor(color, allImages, productOptions, parsedColors);
+                          if (targetImgIdx !== undefined && targetImgIdx >= 0 && allImages[targetImgIdx]) {
+                            setActiveImageIndex(targetImgIdx);
+                          }
+                        }}
                         title={color}
                         style={{
                           position: 'relative',
@@ -827,6 +982,8 @@ export default function ProductDetails({ product, onClose, onRefresh, onCategory
                           setSelectedOptId(opt.id);
                           if (opt.imageIndex !== undefined && allImages[opt.imageIndex]) {
                             setActiveImageIndex(opt.imageIndex);
+                            const matchingColor = findColorForImageIndex(opt.imageIndex, allImages, parsedColors, productOptions);
+                            if (matchingColor) setSelectedColor(matchingColor);
                           }
                         }}
                         style={{
@@ -923,6 +1080,8 @@ export default function ProductDetails({ product, onClose, onRefresh, onCategory
                       const foundOpt = productOptions.find(o => o.id === foundId);
                       if (foundOpt && foundOpt.imageIndex !== undefined && allImages[foundOpt.imageIndex]) {
                         setActiveImageIndex(foundOpt.imageIndex);
+                        const matchingColor = findColorForImageIndex(foundOpt.imageIndex, allImages, parsedColors, productOptions);
+                        if (matchingColor) setSelectedColor(matchingColor);
                       }
                     }}
                     className="input-field"
@@ -950,21 +1109,44 @@ export default function ProductDetails({ product, onClose, onRefresh, onCategory
               </div>
             )}
 
-            {/* Description */}
-            <div style={{
-              fontSize: '0.85rem',
-              color: 'var(--text-secondary)',
-              lineHeight: '1.6',
-              maxHeight: '120px',
-              overflowY: 'auto',
-              padding: '10px',
-              backgroundColor: 'var(--bg-secondary)',
-              borderRadius: '8px',
-              border: '1px solid var(--border-color)',
-              margin: '4px 0'
-            }}>
-              {desc || <span style={{ fontStyle: 'italic', color: 'var(--text-light)' }}>No description available.</span>}
-            </div>
+            {/* Description rendered directly on window line-by-line */}
+            {desc ? (
+              <div style={{
+                margin: '8px 0',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px'
+              }}>
+                {desc
+                  .replace(/[\u{1F300}-\u{1F9FF}\u{1FA00}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F000}-\u{1F02F}\u{1F0A0}-\u{1F0FF}\u{1F100}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{1F1E6}-\u{1F1FF}]/gu, '')
+                  .split(/[\r\n]+|[▪•|–—]+/)
+                  .map(line => line.replace(/^[\s\-*•▪]+/, '').trim())
+                  .filter(line => line.length > 0)
+                  .map((line, idx) => (
+                    <div 
+                      key={idx} 
+                      style={{ 
+                        display: 'flex', 
+                        alignItems: 'baseline', 
+                        gap: '8px',
+                        fontSize: '0.88rem',
+                        color: 'var(--text-secondary)',
+                        lineHeight: '1.5'
+                      }}
+                    >
+                      <span style={{ 
+                        width: '5px', 
+                        height: '5px', 
+                        borderRadius: '50%', 
+                        backgroundColor: 'var(--accent-blue)', 
+                        flexShrink: 0,
+                        transform: 'translateY(-2px)'
+                      }} />
+                      <span>{line}</span>
+                    </div>
+                  ))}
+              </div>
+            ) : null}
 
             {/* Customer Special Note on this product */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '10px' }}>
@@ -1415,9 +1597,12 @@ export default function ProductDetails({ product, onClose, onRefresh, onCategory
                           fontWeight: '700',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
+                          whiteSpace: 'nowrap',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px'
                         }}>
-                          🏷️ {simCatName}
+                          <Tag size={10} /> {simCatName}
                         </span>
                       )}
 
@@ -1480,7 +1665,7 @@ export default function ProductDetails({ product, onClose, onRefresh, onCategory
                         {isQuickAdded ? (
                           <>
                             <Check size={12} />
-                            <span>{lang === 'ar' ? 'تمت الإضافة ✓' : 'Added ✓'}</span>
+                            <span>{lang === 'ar' ? 'تمت الإضافة' : 'Added'}</span>
                           </>
                         ) : (
                           <>

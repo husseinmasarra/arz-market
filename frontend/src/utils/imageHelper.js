@@ -5,7 +5,7 @@
 
 const SUPPLIER_CDN_BASE = 'https://drphonewholesale.online';
 const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/husseinmasarra/arz-market/main/backend';
-const DEFAULT_PLACEHOLDER = 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=600&q=80';
+const DEFAULT_PLACEHOLDER = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80';
 
 export function getImageUrl(url, fallback = DEFAULT_PLACEHOLDER) {
   if (!url || typeof url !== 'string') return fallback;

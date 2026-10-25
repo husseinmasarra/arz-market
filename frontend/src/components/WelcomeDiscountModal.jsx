@@ -110,7 +110,7 @@ export default function WelcomeDiscountModal({ isOpen, onClose, userName, onStar
           justifyContent: 'center',
           gap: '8px'
         }}>
-          <span>{isAr ? '🎉 تهانينا! مبروك التسجيل' : '🎉 Congratulations!'}</span>
+          <span>{isAr ? 'تهانينا! مبروك التسجيل' : 'Congratulations!'}</span>
         </h2>
 
         {/* Welcome greeting */}
@@ -196,7 +196,7 @@ export default function WelcomeDiscountModal({ isOpen, onClose, userName, onStar
             onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
           >
             <ShoppingBag size={20} />
-            <span>{isAr ? 'ابدأ التسوق واستمتع بالخصم 🛍️' : 'Start Shopping & Enjoy 10% Off 🛍️'}</span>
+            <span>{isAr ? 'ابدأ التسوق واستمتع بالخصم' : 'Start Shopping & Enjoy 10% Off'}</span>
           </button>
 
           <button

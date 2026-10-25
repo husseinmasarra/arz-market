@@ -174,17 +174,17 @@ export default function AdminOrders() {
     }
 
     const itemsText = supplierItems.map((item, idx) => {
-      const name = lang === 'ar' ? item.name_ar : item.name_en;
+      const name = lang === 'ar' ? (item?.name_ar || item?.name_en || '') : (item?.name_en || item?.name_ar || '');
       const opts = [];
-      if (item.selectedColor) opts.push(`اللون: ${item.selectedColor}`);
-      if (item.selectedSize) opts.push(`القياس: ${item.selectedSize}`);
-      if (item.customer_note) opts.push(`ملاحظة الزبون: ${item.customer_note}`);
+      if (item?.selectedColor) opts.push(`اللون: ${item.selectedColor}`);
+      if (item?.selectedSize) opts.push(`القياس: ${item.selectedSize}`);
+      if (item?.customer_note) opts.push(`ملاحظة الزبون: ${item.customer_note}`);
       const optsStr = opts.length > 0 ? ` (${opts.join(' - ')})` : '';
-      const costStr = item.cost_price_usd ? ` [تكلفة الجملة: $${(Number(item.cost_price_usd) * item.quantity).toFixed(2)}]` : '';
-      return `${idx + 1}. ${name} × ${item.quantity}${optsStr}${costStr}`;
+      const costStr = item?.cost_price_usd ? ` [تكلفة الجملة: $${(Number(item.cost_price_usd) * (item.quantity || 1)).toFixed(2)}]` : '';
+      return `${idx + 1}. ${name} × ${item?.quantity || 1}${optsStr}${costStr}`;
     }).join('\n');
 
-    const totalSupplierCost = supplierItems.reduce((acc, i) => acc + (Number(i.cost_price_usd || 0) * i.quantity), 0);
+    const totalSupplierCost = supplierItems.reduce((acc, i) => acc + (Number(i?.cost_price_usd || 0) * (i?.quantity || 1)), 0);
 
     const message = 
 `*طلب دروب شيبينغ جديد من أرز مارت (Arz-Mart)* ----------------------------------
@@ -218,9 +218,9 @@ ${order.notes ? `*ملاحظات الزبون:* ${order.notes}\n` : ''}*طريق
     }
 
     const itemsText = supplierItems.map((item, idx) => {
-      const name = lang === 'ar' ? item.name_ar : item.name_en;
-      const noteStr = item.customer_note ? ` (ملاحظة الزبون: ${item.customer_note})` : '';
-      return `${idx + 1}. ${name} × ${item.quantity}${noteStr} (Wholesale Cost: $${(Number(item.cost_price_usd || 0) * item.quantity).toFixed(2)})`;
+      const name = lang === 'ar' ? (item?.name_ar || item?.name_en || '') : (item?.name_en || item?.name_ar || '');
+      const noteStr = item?.customer_note ? ` (ملاحظة الزبون: ${item.customer_note})` : '';
+      return `${idx + 1}. ${name} × ${item?.quantity || 1}${noteStr} (Wholesale Cost: $${(Number(item?.cost_price_usd || 0) * (item?.quantity || 1)).toFixed(2)})`;
     }).join('\n');
 
     const subject = `طلب دروب شيبينغ جديد #${order.tracking_number || order.id} - Arz-Mart`;
@@ -336,7 +336,7 @@ ${order.notes ? `*ملاحظات الزبون:* ${order.notes}\n` : ''}*طريق
       const matchPhone = (order.phone || '').toLowerCase().includes(q);
       const matchNotes = (order.notes || '').toLowerCase().includes(q);
       const matchItems = Array.isArray(order.items) && order.items.some(i => 
-        (i.name_ar || '').toLowerCase().includes(q) || (i.name_en || '').toLowerCase().includes(q)
+        (i?.name_ar || '').toLowerCase().includes(q) || (i?.name_en || '').toLowerCase().includes(q)
       );
       if (!matchTracking && !matchName && !matchPhone && !matchNotes && !matchItems) {
         return false;
@@ -756,7 +756,7 @@ ${order.notes ? `*ملاحظات الزبون:* ${order.notes}\n` : ''}*طريق
                     {/* Header with Profit Summary */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '1.4rem' }}>📦</span>
+                        <Package size={22} color="var(--accent-blue)" />
                         <div>
                           <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '800', color: 'var(--text-primary)' }}>
                             {lang === 'ar' ? 'منظومة الدروب شيبينغ وإرسال الطلبات للموردين' : 'Dropshipping & Supplier Fulfillment'}
@@ -919,7 +919,7 @@ ${order.notes ? `*ملاحظات الزبون:* ${order.notes}\n` : ''}*طريق
                                     <div key={iIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem' }}>
                                       <div>
                                         <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>
-                                          {lang === 'ar' ? it.name_ar : it.name_en}
+                                          {lang === 'ar' ? (it?.name_ar || it?.name_en || '') : (it?.name_en || it?.name_ar || '')}
                                         </span>
                                         <span style={{ color: 'var(--text-light)', margin: '0 6px' }}>× {it.quantity}</span>
                                         {(it.selectedColor || it.selectedSize) && (
@@ -1182,7 +1182,7 @@ ${order.notes ? `*ملاحظات الزبون:* ${order.notes}\n` : ''}*طريق
                           </td>
                           <td style={{ padding: '8px' }}>
                             <div style={{ fontWeight: '700', color: 'var(--text-primary)' }}>
-                              {lang === 'ar' ? item.name_ar : item.name_en}
+                              {lang === 'ar' ? (item?.name_ar || item?.name_en || '') : (item?.name_en || item?.name_ar || '')}
                             </div>
                             {(item.selectedColor || item.selectedSize) && (
                               <div style={{ fontSize: '0.75rem', color: 'var(--text-light)', display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '3px' }}>

@@ -125,7 +125,7 @@ export default function AdminSettings() {
       if (res.ok && data.success) {
         setTelegramTestStatus({
           success: true,
-          message: lang === 'ar' ? '✅ تم إرسال رسالة تجريبية بنجاح إلى حساب التيليجرام الخاص بك!' : '✅ Test notification sent successfully to your Telegram!'
+          message: lang === 'ar' ? 'تم إرسال رسالة تجريبية بنجاح إلى حساب التيليجرام الخاص بك!' : 'Test notification sent successfully to your Telegram!'
         });
       } else {
         setTelegramTestStatus({
@@ -1168,7 +1168,7 @@ export default function AdminSettings() {
             {fullSyncResult.data?.results && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', marginTop: '10px' }}>
                 <div style={{ backgroundColor: 'var(--bg-primary)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  <strong style={{ display: 'block', color: 'var(--accent-blue)', marginBottom: '4px' }}>🏢 Abdul Ghani Trading:</strong>
+                  <strong style={{ display: 'block', color: 'var(--accent-blue)', marginBottom: '4px' }}>Abdul Ghani Trading:</strong>
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>
                     {fullSyncResult.data.results.abdulGhani?.success 
                       ? (lang === 'ar' ? `المعالج: ${fullSyncResult.data.results.abdulGhani.processed}، المضاف: ${fullSyncResult.data.results.abdulGhani.inserted}، المحدث: ${fullSyncResult.data.results.abdulGhani.updated}` : `Processed: ${fullSyncResult.data.results.abdulGhani.processed}, New: ${fullSyncResult.data.results.abdulGhani.inserted}, Updated: ${fullSyncResult.data.results.abdulGhani.updated}`)
@@ -1177,7 +1177,7 @@ export default function AdminSettings() {
                 </div>
 
                 <div style={{ backgroundColor: 'var(--bg-primary)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  <strong style={{ display: 'block', color: '#f59e0b', marginBottom: '4px' }}>🛒 Deal.com:</strong>
+                  <strong style={{ display: 'block', color: '#f59e0b', marginBottom: '4px' }}>Deal.com:</strong>
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>
                     {fullSyncResult.data.results.dealCom?.success 
                       ? (lang === 'ar' ? `المعالج: ${fullSyncResult.data.results.dealCom.processed}، المضاف: ${fullSyncResult.data.results.dealCom.inserted}، المحدث: ${fullSyncResult.data.results.dealCom.updated}` : `Processed: ${fullSyncResult.data.results.dealCom.processed}, New: ${fullSyncResult.data.results.dealCom.inserted}, Updated: ${fullSyncResult.data.results.dealCom.updated}`)
@@ -1186,7 +1186,7 @@ export default function AdminSettings() {
                 </div>
 
                 <div style={{ backgroundColor: 'var(--bg-primary)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  <strong style={{ display: 'block', color: '#8b5cf6', marginBottom: '4px' }}>📱 DrPhone Wholesale:</strong>
+                  <strong style={{ display: 'block', color: '#8b5cf6', marginBottom: '4px' }}>DrPhone Wholesale:</strong>
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>
                     {fullSyncResult.data.results.drPhone?.success 
                       ? (lang === 'ar' ? `المعالج: ${fullSyncResult.data.results.drPhone.processed}، المضاف: ${fullSyncResult.data.results.drPhone.inserted}، المحدث: ${fullSyncResult.data.results.drPhone.updated}` : `Processed: ${fullSyncResult.data.results.drPhone.processed}, New: ${fullSyncResult.data.results.drPhone.inserted}, Updated: ${fullSyncResult.data.results.drPhone.updated}`)
